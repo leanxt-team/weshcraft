@@ -3,7 +3,7 @@
  "source": {
   "name": "Account",
   "truncated": false,
-  "hash": "5a5d8a8b3efe1d09"
+  "hash": "cf02030f8386f01b"
  },
  "screens": [
   {
@@ -250,7 +250,6 @@
     "sources": [
      14
     ],
-    "samples": [],
     "fields": [
      {
       "name": "plan",
@@ -269,7 +268,6 @@
      12,
      13
     ],
-    "samples": [],
     "fields": [
      {
       "name": "name",

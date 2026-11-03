@@ -9,10 +9,8 @@ import { bus } from '../util/common.mjs';
 import { writeZip } from '../util/zip.mjs';
 import { FileSource } from '../figcraft/source.mjs';
 import { collectFiles } from '../publish/git.mjs';
-import { Simulator } from '../sim/mock.mjs';
 
 const PUBLIC = path.join(path.dirname(fileURLToPath(import.meta.url)), 'public');
-const SIM_RUNTIME = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'sim', 'runtime.js');
 const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.json': 'application/json; charset=utf-8', '.md': 'text/markdown; charset=utf-8', '.png': 'image/png', '.svg': 'image/svg+xml', '.figcraft': 'application/zip', '.zip': 'application/zip' };
 const MAX_UPLOAD = 64 * 1024 * 1024;
 
@@ -53,14 +51,6 @@ export function startServer(o) {
     throw new Error(`refusing to listen on ${host} without --token (anyone on the network could publish with your git token)`);
   }
   const clients = new Set();
-  // Simulation: a mock API generated from the back-end spec, reset whenever the design changes.
-  const sim = new Simulator(() => { if (!ws.manifest) throw Object.assign(new Error('no prototype yet: wait for the first run'), { status: 503 }); return ws.manifest; });
-  sim.on(ev => ws.emit('sim', { event: ev }));
-  bus.on('weshcraft', ev => {
-    const data = `event: ${ev.type}\ndata: ${JSON.stringify(ev)}\n\n`;
-    for (const c of clients) c.write(data);
-  });
-
   const authorized = (req, url) => {
     if (!token) return true;
     const h = req.headers.authorization || '';
@@ -90,30 +80,6 @@ export function startServer(o) {
       // Only what WeshCraft writes: the output folder may be the user's repository root.
       if (/^\/out\/(prototype|specs)\//.test(p)) return serveFile(res, ws.outDir, decodeURIComponent(p.slice(5)));
 
-      if (p === '/sim' || p === '/sim/' || p === '/sim/index.html') {
-        const f = path.join(ws.outDir, 'prototype', 'index.html');
-        if (!fs.existsSync(f)) return send(res, 503, 'Prototype not generated yet', 'text/plain; charset=utf-8');
-        const html = fs.readFileSync(f, 'utf8')
-          .replace('<head>', '<head>\n<base href="/out/prototype/">')
-          .replace('</body>', '<script src="/sim/runtime.js"></script>\n</body>');
-        return send(res, 200, html, TYPES['.html']);
-      }
-      if (p === '/sim/runtime.js') return send(res, 200, fs.readFileSync(SIM_RUNTIME), TYPES['.js']);
-      if (p.startsWith('/sim/api/')) {
-        const raw = req.method === 'GET' || req.method === 'HEAD' ? '' : (await readBody(req, 256 * 1024)).toString();
-        let body = null;
-        try { body = raw ? JSON.parse(raw) : null; } catch { return send(res, 400, { code: 'bad_json', message: 'body must be JSON' }); }
-        const r = await sim.handle(req.method, p.slice('/sim/api'.length), body);
-        return r.status === 204 ? send(res, 204, '') : send(res, r.status, r.body);
-      }
-      if (p === '/api/sim') {
-        if (req.method === 'POST') {
-          const b = JSON.parse((await readBody(req)).toString() || '{}');
-          if (b.reset) sim.reset();
-          sim.configure(b);
-        }
-        return send(res, 200, sim.state());
-      }
       if (p === '/api/state') return send(res, 200, { ...ws.state(), sync: o.syncer?.status() ?? null, figcraftWebUrl: o.figcraftWebUrl ?? null, tokens: { github: !!process.env.GITHUB_TOKEN, gitlab: !!process.env.GITLAB_TOKEN }, mcpUrl: '/mcp' });
       if (p === '/api/events') {
         res.writeHead(200, { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-store', Connection: 'keep-alive' });

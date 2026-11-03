@@ -4,7 +4,7 @@ Adds to [wesh](https://github.com/leanxt-team/wesh):
 
 | | Name | Purpose |
 |---|---|---|
-| `/` only | `/wesh-plan-view-mode` | `/wesh-plan` on a FigCraft prototype, producing an **advanced spec** (design + prototype + contract-checked front/back specs + links + changelog, in git; format in `FORMAT.md`). Modes: `new`, `update` (what changed in the design since the committed spec), `sync` / `push` to `git`, `github:owner/repo` or `gitlab:group/project`. Includes trying the flows in Simulate. |
+| `/` only | `/wesh-plan-view-mode` | `/wesh-plan` on a FigCraft prototype, producing an **advanced spec** (design + prototype + contract-checked front/back specs + links + changelog, in git; format in `FORMAT.md`). Modes: `new`, `update` (what changed in the design since the committed spec), `sync` / `push` to `git`, `github:owner/repo` or `gitlab:group/project`. |
 | auto | `wesh-spec-front` | enrich generated front specs (states, interaction details, a11y, responsive, analytics, questions) |
 | auto | `wesh-spec-back` | enrich generated back specs (validation, authz, errors, data, consistency, mapping to code, questions) |
 

@@ -175,8 +175,6 @@ function domainOf(model, screens, components) {
     entities.set(entity, e);
   };
   const compName = new Map(components.map(c => [c.id, c]));
-  const samples = new Map();
-  const sampleSeen = new Set();
   const operations = [];
   for (const s of screens) {
     for (const b of s.bindings) if (b.entity && b.field) addField(b.entity, b.field, b.type || 'string', b.id, 'explicit');
@@ -200,12 +198,6 @@ function domainOf(model, screens, components) {
       if (!textProps.length) continue;
       // Each text property is a field; its sources are the text layers that show its value in
       // every instance (matched by value), so front-end layers link to the exact field they show.
-      for (const inst of list) {
-        const values = {};
-        for (const [prop] of textProps) { const v = inst.props?.[prop]; values[camel(prop.replace(/#.*$/, ''))] = typeof v === 'object' ? v?.value : v; }
-        const key = `${entity}|${JSON.stringify(values)}`;
-        if (!sampleSeen.has(key)) { sampleSeen.add(key); (samples.get(entity) ?? samples.set(entity, []).get(entity)).push(values); }
-      }
       for (const [prop] of textProps) {
         const field = camel(prop.replace(/#.*$/, ''));
         for (const inst of list) {
@@ -249,7 +241,7 @@ function domainOf(model, screens, components) {
   for (const o of operations) if (!dedup.has(o.key)) dedup.set(o.key, o);
   return {
     entities: [...entities.values()].map(e => ({
-      name: e.name, confidence: e.confidence, sources: [...e.sources].sort((a, b) => a - b), samples: samples.get(e.name) ?? [],
+      name: e.name, confidence: e.confidence, sources: [...e.sources].sort((a, b) => a - b),
       fields: [...e.fields.values()].map(f => ({ ...f, sources: [...new Set(f.sources)].sort((a, b) => a - b) })),
     })).sort((a, b) => a.name.localeCompare(b.name)),
     operations: [...dedup.values()],

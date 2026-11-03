@@ -228,8 +228,6 @@ function render(model, id, ctx) {
   const link = (n.interactions || []).flatMap(i => (i.actions || []).map(a => ({ trigger: i.trigger?.type, ...a })))
     .find(a => a.type === 'navigate' || a.type === 'back' || a.type === 'openUrl' || a.type === 'open_url');
   const attrs = [`data-node="${n.id}"`, `data-name="${escapeHtml(n.name)}"`];
-  const input = ctx.inputs?.get(n.id);
-  if (input) attrs.push(`data-input="${escapeHtml(input.kind)}"`, `data-input-name="${escapeHtml(input.name)}"`);
   const lk = ctx.links?.get(n.id);
   if (lk) {
     attrs.push(`data-link="${lk.map(l => l.rel).join(' ')}"`, `data-link-label="${escapeHtml(lk.map(l => l.text).join(' · '))}"`);
@@ -252,23 +250,8 @@ function render(model, id, ctx) {
 }
 
 /** One screen as an HTML fragment (root element = the screen frame). */
-export function renderScreen(model, screenId, screenOf = () => null, links = null, inputs = null) {
-  return render(model, screenId, { root: screenId, screenOf, links, inputs });
-}
-
-/** What the simulation runtime needs: operations, their inputs, lists and bound fields. */
-export function simMetadata(manifest) {
-  const inputs = new Map(manifest.screens.flatMap(s => s.inputs.map(i => [i.id, i])));
-  return {
-    hash: manifest.source.hash,
-    ops: manifest.domain.operations.map(o => ({
-      key: o.key, name: o.name, method: o.method, path: o.path, screen: o.screen, entity: o.entity, kind: o.kind,
-      trigger: o.trigger, confidence: o.confidence,
-      fields: (o.fields || []).map(id => ({ node: id, name: (inputs.get(id)?.name ?? `field${id}`).toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, ''), kind: inputs.get(id)?.kind ?? 'input' })),
-      rows: o.kind === 'list' ? o.sources : [],
-    })),
-    displays: manifest.links.edges.filter(e => e.field).map(e => ({ node: e.node, field: e.field, via: e.via, screen: e.screen })),
-  };
+export function renderScreen(model, screenId, screenOf = () => null, links = null) {
+  return render(model, screenId, { root: screenId, screenOf, links });
 }
 
 /** node id -> [{rel, op|field, text}] for the data overlay. */
@@ -298,9 +281,7 @@ export function renderPrototype(model, manifest, { title = manifest.source.name 
     : '';
   const start = manifest.flows[0]?.start ?? manifest.screens[0]?.key;
   const links = linkIndex(manifest);
-  const inputs = new Map(manifest.screens.flatMap(s => s.inputs.map(i => [i.id, i])));
-  const screens = manifest.screens.map(s => `<section class="sc-screen" id="${s.key}" data-screen="${s.key}" aria-label="${escapeHtml(s.name)}"${s.key === start ? '' : ' hidden'}>${renderScreen(model, s.id, screenOf, links, inputs)}</section>`).join('\n');
-  const sim = JSON.stringify(simMetadata(manifest)).replace(/</g, '\\u003c');
+  const screens = manifest.screens.map(s => `<section class="sc-screen" id="${s.key}" data-screen="${s.key}" aria-label="${escapeHtml(s.name)}"${s.key === start ? '' : ' hidden'}>${renderScreen(model, s.id, screenOf, links)}</section>`).join('\n');
   const tokens = manifest.tokens.variables.filter(v => v.type === 'color');
   const firstMode = v => Object.values(v.values)[0];
   const tokenCss = tokens.length ? `:root{${tokens.map(v => `${v.cssVar}:${firstMode(v)?.hex ?? 'initial'}`).join(';')}}` : '';
@@ -350,7 +331,6 @@ nav.sc-nav .sc-toggle[aria-pressed="true"]{color:#00a88a!important}
 <body>
 <nav class="sc-nav" aria-label="Screens">${manifest.screens.map(s => `<button type="button" data-show="${s.key}">${escapeHtml(s.name)}</button>`).join('')}${links.size ? '<button type="button" class="sc-toggle" data-overlay aria-pressed="false" title="Show which layers call the back end (▶ ⇢ ☰) or show its data (◉). Shortcut: D">Data links</button>' : ''}</nav>
 ${screens}
-<script type="application/json" id="weshcraft-sim">${sim}</script>
 <script>
 (() => {
   if (parent !== window) document.documentElement.classList.add('sc-embed');
@@ -375,10 +355,7 @@ ${screens}
     document.querySelectorAll('[data-show]').forEach(b => b.setAttribute('aria-current', String(b.dataset.show === key)));
     if (parent === window && location.hash.slice(1) !== key) history.replaceState(null, '', '#' + key);
     parent !== window && parent.postMessage({ weshcraft: 'screen', key }, '*');
-    document.dispatchEvent(new CustomEvent('weshcraft:screen', { detail: { key } }));
   };
-  window.__weshShow = (key, push) => show(key, push);
-  window.__weshBack = () => { const k = hist.pop(); if (k) show(k, false); };
   const overlay = on => {
     document.body.classList.toggle('sc-data', on);
     document.querySelectorAll('[data-overlay]').forEach(b => b.setAttribute('aria-pressed', String(on)));

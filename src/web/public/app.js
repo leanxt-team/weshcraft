@@ -385,7 +385,6 @@ function selectTab(t) {
   document.querySelectorAll('.tabpanel').forEach(p => { p.hidden = p.dataset.panel !== t; });
   if (t === 'design' && $('#design').src === 'about:blank') $('#design').src = $('#design').dataset.src;
   if (t === 'links') requestAnimationFrame(drawWires);
-  if (t === 'sim') loadSim();
 }
 document.querySelectorAll('.tab').forEach(b => b.addEventListener('click', () => selectTab(b.dataset.tab)));
 $('#run').addEventListener('click', () => run(false));
@@ -491,7 +490,7 @@ const phone = window.matchMedia('(max-width: 720px)');
 function setPhoneView(v) {
   document.body.dataset.view = v;
   document.querySelectorAll('.phonebar [data-view]').forEach(b => b.setAttribute('aria-current', String(b.dataset.view === v)));
-  if (v === 'proto' || v === 'links' || v === 'manifest' || v === 'sim') selectTab(v);
+  if (v === 'proto' || v === 'links' || v === 'manifest') selectTab(v);
   if (v === 'links') requestAnimationFrame(drawWires);
   window.scrollTo(0, 0);
 }
@@ -540,55 +539,3 @@ new MutationObserver(() => {
 }).observe($('#groups'), { childList: true, subtree: true, characterData: true });
 
 
-// ---- simulate: use the app the specs describe, against a mock API --------------------------
-state.sim = { calls: [], scenario: 'normal', loaded: null };
-function loadSim(force) {
-  const hash = state.summary?.hash;
-  if (!hash || (!force && state.sim.loaded === hash)) return;
-  state.sim.loaded = hash;
-  $('#simFrame').src = `/sim/?v=${hash}`;
-}
-function renderSimCalls() {
-  const ops = new Map((state.manifest?.domain?.operations ?? []).map(o => [o.key, o]));
-  $('#simCount').textContent = state.sim.calls.length ? String(state.sim.calls.length) : '';
-  $('#simCalls').innerHTML = state.sim.calls.slice().reverse().map(c => {
-    const ok = c.status >= 200 && c.status < 300;
-    const o = ops.get(c.op);
-    return `<li class="${ok ? 'ok' : 'bad'}"><details><summary><span class="verb v-${esc(c.method.toLowerCase())}">${esc(c.method)}</span><span class="p">${esc(c.path)}</span><span class="st">${c.status || '—'}</span><span class="ms">${c.ms} ms</span></summary>
-      <div class="cd">${o ? `<button type="button" class="lnk" data-op="${esc(o.key)}">${esc(o.name)} · spec ↗</button>` : '<span class="muted">not in the API spec</span>'}${c.trigger != null ? ` <code class="nodechip" data-node="${c.trigger}">#${c.trigger}</code>` : ''}
-      ${c.request ? `<pre>${esc(JSON.stringify(c.request, null, 1))}</pre>` : ''}<pre>${esc(JSON.stringify(c.response, null, 1) ?? '')}</pre></div></details></li>`;
-  }).join('') || '<li class="muted empty-log">Use the app above: every API call shows up here.</li>';
-}
-$('#simScenario').addEventListener('click', async e => {
-  const b = e.target.closest('[data-s]');
-  if (!b) return;
-  await fetch('/api/sim', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ scenario: b.dataset.s }) });
-  document.querySelectorAll('#simScenario [data-s]').forEach(x => x.setAttribute('aria-pressed', String(x === b)));
-  $('#simFrame').contentWindow?.postMessage({ weshcraft: 'simReload' }, '*');
-});
-$('#simReset').addEventListener('click', async () => {
-  await fetch('/api/sim', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ reset: true }) });
-  loadSim(true);
-});
-$('#simLogToggle').addEventListener('click', () => {
-  const open = $('#simLog').hidden;
-  $('#simLog').hidden = !open;
-  $('#simLogToggle').setAttribute('aria-expanded', String(open));
-});
-$('#simClear').addEventListener('click', () => { state.sim.calls = []; renderSimCalls(); });
-$('#simCalls').addEventListener('click', e => {
-  const l = e.target.closest('.lnk[data-op]');
-  if (l) { openFile(`specs/back/api.md#${l.dataset.op}`); if (phone.matches) setPhoneView('read'); return; }
-  const chip = e.target.closest('.nodechip');
-  if (chip) { const f = $('#simFrame').contentDocument?.querySelector(`[data-node="${chip.dataset.node}"]`); if (f) { f.scrollIntoView({ block: 'center', behavior: 'smooth' }); f.animate([{ outline: '3px solid #007aff', outlineOffset: '2px' }, { outline: '3px solid transparent', outlineOffset: '2px' }], { duration: 1400 }); } }
-});
-{
-  const es = new EventSource('/api/events');
-  es.addEventListener('sim', e => {
-    const ev = JSON.parse(e.data).event;
-    if (ev.type === 'call') { state.sim.calls.push(ev.entry); if (state.sim.calls.length > 200) state.sim.calls.shift(); renderSimCalls(); }
-    if (ev.type === 'reset') { state.sim.calls = []; renderSimCalls(); }
-  });
-  es.addEventListener('prototype', () => { if (!$('[data-panel=sim]').hidden) setTimeout(() => loadSim(), 300); else state.sim.loaded = null; });
-}
-renderSimCalls();

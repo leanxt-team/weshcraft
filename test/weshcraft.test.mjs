@@ -340,58 +340,7 @@ test('init writes MCP config for Claude Code and OpenCode 1 and 2', () => {
   assert.ok(oc2.mcp.servers.other, 'existing servers kept');
 });
 
-import { Simulator } from '../src/sim/mock.mjs';
 import { diffManifests, updateChangelog, summaryLine } from '../src/spec/diff.mjs';
-import { startServer } from '../src/web/server.mjs';
-
-test('simulation: mock API seeded from the prototype, validates writes, honours scenarios', async () => {
-  const m = buildManifest((await new FileSource(APP).load()).model);
-  const sim = new Simulator(() => m);
-  sim.configure({ latency: 0 });
-  const list = await sim.handle('GET', '/trails');
-  assert.equal(list.status, 200);
-  assert.ok(list.body.items.some(t => t.title === 'Lake Agnes Teahouse' && /7\.4 km/.test(t.details)), 'records come from the rows the prototype shows');
-  sim.configure({ scenario: 'empty' });
-  assert.deepEqual((await sim.handle('GET', '/trails')).body.items, []);
-  sim.configure({ scenario: 'errors' });
-  assert.equal((await sim.handle('GET', '/trails')).status, 500);
-  sim.configure({ scenario: 'offline' });
-  assert.equal((await sim.handle('GET', '/trails')).status, 503);
-  sim.configure({ scenario: 'normal' });
-  assert.equal((await sim.handle('GET', '/nope')).status, 404);
-
-  const acc = buildManifest((await new FileSource(ACCOUNT).load()).model);
-  const s2 = new Simulator(() => acc);
-  s2.configure({ latency: 0 });
-  const bad = await s2.handle('POST', '/users', { email_field: 'x', password_field: '1' });
-  assert.equal(bad.status, 400);
-  assert.deepEqual(Object.keys(bad.body.fields).sort(), ['email_field', 'password_field']);
-  const ok = await s2.handle('POST', '/users', { email_field: 'maya@example.com', password_field: 'long enough' });
-  assert.equal(ok.status, 201);
-  assert.equal(ok.body.email, 'maya@example.com');
-  assert.equal((await s2.handle('GET', '/users/me')).body.email, 'maya@example.com', 'the created user is who /users/me returns');
-});
-
-test('server: /sim serves the prototype with the runtime and a working mock API', async () => {
-  const out = tmp();
-  const ws = new Workspace({ source: new FileSource(ACCOUNT), outDir: out });
-  await ws.run();
-  const server = await startServer({ workspace: ws, mcp: new WeshCraftMcp({ workspace: ws, autoRun: false }), port: 0, watch: false });
-  try {
-    const base = `http://127.0.0.1:${server.address().port}`;
-    const html = await (await fetch(`${base}/sim/`)).text();
-    assert.match(html, /<base href="\/out\/prototype\/">/);
-    assert.match(html, /<script src="\/sim\/runtime\.js"><\/script>/);
-    assert.match(html, /id="weshcraft-sim"/);
-    assert.equal((await fetch(`${base}/sim/runtime.js`)).status, 200);
-    await fetch(`${base}/api/sim`, { method: 'POST', body: JSON.stringify({ latency: 0 }) });
-    const r = await fetch(`${base}/sim/api/users`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email_field: 'a@b.co', password_field: '12345678' }) });
-    assert.equal(r.status, 201);
-    const st = await (await fetch(`${base}/api/sim`)).json();
-    assert.equal(st.log.at(-1).status, 201);
-    assert.equal((await fetch(`${base}/out/design/x`)).status, 404, 'only prototype/ and specs/ are served');
-  } finally { server.close(); }
-});
 
 test('design changelog: copy, screens and operations, newest first', async () => {
   const before = buildManifest((await new FileSource(ACCOUNT).load()).model);
