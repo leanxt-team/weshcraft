@@ -2,9 +2,9 @@
 // committed .figcraft file and fails when the committed specs or prototype no longer match it.
 const PKG = process.env.WESHCRAFT_PACKAGE || 'weshcraft';
 
-export function ciFiles(provider, { prefix = '', design } = {}) {
+export function ciFiles(provider, { prefix = '', design, args } = {}) {
   const out = prefix || '.';
-  const designArg = design ? `--file ${design}` : '--file design/*.figcraft';
+  const designArg = args || (design ? `--file ${design}` : '--file design/*.figcraft');
   if (provider === 'gitlab') {
     return [{
       path: 'ci/weshcraft.gitlab-ci.yml',

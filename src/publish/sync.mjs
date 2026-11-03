@@ -102,7 +102,7 @@ export class Syncer {
       repo: t.repo, token, branch: t.branch || 'weshcraft/specs', base: t.base, apiUrl: t.apiUrl, pr: t.pr !== false,
       title: `Specs: ${m.source.name}`,
       body: prBody(this.ws.report, m, ['This branch is kept in sync by WeshCraft: every regeneration that matches the prototype is committed here.', this.ws.changes?.items.length ? `\n#### Latest design change\n\n${changesMarkdown(this.ws.changes, { title: summaryLine(this.ws.changes) })}` : '', 'Full history: `specs/CHANGES.md`.'].filter(Boolean).join('\n')),
-      files: collectFiles(this.ws.outDir, { provider: t.kind, designFile: this.ws.source.file, prefix: t.prefix || '' }),
+      files: collectFiles(this.ws.outDir, { provider: t.kind, designInputs: this.ws.designInputs(), prefix: t.prefix || '' }),
       message: `docs(specs): ${m.source.name}: ${summaryLine(this.ws.changes ?? { items: [] })}\n\nPrototype ${m.source.hash}, parity ${this.ws.report.score}% (${this.ws.report.checks} checks).\n\n${changesMarkdown(this.ws.changes ?? { items: [] }, { title: 'Design changes' }).replace(/^### .*\n\n/, '')}`.trim(),
     });
   }
@@ -110,8 +110,12 @@ export class Syncer {
   /** Commit only WeshCraft's own paths in the repository around the output folder. */
   async syncLocal() {
     const t = this.target;
-    const out = this.ws.outDir;
-    const top = await run('git', ['rev-parse', '--show-toplevel'], out).catch(() => { throw new Error(`${out} is not inside a git repository (git init, or use github:/gitlab:)`); });
+    const out = (() => { try { return fs.realpathSync.native(this.ws.outDir); } catch { return this.ws.outDir; } })();
+    const rawTop = await run('git', ['rev-parse', '--show-toplevel'], out).catch(() => { throw new Error(`${out} is not inside a git repository (git init, or use github:/gitlab:)`); });
+    // Same spelling on both sides: on Windows git may report an 8.3 short path (RUNNER~1) while
+    // Node holds the long one, and path.relative would then walk out of the repository.
+    const real = p => { try { return fs.realpathSync.native(p); } catch { return path.resolve(p); } };
+    const top = real(rawTop);
     for (const marker of ['MERGE_HEAD', 'REBASE_HEAD', 'rebase-merge', 'rebase-apply', 'CHERRY_PICK_HEAD']) {
       const p = await run('git', ['rev-parse', '--git-path', marker], top);
       if (fs.existsSync(path.resolve(top, p))) throw new Error(`repository is in the middle of a ${marker.toLowerCase().replace(/_head$/, '')}; finish it first`);
@@ -120,11 +124,12 @@ export class Syncer {
     if (t.branch && current !== t.branch) throw new Error(`check out ${t.branch} first (on ${current}); WeshCraft never switches branches in your working tree`);
     const rel = p => path.relative(top, p).split(path.sep).join('/');
     const paths = ['prototype', 'specs'].map(d => path.join(out, d)).filter(p => fs.existsSync(p)).map(rel);
-    const design = this.ws.source.file;
-    if (design && path.resolve(design).startsWith(top + path.sep)) paths.push(rel(path.resolve(design)));
+    const inRepo = this.ws.designInputs().map(x => ({ ...x, abs: real(x.abs) })).filter(x => x.abs.startsWith(top + path.sep));
+    for (const x of inRepo) paths.push(rel(x.abs));
+    const ciArgs = inRepo.filter(x => x.arg).map(x => `${x.arg} ${rel(x.abs)}`).join(' ');
     // CI parity check: added once, never overwritten.
     const provider = t.ci || (fs.existsSync(path.join(top, '.gitlab-ci.yml')) ? 'gitlab' : 'github');
-    for (const f of ciFiles(provider, { prefix: rel(out) === '' ? '' : rel(out), design: design ? rel(path.resolve(design)) : undefined })) {
+    for (const f of ciFiles(provider, { prefix: rel(out) === '' ? '' : rel(out), args: ciArgs || undefined })) {
       const abs = path.join(top, f.path);
       if (!fs.existsSync(abs)) { fs.mkdirSync(path.dirname(abs), { recursive: true }); fs.writeFileSync(abs, f.content); }
       paths.push(f.path);

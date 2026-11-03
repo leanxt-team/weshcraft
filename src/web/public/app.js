@@ -12,7 +12,7 @@ function inline(s) {
     .replace(/`([^`]+)`/g, '<code>$1</code>')
     .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
     .replace(/(^|[\s(])_([^_]+)_(?=[\s).,]|$)/g, '$1<em>$2</em>')
-    .replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, (m, t, h) => `<a href="${/^(https?:|#)/.test(h) ? h : '#'}" data-href="${h}">${t}</a>`);
+    .replace(/\[((?:[^[\]]|\[\])+)\]\(([^)\s]+)\)/g, (m, t, h) => `<a href="${/^(https?:|#)/.test(h) ? h : '#'}" data-href="${h}">${t}</a>`);
 }
 function markdown(md) {
   md = md.replace(/<!-- weshcraft:contract[\s\S]*?-->/g, '').replace(/<!-- weshcraft:notes:(start|end) -->/g, '').replace(/<a id="([\w-]+)"><\/a>/g, '@@anchor:$1@@');
@@ -27,7 +27,9 @@ function markdown(md) {
       i++;
       while (i < lines.length && !/^```/.test(lines[i])) buf.push(lines[i++]);
       i++;
-      out.push(`<pre data-lang="${esc(lang)}"><code>${esc(buf.join('\n'))}</code></pre>`);
+      out.push(lang === 'mermaid'
+        ? `<figure class="diagram" data-src="${esc(buf.join('\n'))}"><pre><code>${esc(buf.join('\n'))}</code></pre></figure>`
+        : `<pre data-lang="${esc(lang)}"><code>${esc(buf.join('\n'))}</code></pre>`);
       continue;
     }
     const anchor = /^@@anchor:([\w-]+)@@$/.exec(l);
@@ -41,7 +43,7 @@ function markdown(md) {
       const head = cells(rows[0]);
       const body = rows.slice(2).map(cells);
       const thead = head.some(Boolean) ? `<thead><tr>${head.map(c => `<th>${inline(c)}</th>`).join('')}</tr></thead>` : '';
-      out.push(`<table class="${thead ? '' : 'kv'}">${thead}<tbody>${body.map(r => `<tr>${r.map(c => `<td>${inline(c)}</td>`).join('')}</tr>`).join('')}</tbody></table>`);
+      out.push(`<div class="tbl${thead ? '' : ' kv'}"><table>${thead}<tbody>${body.map(r => `<tr>${r.map(c => `<td>${inline(c)}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`);
       continue;
     }
     if (/^\s*([-*]|\d+\.)\s/.test(l)) {
@@ -117,7 +119,7 @@ async function openJob(id, anchor) {
   state.current = id;
   renderJobs();
   $('#specTitle').textContent = j.title;
-  $('#editNotes').disabled = !['done', 'unchanged'].includes(j.status);
+  $('#editNotes').disabled = ['queued', 'writing', 'agent'].includes(j.status);
   $('#notesForm').hidden = true;
   let md = j.preview;
   if (!md) {
@@ -132,10 +134,122 @@ async function openJob(id, anchor) {
   if (j.screen && $('#follow').checked) protoPost({ weshcraft: 'show', key: j.screen });
 }
 function showDoc(md, file) {
-  $('#doc').innerHTML = md ? markdown(md) : '<p class="empty">Not written yet.</p>';
+  const doc = $('#doc');
+  const same = doc.dataset.file === (file ?? '');
+  const html = md ? markdown(md) : '<p class="empty">Not written yet.</p>';
+  if (same && doc.dataset.html === html) return;
+  doc.dataset.html = html;
+  doc.innerHTML = html;
   $('#raw').textContent = md ?? '';
-  $('#doc').dataset.file = file ?? '';
+  doc.dataset.file = file ?? '';
+  if (!same) { doc.scrollTop = 0; fadeIn(doc); }
   setView(state.view);
+  renderDiagrams(doc);
+}
+// Diagrams: WeshCraft's own Mermaid flowcharts (flows, links), drawn natively in the app's style —
+// no external library, works offline. Unknown syntax keeps the code block.
+function parseFlow(src) {
+  const nodes = new Map(), edges = [], groups = [];
+  let group = null;
+  const node = (id, label, shape) => {
+    if (!nodes.has(id)) nodes.set(id, { id, label: id, shape: 'box', group: group?.id ?? null, order: nodes.size });
+    const n = nodes.get(id);
+    if (label != null) { n.label = label; n.shape = shape || 'box'; }
+    if (group && !n.group) n.group = group.id;
+    return n;
+  };
+  const ref = t => {
+    const m = /^([\w-]+)(?:\[\("(.*)"\)\]|\["(.*)"\]|\[(.*)\])?$/.exec(t.trim());
+    if (!m) return null;
+    return node(m[1], m[2] ?? m[3] ?? m[4] ?? null, m[2] != null ? 'pill' : 'box').id;
+  };
+  for (const raw of src.split('\n')) {
+    const l = raw.trim();
+    if (!l || /^flowchart|^graph/.test(l)) continue;
+    let m;
+    if ((m = /^subgraph\s+([\w-]+)(?:\[(.*)\])?$/.exec(l))) { group = { id: m[1], label: m[2] ?? m[1] }; groups.push(group); continue; }
+    if (l === 'end') { group = null; continue; }
+    if ((m = /^(.+?)\s+(<-\.->|-\.->|-->|--\s*"([^"]*)"\s*-->)\s*(?:\|([^|]*)\|\s*)?(.+)$/.exec(l))) {
+      const a = ref(m[1]), b = ref(m[5]);
+      if (a && b) edges.push({ a, b, label: m[3] ?? m[4] ?? '', dashed: m[2].includes('.'), both: m[2].startsWith('<') });
+      continue;
+    }
+    if (!ref(l)) return null;
+  }
+  if (!nodes.size) return null;
+  // Columns: subgraphs in order, else longest path from the sources.
+  let cols;
+  if (groups.length) cols = groups.map(g => ({ label: g.label, nodes: [...nodes.values()].filter(n => n.group === g.id) }));
+  else {
+    const depth = new Map([...nodes.keys()].map(k => [k, 0]));
+    for (let i = 0; i < nodes.size; i++) for (const e of edges) if (!e.both && e.a !== e.b) depth.set(e.b, Math.max(depth.get(e.b), Math.min(depth.get(e.a) + 1, nodes.size)));
+    const max = Math.max(...depth.values());
+    cols = Array.from({ length: max + 1 }, (_, i) => ({ label: null, nodes: [...nodes.values()].filter(n => depth.get(n.id) === i) }));
+  }
+  return { cols: cols.filter(c => c.nodes.length), edges };
+}
+function renderDiagrams(root) {
+  for (const fig of root.querySelectorAll('figure.diagram:not(.done)')) {
+    const g = parseFlow(fig.dataset.src);
+    fig.classList.add('done');
+    if (!g) continue;
+    // Standard edge kinds read better as line styles + a legend than as text on every wire.
+    const KINDS = { calls: 'calls an operation', list: 'list filled by', returns: 'returns', 'shown on': 'shown on screen' };
+    g.legend = g.edges.length > 3 && g.edges.every(e => !e.label || e.label in KINDS);
+    const kinds = g.legend ? [...new Set(g.edges.map(e => e.label).filter(Boolean))] : [];
+    fig.innerHTML = `<div class="flow" style="--cols:${g.cols.length}">${g.cols.map(c => `<div class="flow-col">${c.label ? `<div class="flow-head">${esc(c.label)}</div>` : ''}${c.nodes.map(n => `<div class="flow-node ${n.shape}" data-id="${esc(n.id)}">${esc(n.label)}</div>`).join('')}</div>`).join('')}<svg class="flow-wires" aria-hidden="true"></svg></div><div class="flow-foot">${kinds.map(k => `<span class="flow-key k-${k.replace(/\s+/g, '-')}"><i></i>${esc(KINDS[k])}</span>`).join('')}<details class="flow-src"><summary>Mermaid source</summary><pre><code>${esc(fig.dataset.src)}</code></pre></details></div>`;
+    const draw = () => drawFlow(fig, g);
+    requestAnimationFrame(draw);
+    new ResizeObserver(draw).observe(fig);
+  }
+}
+function drawFlow(fig, g) {
+  const wrap = fig.querySelector('.flow');
+  const svg = fig.querySelector('.flow-wires');
+  if (!wrap || !svg || !wrap.offsetParent) return;
+  // Node offsets are relative to their column; columns are relative to the diagram.
+  const box = id => { const el = wrap.querySelector(`[data-id="${CSS.escape(id)}"]`); const c = el?.parentElement; return el && { x: c.offsetLeft + el.offsetLeft, y: c.offsetTop + el.offsetTop, w: el.offsetWidth, h: el.offsetHeight, col: c }; };
+  svg.setAttribute('width', wrap.scrollWidth);
+  svg.setAttribute('height', wrap.scrollHeight);
+  const cols = [...wrap.querySelectorAll('.flow-col')];
+  const labels = [];
+  let out = '<defs><marker id="arr" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L8 4L0 8z" fill="context-stroke"/></marker></defs>';
+  for (const e of g.edges) {
+    const A = box(e.a), B = box(e.b);
+    if (!A || !B) continue;
+    const ca = cols.indexOf(A.col), cb = cols.indexOf(B.col);
+    let d, lx, ly;
+    if (ca === cb) { // same column: loop on the right side
+      const x = A.x + A.w, y1 = A.y + A.h / 2, y2 = B.y + B.h / 2, bulge = 28;
+      d = `M${x} ${y1} C${x + bulge} ${y1} ${x + bulge} ${y2} ${x} ${y2}`; lx = x + bulge - 4; ly = (y1 + y2) / 2;
+    } else {
+      const [P, Q] = ca < cb ? [A, B] : [B, A];
+      const x1 = P.x + P.w, y1 = P.y + P.h / 2, x2 = Q.x, y2 = Q.y + Q.h / 2, m = (x2 - x1) / 2;
+      d = ca < cb ? `M${x1} ${y1} C${x1 + m} ${y1} ${x2 - m} ${y2} ${x2} ${y2}` : `M${x2} ${y2} C${x2 - m} ${y2} ${x1 + m} ${y1} ${x1} ${y1}`;
+      lx = (x1 + x2) / 2; ly = (y1 + y2) / 2;
+    }
+    out += `<path d="${d}" class="${e.dashed ? 'dashed' : ''} k-${(e.label || 'none').replace(/\s+/g, '-')}" marker-end="url(#arr)"${e.both ? ' marker-start="url(#arr)"' : ''}/>`;
+    if (e.label && !g.legend) labels.push({ text: e.label, x: lx, y: ly });
+  }
+  svg.innerHTML = out;
+  // Label pills, nudged apart so they never overlap.
+  wrap.querySelectorAll('.flow-label').forEach(n => n.remove());
+  const placed = [];
+  for (const l of labels) {
+    const el = document.createElement('span');
+    el.className = 'flow-label';
+    el.textContent = l.text;
+    wrap.appendChild(el);
+    const w = el.offsetWidth, h = el.offsetHeight;
+    let y = l.y - h / 2;
+    while (placed.some(p => Math.abs(p.x - l.x) < (p.w + w) / 2 + 4 && Math.abs(p.y - y) < h + 2)) y += h + 3;
+    placed.push({ x: l.x, y, w });
+    el.style.transform = `translate(${l.x - w / 2}px, ${y}px)`;
+  }
+}
+function fadeIn(el) {
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  el.animate([{ opacity: 0, transform: 'translateY(4px)' }, { opacity: 1, transform: 'none' }], { duration: 220, easing: 'cubic-bezier(.2,.8,.2,1)' });
 }
 function setView(v) {
   state.view = v;
@@ -151,7 +265,8 @@ function openFile(target) {
 }
 
 // ---- front ⇄ back link map ------------------------------------------------------------------
-const REL_ICON = { triggers: '▶', submits: '⇢', lists: '☰', displays: '◉' };
+const REL_ICON = { triggers: '▶', submits: '⇢', lists: '☰', displays: '◉', invokes: '⚙', exposes: '↗' };
+const SURFACE_GROUPS = [{ key: 'mcp', name: 'MCP tools' }, { key: 'api', name: 'Public API' }];
 function linkGraph(m) {
   const ops = new Map(m.domain.operations.map(o => [o.key, o]));
   const edges = [];
@@ -162,6 +277,8 @@ function linkGraph(m) {
       if (e.via) edges.push({ a: `o:${e.via}`, b: `f:${e.field}`, rel: 'returns' });
     }
   }
+  // Operations that return an entity link to it (API resources, list endpoints).
+  for (const o of m.domain.operations) if (o.entity && m.domain.entities.some(e => e.name === o.entity)) edges.push({ a: `o:${o.key}`, b: `e:${o.entity}`, rel: 'returns' });
   const uniq = [...new Map(edges.map(x => [`${x.a}|${x.b}|${x.rel}`, x])).values()];
   const adj = new Map();
   for (const x of uniq) { for (const [p, q] of [[x.a, x.b], [x.b, x.a]]) adj.set(p, [...(adj.get(p) ?? []), q]); }
@@ -173,16 +290,17 @@ function renderLinkMap() {
   if (!m?.links) return;
   const { edges, gaps } = m.links;
   $('#linksBadge').textContent = edges.length ? String(edges.length) + (gaps.length ? ` · ${gaps.length}⚠` : '') : '';
-  if (!edges.length) { box.innerHTML = '<p class="empty">No front ⇄ back links yet. In FigCraft, bind text to data (<code>{{trail.name}}</code>) or annotate a button with <code>POST /trails</code>; WeshCraft also infers lists and actions.</p>'; return; }
+  if (!edges.length) { box.innerHTML = '<p class="empty">No front ⇄ back links yet. In FigCraft, bind text to data (<code>{{trail.name}}</code>) or annotate a button with <code>POST /trails</code>; for an MCP server, link tools to endpoints in <code>weshcraft.surface.json</code>.</p>'; return; }
   state.graph = linkGraph(m);
-  const screens = m.screens.filter(s => edges.some(e => e.screen === s.key));
+  const screens = [...m.screens, ...SURFACE_GROUPS].filter(s => edges.some(e => e.screen === s.key));
+  const nodeLabel = node => (typeof node === 'number' ? `#${node}` : node.startsWith('tool:') ? 'tool' : '');
   const nodeRow = (screen) => {
     const seen = new Map();
     for (const e of edges.filter(x => x.screen === screen.key)) seen.set(e.node, [...(seen.get(e.node) ?? []), e]);
-    return [...seen].map(([node, es]) => `<button type="button" class="lrow ${es.some(x => x.op) ? 'is-op' : 'is-field'}" data-k="n:${node}" data-screen="${esc(screen.key)}"><span class="ic">${[...new Set(es.map(x => REL_ICON[x.rel]))].join('')}</span><span class="lt">${esc(es[0].label)}</span><code>#${node}</code></button>`).join('');
+    return [...seen].map(([node, es]) => `<button type="button" class="lrow ${es.some(x => x.op) ? 'is-op' : 'is-field'}" data-k="n:${node}" data-screen="${esc(screen.key)}"><span class="ic">${[...new Set(es.map(x => REL_ICON[x.rel]))].join('')}</span><span class="lt">${esc(es[0].label)}</span><code>${esc(nodeLabel(node))}</code></button>`).join('');
   };
-  const opRow = o => `<button type="button" class="lrow is-op" data-k="o:${esc(o.key)}"><span class="verb v-${esc(o.method.toLowerCase())}">${esc(o.method)}</span><span class="lt">${esc(o.path)}</span><span class="conf ${o.confidence}">${o.confidence === 'explicit' ? '' : 'inferred'}</span></button><div class="lsub">${esc(m.screens.find(s => s.key === o.screen)?.name ?? '')}</div>`;
-  const ent = e => `<div class="lent"><div class="lhead">${esc(e.name)}</div>${e.fields.map(f => `<button type="button" class="lrow is-field" data-k="f:${esc(`${e.name}.${f.name}`)}"><span class="ic">◉</span><span class="lt">${esc(f.name)}</span><span class="conf ${f.confidence}">${esc(f.type)}</span></button>`).join('')}</div>`;
+  const opRow = o => `<button type="button" class="lrow is-op" data-k="o:${esc(o.key)}"><span class="verb v-${esc(o.method.toLowerCase())}">${esc(o.method)}</span><span class="lt">${esc(o.path)}</span><span class="conf ${o.confidence}">${o.confidence === 'explicit' ? '' : 'inferred'}</span></button><div class="lsub">${esc([...m.screens, ...SURFACE_GROUPS].find(s => s.key === o.screen)?.name ?? '')}</div>`;
+  const ent = e => `<div class="lent"><div class="lhead" data-k="e:${esc(e.name)}">${esc(e.name)}</div>${e.fields.map(f => `<button type="button" class="lrow is-field" data-k="f:${esc(`${e.name}.${f.name}`)}"><span class="ic">◉</span><span class="lt">${esc(f.name)}</span><span class="conf ${f.confidence}">${esc(f.type)}</span></button>`).join('')}</div>`;
   box.innerHTML = `
     ${gaps.length ? `<div class="gaps">${gaps.map(g => `<button type="button" class="gap" data-k="${g.node != null ? `n:${g.node}` : `o:${esc(g.op)}`}">⚠ ${esc(g.message)}</button>`).join('')}</div>` : ''}
     <div class="lcols">
@@ -236,28 +354,36 @@ function selectLink(k, { open = true } = {}) {
       }
     } else if (k.startsWith('f:')) {
       for (const e of L.filter(x => x.field === k.slice(2))) { sel.add(`n:${e.node}`); if (e.via) sel.add(`o:${e.via}`); }
+    } else if (k.startsWith('e:')) {
+      for (const n of g.adj.get(k) ?? []) { sel.add(n); for (const e of L.filter(x => `o:${x.op}` === n)) sel.add(`n:${e.node}`); }
     }
+    // An operation also reaches the entity it returns; a front element reaches it through its operation.
+    for (const x of [...sel]) if (x.startsWith('o:')) for (const n of g.adj.get(x) ?? []) if (n.startsWith('e:')) sel.add(n);
     state.linkKey = k;
     state.linkSel = sel;
   }
-  document.querySelectorAll('#linkmap .lrow, #linkmap .gap').forEach(el => {
+  document.querySelectorAll('#linkmap .lrow, #linkmap .gap, #linkmap .lhead[data-k]').forEach(el => {
     el.classList.toggle('sel', el.dataset.k === state.linkKey);
     el.classList.toggle('dim', !!state.linkSel && !state.linkSel.has(el.dataset.k));
   });
   drawWires();
   const sel = state.linkSel ?? new Set();
   const items = [...sel].filter(x => x.startsWith('n:')).map(x => {
-    const node = Number(x.slice(2));
+    const raw = x.slice(2);
+    const node = /^\d+$/.test(raw) ? Number(raw) : raw;
     return { node, kind: (g.adj.get(x) ?? []).some(y => y.startsWith('o:')) ? 'op' : 'field' };
   });
   protoPost({ weshcraft: 'highlightMany', items });
   if (!state.linkKey || !open) return;
   const m = state.manifest;
   if (k.startsWith('o:')) openFile(`specs/back/api.md#${k.slice(2)}`);
-  else if (k.startsWith('f:')) openFile(`specs/back/domain.md#entity-${k.slice(2).split('.')[0].toLowerCase()}`);
+  else if (k.startsWith('f:') || k.startsWith('e:')) openFile(`specs/back/domain.md#entity-${k.slice(2).split('.')[0].toLowerCase()}`);
   else {
     const e = m.links.edges.find(x => `n:${x.node}` === k);
-    if (e) openFile(`specs/front/screens/${e.screen}.md`);
+    if (!e) return;
+    if (e.screen === 'mcp') openFile(`specs/front/mcp/${m.surface.mcp.tools.find(t => `tool:${t.name}` === e.node)?.key}.md`);
+    else if (e.screen === 'api') openFile(`specs/front/api/${m.surface.api.endpoints.find(x => `ep:${x.method} ${x.path}` === e.node)?.key}.md`);
+    else openFile(`specs/front/screens/${e.screen}.md`);
   }
 }
 $('#linkmap').addEventListener('click', e => { const b = e.target.closest('[data-k]'); if (b) selectLink(b.dataset.k); });
@@ -270,8 +396,11 @@ function reloadProto(hash) {
   if (state.protoHash === hash) return;
   state.protoHash = hash;
   // No #fragment in the src: fragment navigation inside an iframe scrolls the parent page too.
-  $('#proto').src = `/out/prototype/index.html?v=${hash}`;
-  $('#proto').onload = () => {
+  const frame = $('#proto');
+  frame.classList.add('loading');
+  frame.src = `/out/prototype/index.html?v=${hash}`;
+  frame.onload = () => {
+    requestAnimationFrame(() => frame.classList.remove('loading'));
     if (state.protoScreen) protoPost({ weshcraft: 'show', key: state.protoScreen });
     if ($('#overlay').checked) protoPost({ weshcraft: 'overlay', on: true });
   };
@@ -288,9 +417,10 @@ window.addEventListener('message', e => {
     else if (field) openFile(`specs/back/domain.md#entity-${field.split('.')[0].toLowerCase()}`);
     return;
   }
+  if (m.weshcraft === 'open' && typeof m.file === 'string' && /^specs\//.test(m.file)) { openFile(m.file); if (phone.matches) setPhoneView('read'); return; }
   if (m.weshcraft === 'screen') state.protoScreen = m.key;
   if (m.weshcraft === 'screen' && $('#follow').checked) {
-    const j = state.jobs.get(`front:screen:${m.key}`);
+    const j = state.jobs.get(m.key === 'surface-mcp' ? 'front:mcp' : m.key === 'surface-api' ? 'front:api' : `front:screen:${m.key}`);
     if (j && state.current !== j.id) openJob(j.id);
   }
 });
@@ -303,10 +433,19 @@ function log(ev) {
 function applySummary(s) {
   if (!s) return;
   state.summary = s;
+  // A service with no screens: the "prototype" is its MCP/API catalog.
+  const label = s.screens.length ? 'Prototype' : 'Catalog';
+  const tab = document.querySelector('.tab[data-tab="proto"]');
+  if (tab && tab.textContent !== label) tab.textContent = label;
+  const pb = document.querySelector('.phonebar [data-view="proto"] span');
+  if (pb) pb.textContent = label;
   $('#hash').textContent = s.hash;
   $('#manifest').textContent = 'Loading…';
   fetch('/out/specs/manifest.json').then(r => r.text()).then(t => {
-    $('#manifest').textContent = t;
+    $('#manifest').innerHTML = esc(t)
+      .replace(/(&quot;[^&]*?&quot;)(\s*:)/g, '<span class="jk">$1</span>$2')
+      .replace(/:\s(&quot;.*?&quot;)/g, ': <span class="js">$1</span>')
+      .replace(/:\s(-?\d[\d.e+-]*|true|false|null)/g, ': <span class="jn">$1</span>');
     try { state.manifest = JSON.parse(t); state.linkKey = null; state.linkSel = null; renderLinkMap(); } catch { /* partial write */ }
   });
 }
@@ -382,7 +521,10 @@ $('#doc').addEventListener('click', e => {
 document.querySelectorAll('.reader .segbtn').forEach(b => b.addEventListener('click', () => setView(b.dataset.view)));
 function selectTab(t) {
   document.querySelectorAll('.tab').forEach(b => b.setAttribute('aria-selected', String(b.dataset.tab === t)));
-  document.querySelectorAll('.tabpanel').forEach(p => { p.hidden = p.dataset.panel !== t; });
+  document.querySelectorAll('.tabpanel').forEach(p => {
+    const show = p.dataset.panel === t;
+    if (show && p.hidden) { p.hidden = false; fadeIn(p); } else p.hidden = !show;
+  });
   if (t === 'design' && $('#design').src === 'about:blank') $('#design').src = $('#design').dataset.src;
   if (t === 'links') requestAnimationFrame(drawWires);
 }
@@ -539,3 +681,40 @@ new MutationObserver(() => {
 }).observe($('#groups'), { childList: true, subtree: true, characterData: true });
 
 
+
+// ---- sliding thumbs: segmented controls move, they don't jump -----------------------------
+function thumbFor(container, isOn) {
+  const thumb = document.createElement('span');
+  thumb.className = 'thumb';
+  thumb.setAttribute('aria-hidden', 'true');
+  container.classList.add('has-thumb');
+  container.prepend(thumb);
+  let first = true;
+  const place = () => {
+    const on = [...container.children].find(c => c !== thumb && c.offsetParent !== null && isOn(c));
+    if (!on || !container.offsetParent) { thumb.style.opacity = '0'; first = true; return; }
+    // Layout offsets, not client rects: immune to transforms (a dialog's opening animation, zoom).
+    if (first) thumb.style.transition = 'none';
+    thumb.style.opacity = '1';
+    thumb.style.width = `${on.offsetWidth}px`;
+    thumb.style.height = `${on.offsetHeight}px`;
+    thumb.style.transform = `translate(${on.offsetLeft}px, ${on.offsetTop}px)`;
+    if (first) { void thumb.offsetWidth; thumb.style.transition = ''; first = false; }
+  };
+  new MutationObserver(place).observe(container, { attributes: true, subtree: true, attributeFilter: ['aria-selected', 'aria-pressed', 'aria-current', 'hidden', 'checked'] });
+  container.addEventListener('change', place);
+  container.addEventListener('scroll', place, { passive: true });
+  new ResizeObserver(place).observe(container);
+  requestAnimationFrame(place);
+  return place;
+}
+thumbFor($('.stage .tabs'), c => c.getAttribute('aria-selected') === 'true');
+thumbFor($('.reader .seg'), c => c.getAttribute('aria-pressed') === 'true');
+thumbFor(document.querySelector('.phonebar'), c => c.getAttribute('aria-current') === 'true');
+const providerThumb = thumbFor(document.querySelector('#publishForm fieldset.seg'), c => !!c.querySelector('input:checked'));
+$('#publishDlg').addEventListener('click', () => requestAnimationFrame(providerThumb));
+$('#publish').addEventListener('click', () => requestAnimationFrame(() => requestAnimationFrame(providerThumb)));
+// Phone views cross-fade.
+for (const pane of document.querySelectorAll('.builder, .stage, .reader')) {
+  new MutationObserver(() => { if (phone.matches && getComputedStyle(pane).display !== 'none') fadeIn(pane); }).observe(document.body, { attributes: true, attributeFilter: ['data-view'] });
+}

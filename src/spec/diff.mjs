@@ -10,7 +10,7 @@ export function diffManifests(prev, next) {
   const items = [];
   const add = (area, kind, text, extra = {}) => items.push({ area, kind, text, ...extra });
   if (!prev) {
-    add('design', 'added', `First version: ${next.screens.length} screens, ${next.components.length} components, ${next.domain.operations.length} operations`);
+    add('design', 'added', `First version: ${[next.screens.length && `${next.screens.length} screens`, next.surface?.mcp && `${next.surface.mcp.tools.length} MCP tools`, next.surface?.api && `${next.surface.api.endpoints.length} endpoints`, `${next.domain.operations.length} operations`].filter(Boolean).join(', ')}`);
     return { items, from: null, to: next.source.hash };
   }
   if (prev.source?.hash === next.source.hash) return { items, from: prev.source.hash, to: next.source.hash };
@@ -63,6 +63,23 @@ export function diffManifests(prev, next) {
   for (const [k, o] of no) if (!po.has(k)) add('operation', 'added', `\`${o.method} ${o.path}\` on ${o.screen} (${o.confidence})`);
   for (const [k, o] of po) if (!no.has(k)) add('operation', 'removed', `\`${o.method} ${o.path}\` on ${o.screen} removed`);
 
+  // MCP tools and public endpoints.
+  const pt = byKey(prev.surface?.mcp?.tools, 'name'), nt = byKey(next.surface?.mcp?.tools, 'name');
+  for (const [k, t] of nt) if (!pt.has(k)) add('mcp', 'added', `MCP tool \`${k}\` added${t.hints?.destructive ? ' (destructive)' : ''}`);
+  for (const [k] of pt) if (!nt.has(k)) add('mcp', 'removed', `MCP tool \`${k}\` removed (breaking for agents that use it)`);
+  for (const [k, t] of nt) {
+    const o = pt.get(k);
+    if (!o || o.fingerprint === t.fingerprint) continue;
+    const oi = new Set(o.input.map(f => f.name)), ni = new Set(t.input.map(f => f.name));
+    const added = t.input.filter(f => !oi.has(f.name)).map(f => `+\`${f.name}\`${f.required ? ' (required: breaking)' : ''}`);
+    const removed = o.input.filter(f => !ni.has(f.name)).map(f => `−\`${f.name}\``);
+    add('mcp', 'changed', `MCP tool \`${k}\`: ${[...added, ...removed].join(', ') || 'description, schema rules or annotations changed'}`);
+  }
+  const pep = byKey(prev.surface?.api?.endpoints, 'key'), nep = byKey(next.surface?.api?.endpoints, 'key');
+  for (const [, x] of nep) if (!pep.has(x.key)) add('api', 'added', `Endpoint \`${x.method} ${x.path}\` added`);
+  for (const [, x] of pep) if (!nep.has(x.key)) add('api', 'removed', `Endpoint \`${x.method} ${x.path}\` removed (breaking)`);
+  for (const [k, x] of nep) if (pep.has(k) && pep.get(k).fingerprint !== x.fingerprint) add('api', 'changed', `Endpoint \`${x.method} ${x.path}\` changed (parameters, body, responses or auth)`);
+
   const lk = e => `${e.rel}|${e.node}|${e.op ?? e.field}`;
   const pl = new Set((prev.links?.edges ?? []).map(lk)), nl = new Set((next.links?.edges ?? []).map(lk));
   const addedL = (next.links?.edges ?? []).filter(e => !pl.has(lk(e))).length;
@@ -79,7 +96,7 @@ const ICON = { added: '+', removed: '−', changed: '~' };
 export function changesMarkdown(diff, { title } = {}) {
   if (!diff.items.length) return '';
   const L = [`### ${title ?? `${diff.from ?? '∅'} → ${diff.to}`}`, ''];
-  for (const area of ['design', 'screen', 'copy', 'interaction', 'layout', 'component', 'token', 'entity', 'operation', 'links']) {
+  for (const area of ['design', 'screen', 'copy', 'interaction', 'layout', 'component', 'token', 'mcp', 'api', 'entity', 'operation', 'links']) {
     const xs = diff.items.filter(i => i.area === area);
     for (const i of xs.slice(0, 40)) L.push(`- ${ICON[i.kind] ?? '·'} ${i.text}${i.node != null ? ` (\`#${i.node}\`)` : ''}`);
     if (xs.length > 40) L.push(`- … ${xs.length - 40} more ${area} changes`);
@@ -91,7 +108,7 @@ export function summaryLine(diff) {
   if (!diff.items.length) return 'no design change';
   if (diff.items.some(i => i.area === 'design')) return 'first version';
   const count = a => diff.items.filter(i => i.area === a).length;
-  return [['screen', 'screens'], ['copy', 'copy'], ['interaction', 'interactions'], ['component', 'components'], ['operation', 'operations'], ['entity', 'data'], ['links', 'links']]
+  return [['mcp', 'MCP tools'], ['api', 'endpoints'], ['screen', 'screens'], ['copy', 'copy'], ['interaction', 'interactions'], ['component', 'components'], ['operation', 'operations'], ['entity', 'data'], ['links', 'links']]
     .filter(([a]) => count(a)).map(([a, n]) => `${count(a)} ${n}`).join(', ') || `${diff.items.length} changes`;
 }
 

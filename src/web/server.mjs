@@ -66,7 +66,17 @@ export function startServer(o) {
     let t = null;
     watcher = fs.watch(file, () => { clearTimeout(t); t = setTimeout(() => ws.run().catch(e => ws.emit('log', { level: 'error', message: e.message })), 400); });
   };
-  if (ws.source.kind === 'file') watchFile(ws.source.file);
+  if (ws.source?.kind === 'file') watchFile(ws.source.file);
+  // Surface files (OpenAPI, MCP tool lists) regenerate on save too.
+  if (o.watch) {
+    let t = null;
+    const rerun = () => { clearTimeout(t); t = setTimeout(() => ws.run().catch(e => ws.emit('log', { level: 'error', message: e.message })), 400); };
+    for (const f of ws.surface?.files ?? []) {
+      try { fs.watch(f, rerun); } catch { /* missing file: reported by the run */ }
+      // Files a surface file points to (openapi.yaml next to weshcraft.surface.json).
+      try { const dir = path.dirname(f); for (const n of fs.readdirSync(dir)) if (/\.(ya?ml|json)$/i.test(n) && path.join(dir, n) !== f) fs.watch(path.join(dir, n), rerun); } catch { /* ignore */ }
+    }
+  }
 
   const server = http.createServer(async (req, res) => {
     const url = new URL(req.url, 'http://localhost');
@@ -102,11 +112,11 @@ export function startServer(o) {
         fs.mkdirSync(dir, { recursive: true });
         const file = path.join(dir, name);
         fs.writeFileSync(file, buf);
-        ws.source.close?.();
+        ws.source?.close?.();
         ws.source = new FileSource(file);
         watchFile(file);
         ws.run({ force: true }).catch(e => ws.emit('log', { level: 'error', message: e.message }));
-        return send(res, 202, { source: ws.source.describe() });
+        return send(res, 202, { source: ws.describe() });
       }
       if (p === '/api/publish' && req.method === 'POST') {
         const body = JSON.parse((await readBody(req)).toString() || '{}');
@@ -128,7 +138,7 @@ export function startServer(o) {
       }
       if (p === '/api/download.zip') {
         const provider = url.searchParams.get('provider') === 'gitlab' ? 'gitlab' : 'github';
-        const files = collectFiles(ws.outDir, { provider, designFile: ws.source.file });
+        const files = collectFiles(ws.outDir, { provider, designInputs: ws.designInputs() });
         const name = (ws.manifest?.source.name || 'weshcraft').replace(/[^\w.-]+/g, '-');
         return send(res, 200, writeZip(files.map(f => [`${name}/${f.path}`, f.data])), 'application/zip', { 'Content-Disposition': `attachment; filename="${name}-specs.zip"` });
       }

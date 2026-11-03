@@ -1,0 +1,120 @@
+openapi: 3.1.0
+info:
+  title: Billing API
+  version: 1.0.0
+  description: |
+    Invoices for customers. Amounts are in minor units (cents).
+servers:
+  - url: https://api.example.com/v1
+security:
+  - bearer: []
+paths:
+  /invoices:
+    get:
+      operationId: listInvoices
+      summary: List invoices
+      tags: [Invoices]
+      parameters:
+        - name: status
+          in: query
+          description: Only invoices in this state.
+          schema: {type: string, enum: [draft, open, paid, void]}
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: A page of invoices.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items: {$ref: '#/components/schemas/Invoice'}
+                  next: {type: string}
+    post:
+      operationId: createInvoice
+      summary: Create a draft invoice
+      tags: [Invoices]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/InvoiceInput'}
+      responses:
+        '201':
+          description: Created.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Invoice'}
+        '400': {description: Validation error.}
+  /invoices/{id}:
+    get:
+      operationId: getInvoice
+      summary: Get one invoice
+      tags: [Invoices]
+      parameters:
+        - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
+      responses:
+        '200':
+          description: The invoice.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Invoice'}
+        '404': {description: Not found.}
+  /invoices/{id}/send:
+    post:
+      operationId: sendInvoice
+      summary: Email the invoice to the customer
+      tags: [Invoices]
+      parameters:
+        - {name: id, in: path, required: true, schema: {type: string, format: uuid}}
+      responses:
+        '202': {description: Queued.}
+        '409': {description: Invoice is not open.}
+  /customers:
+    get:
+      operationId: listCustomers
+      summary: List customers
+      tags: [Customers]
+      responses:
+        '200':
+          description: Customers.
+          content:
+            application/json:
+              schema:
+                type: array
+                items: {$ref: '#/components/schemas/Customer'}
+components:
+  securitySchemes:
+    bearer: {type: http, scheme: bearer}
+  parameters:
+    Limit:
+      name: limit
+      in: query
+      schema: {type: integer, minimum: 1, maximum: 100, default: 20}
+  schemas:
+    Customer:
+      type: object
+      required: [id, email]
+      properties:
+        id: {type: string, format: uuid}
+        name: {type: string}
+        email: {type: string, format: email}
+    InvoiceInput:
+      type: object
+      required: [customerId, amount, currency]
+      properties:
+        customerId: {type: string, format: uuid, description: Customer to bill.}
+        amount: {type: integer, minimum: 1, description: Total in minor units.}
+        currency: {type: string, enum: [EUR, USD, GBP]}
+        dueDate: {type: string, format: date}
+    Invoice:
+      allOf:
+        - $ref: '#/components/schemas/InvoiceInput'
+        - type: object
+          required: [id, status]
+          properties:
+            id: {type: string, format: uuid}
+            status: {type: string, enum: [draft, open, paid, void]}
+            sentAt: {type: string, format: date-time}

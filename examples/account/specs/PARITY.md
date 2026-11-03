@@ -1,6 +1,6 @@
 # Spec ↔ prototype parity
 
-✅ **In sync.** 113 checks, 0 errors, 1 warnings, score 100%. Prototype `cf02030f8386f01b` (2 screens, 0 components, 0 tokens, 3 operations).
+✅ **In sync.** 113 checks, 0 errors, 1 warnings, score 100%. Prototype `071d12bcdc75e2a0` (2 screens, 0 components, 0 tokens, 3 operations).
 
 | Level | Check | File | Detail |
 |---|---|---|---|

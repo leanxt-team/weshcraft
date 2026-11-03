@@ -1,0 +1,10 @@
+{
+  "weshcraft": "surface@1",
+  "name": "Billing service",
+  "api": "openapi.yaml",
+  "mcp": "mcp-tools.json",
+  "links": [
+    { "tool": "create_invoice", "endpoint": "POST /invoices" },
+    { "tool": "void_invoice", "endpoint": null, "note": "no public endpoint yet" }
+  ]
+}

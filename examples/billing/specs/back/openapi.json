@@ -1,0 +1,479 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Billing service API",
+    "version": "0.1.0",
+    "x-weshcraft-source-hash": "4adc5ece25fbe421"
+  },
+  "paths": {
+    "/invoices": {
+      "get": {
+        "operationId": "listInvoices",
+        "summary": "List invoices",
+        "tags": [
+          "Invoices"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Invoice"
+                      }
+                    },
+                    "next": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated"
+          }
+        },
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "draft",
+                "open",
+                "paid",
+                "void"
+              ],
+              "description": "Only invoices in this state."
+            },
+            "description": "Only invoices in this state."
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "x-weshcraft": {
+          "keys": [
+            "op-ep-get-invoices"
+          ],
+          "screens": [
+            "api"
+          ],
+          "trigger": null,
+          "confidence": "explicit",
+          "sources": []
+        }
+      },
+      "post": {
+        "operationId": "createInvoice",
+        "summary": "Create a draft invoice",
+        "tags": [
+          "Invoices"
+        ],
+        "responses": {
+          "201": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Invoice"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InvoiceInput"
+              }
+            }
+          }
+        },
+        "x-weshcraft": {
+          "keys": [
+            "op-ep-post-invoices"
+          ],
+          "screens": [
+            "api"
+          ],
+          "trigger": null,
+          "confidence": "explicit",
+          "sources": []
+        }
+      }
+    },
+    "/invoices/{id}": {
+      "get": {
+        "operationId": "getInvoice",
+        "summary": "Get one invoice",
+        "tags": [
+          "Invoices"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Invoice"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated"
+          },
+          "404": {
+            "description": "Not found."
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "x-weshcraft": {
+          "keys": [
+            "op-ep-get-invoices-id"
+          ],
+          "screens": [
+            "api"
+          ],
+          "trigger": null,
+          "confidence": "explicit",
+          "sources": []
+        }
+      }
+    },
+    "/invoices/{id}/send": {
+      "post": {
+        "operationId": "sendInvoice",
+        "summary": "Email the invoice to the customer",
+        "tags": [
+          "Invoices"
+        ],
+        "responses": {
+          "201": {
+            "description": "OK"
+          },
+          "202": {
+            "description": "Queued."
+          },
+          "400": {
+            "description": "Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated"
+          },
+          "409": {
+            "description": "Invoice is not open."
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "x-weshcraft": {
+          "keys": [
+            "op-ep-post-invoices-id-send"
+          ],
+          "screens": [
+            "api"
+          ],
+          "trigger": null,
+          "confidence": "explicit",
+          "sources": []
+        }
+      }
+    },
+    "/customers": {
+      "get": {
+        "operationId": "listCustomers",
+        "summary": "List customers",
+        "tags": [
+          "Customers"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Customer"
+                      }
+                    },
+                    "next": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated"
+          }
+        },
+        "parameters": [
+          {
+            "name": "cursor",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20
+            }
+          }
+        ],
+        "x-weshcraft": {
+          "keys": [
+            "op-ep-get-customers"
+          ],
+          "screens": [
+            "api"
+          ],
+          "trigger": null,
+          "confidence": "explicit",
+          "sources": []
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Customer": {
+        "type": "object",
+        "required": [
+          "id"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "x-weshcraft-nodes": [],
+            "x-weshcraft-confidence": "explicit"
+          },
+          "name": {
+            "type": "string",
+            "x-weshcraft-nodes": [],
+            "x-weshcraft-confidence": "explicit"
+          },
+          "email": {
+            "type": "string",
+            "format": "email",
+            "x-weshcraft-nodes": [],
+            "x-weshcraft-confidence": "explicit"
+          }
+        }
+      },
+      "Invoice": {
+        "type": "object",
+        "required": [
+          "id"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "x-weshcraft-nodes": [],
+            "x-weshcraft-confidence": "explicit"
+          },
+          "customerId": {
+            "type": "string",
+            "format": "uuid",
+            "x-weshcraft-nodes": [],
+            "x-weshcraft-confidence": "explicit"
+          },
+          "amount": {
+            "type": "integer",
+            "x-weshcraft-nodes": [],
+            "x-weshcraft-confidence": "explicit"
+          },
+          "currency": {
+            "type": "string",
+            "x-weshcraft-nodes": [],
+            "x-weshcraft-confidence": "explicit"
+          },
+          "dueDate": {
+            "type": "string",
+            "format": "date",
+            "x-weshcraft-nodes": [],
+            "x-weshcraft-confidence": "explicit"
+          },
+          "status": {
+            "type": "string",
+            "x-weshcraft-nodes": [],
+            "x-weshcraft-confidence": "explicit"
+          },
+          "sentAt": {
+            "type": "string",
+            "format": "date-time",
+            "x-weshcraft-nodes": [],
+            "x-weshcraft-confidence": "explicit"
+          }
+        }
+      },
+      "Error": {
+        "type": "object",
+        "required": [
+          "code",
+          "message"
+        ],
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "fields": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "InvoiceInput": {
+        "type": "object",
+        "required": [
+          "customerId",
+          "amount",
+          "currency"
+        ],
+        "properties": {
+          "customerId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Customer to bill."
+          },
+          "amount": {
+            "type": "integer",
+            "description": "Total in minor units."
+          },
+          "currency": {
+            "type": "string",
+            "enum": [
+              "EUR",
+              "USD",
+              "GBP"
+            ]
+          },
+          "dueDate": {
+            "type": "string",
+            "format": "date"
+          }
+        }
+      }
+    },
+    "securitySchemes": {
+      "bearer": {
+        "type": "http",
+        "scheme": "bearer"
+      }
+    }
+  },
+  "security": [
+    {
+      "bearer": []
+    }
+  ]
+}

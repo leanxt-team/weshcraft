@@ -9,10 +9,11 @@ import { Workspace } from '../src/spec/workspace.mjs';
 import { WeshCraftMcp } from '../src/mcp/server.mjs';
 import { startServer } from '../src/web/server.mjs';
 import { checkParity, parityMarkdown } from '../src/parity/check.mjs';
-import { buildManifest } from '../src/model/manifest.mjs';
+import { buildManifest, emptyModel } from '../src/model/manifest.mjs';
 import { collectFiles } from '../src/publish/git.mjs';
 import { writeZip } from '../src/util/zip.mjs';
 import { Syncer, parseTarget } from '../src/publish/sync.mjs';
+import { SurfaceSource } from '../src/surface/load.mjs';
 
 const HELP = `weshcraft — FigCraft prototype in, front/back specs that match it out.
 
@@ -28,8 +29,14 @@ Usage
       What changed in the design since the specs on disk (or committed at GIT_REF).
   weshcraft publish  [source] --provider github|gitlab --repo OWNER/NAME [--branch B] [--base B] [--api-url URL]
   weshcraft zip      [source] [--out DIR] [--zip FILE] [--provider github|gitlab]
-  weshcraft init     [--client claude|opencode|both] [--figcraft-cli PATH] [--attach PORT] [--sync TARGET]
+  weshcraft init     [--client claude|opencode|both] [--figcraft-cli PATH] [--attach PORT | --file F]
+                     [--surface FILE] [--mcp-server CMD] [--sync TARGET]
       Write the MCP config for Claude Code (.mcp.json) and/or OpenCode (opencode.json).
+
+Non-visual fronts (with or without a design)
+  --surface FILE             an OpenAPI document (JSON/YAML), an MCP tools/list dump, or a
+                             weshcraft.surface.json combining them (repeatable)
+  --mcp-server "CMD ARGS"    introspect a running MCP server over stdio (repeatable)
 
 Source (one of)
   --file design.figcraft     read the file (offline, CI); serve re-runs when it is saved
@@ -65,7 +72,7 @@ function opts(argv) {
       provider: { type: 'string' }, against: { type: 'string' }, repo: { type: 'string' }, branch: { type: 'string' }, base: { type: 'string' }, 'api-url': { type: 'string' },
       zip: { type: 'string' }, title: { type: 'string' }, prefix: { type: 'string' }, help: { type: 'boolean', short: 'h' },
       sync: { type: 'string' }, 'sync-push': { type: 'boolean' }, 'no-sync-pr': { type: 'boolean' }, 'sync-manual': { type: 'boolean' },
-      client: { type: 'string' }, 'opencode-version': { type: 'string' },
+      client: { type: 'string' }, surface: { type: 'string', multiple: true }, 'mcp-server': { type: 'string', multiple: true }, 'opencode-version': { type: 'string' },
     },
   });
   return { ...values, positionals };
@@ -85,9 +92,12 @@ function syncer(ws, o) {
 
 function workspace(o) {
   const file = o.file ?? o.positionals[0];
-  const source = sourceFromOptions({ file: file && path.resolve(file), mcp: o.mcp, attach: o.attach, figcraftCli: o['figcraft-cli'] });
+  const outDir = path.resolve(o.out ?? '.');
+  const surfaces = o.surface ?? [], servers = o['mcp-server'] ?? [];
+  const surface = surfaces.length || servers.length ? new SurfaceSource({ files: surfaces, servers, snapshotDir: path.join(outDir, 'design') }) : null;
+  const source = sourceFromOptions({ file: file && path.resolve(file), mcp: o.mcp, attach: o.attach, figcraftCli: o['figcraft-cli'], surfaceOnly: !!surface });
   return new Workspace({
-    source, outDir: path.resolve(o.out ?? '.'), concurrency: o.concurrency ? Number(o.concurrency) : 6,
+    source, surface, outDir, concurrency: o.concurrency ? Number(o.concurrency) : 6,
     agent: o.agent ? (o.agent === 'default' ? true : o.agent) : false,
   });
 }
@@ -105,9 +115,9 @@ async function main() {
       const mcp = new WeshCraftMcp({ workspace: ws, syncer: sync });
       const server = await startServer({ workspace: ws, mcp, syncer: sync, port: o.port ? Number(o.port) : 4600, host: o.host, token: o.token || process.env.WESHCRAFT_TOKEN, figcraftWebUrl: o['figcraft-web'], watch: !o['no-watch'] });
       mcp.webUrl = server.url;
-      process.stderr.write(`WeshCraft: ${server.url}\n  source:  ${ws.source.describe()}\n  output:  ${ws.outDir}\n  MCP:     ${server.url.replace(/\/(\?.*)?$/, '/mcp')}\n  sync:    ${sync.status().target ?? 'off'}${sync.status().auto ? ' (after every in-sync run)' : ''}\n`);
+      process.stderr.write(`WeshCraft: ${server.url}\n  source:  ${ws.describe()}\n  output:  ${ws.outDir}\n  MCP:     ${server.url.replace(/\/(\?.*)?$/, '/mcp')}\n  sync:    ${sync.status().target ?? 'off'}${sync.status().auto ? ' (after every in-sync run)' : ''}\n`);
       ws.run().catch(e => process.stderr.write(`first run failed: ${e.message}\n`));
-      const stop = () => { ws.source.close(); server.close(); process.exit(0); };
+      const stop = () => { ws.source?.close(); server.close(); process.exit(0); };
       process.on('SIGINT', stop);
       process.on('SIGTERM', stop);
       return;
@@ -121,7 +131,7 @@ async function main() {
         mcp.webUrl = server.url;
         process.stderr.write(`WeshCraft web: ${server.url}\n`);
       }
-      mcp.serveStdio().on('close', () => { ws.source.close(); process.exit(0); });
+      mcp.serveStdio().on('close', () => { ws.source?.close(); process.exit(0); });
       return;
     }
     case 'generate': {
@@ -134,14 +144,15 @@ async function main() {
         for (const j of r.jobs) process.stdout.write(`${j.status.padEnd(9)} ${j.file}\n`);
         process.stdout.write(`\n${r.report.ok ? 'in sync' : 'OUT OF SYNC'}: ${r.report.checks} checks, ${r.report.errors} errors, ${r.ms} ms → ${ws.outDir}\n`);
         process.exitCode = r.report.ok ? 0 : 1;
-      } finally { ws.source.close(); }
+      } finally { ws.source?.close(); }
       return;
     }
     case 'check': {
       const ws = workspace(o);
       try {
-        await ws.snapshot();
-        const manifest = buildManifest(ws.model);
+        // Compare with a fresh extraction, leaving specs/manifest.json and CHANGES.md untouched.
+        const { model } = ws.source ? await ws.source.load() : { model: emptyModel() };
+        const manifest = buildManifest(model, { surface: ws.surface ? await ws.surface.load() : null });
         const report = checkParity(manifest, ws.outDir);
         if (o.format === 'json') process.stdout.write(`${JSON.stringify(report, null, 1)}\n`);
         else if (o.format === 'markdown') process.stdout.write(parityMarkdown(report, manifest));
@@ -150,7 +161,7 @@ async function main() {
           process.stdout.write(`${report.ok ? 'in sync' : 'OUT OF SYNC'}: ${report.checks} checks, ${report.errors} errors, ${report.warnings} warnings (score ${report.score}%)\n`);
         }
         process.exitCode = report.ok ? 0 : 1;
-      } finally { ws.source.close(); }
+      } finally { ws.source?.close(); }
       return;
     }
     case 'diff': {
@@ -165,12 +176,12 @@ async function main() {
           const rel = path.relative(top, path.join(out, 'specs', 'manifest.json')).split(path.sep).join('/');
           try { prev = JSON.parse(execFileSync('git', ['show', `${o.against}:${rel}`], { cwd: top, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] })); } catch { prev = null; }
         } else if (fs.existsSync(path.join(out, 'specs', 'manifest.json'))) prev = JSON.parse(fs.readFileSync(path.join(out, 'specs', 'manifest.json'), 'utf8'));
-        const { model } = await ws.source.load();
+        const { model } = ws.source ? await ws.source.load() : { model: emptyModel() };
         const { diffManifests, changesMarkdown, summaryLine } = await import('../src/spec/diff.mjs');
-        const d = diffManifests(prev, buildManifest(model));
+        const d = diffManifests(prev, buildManifest(model, { surface: ws.surface ? await ws.surface.load() : null }));
         if (o.format === 'json') process.stdout.write(`${JSON.stringify(d, null, 1)}\n`);
         else process.stdout.write(d.items.length ? `${changesMarkdown(d, { title: summaryLine(d) })}\n` : 'no design change\n');
-      } finally { ws.source.close(); }
+      } finally { ws.source?.close(); }
       return;
     }
     case 'publish': {
@@ -180,7 +191,7 @@ async function main() {
         const mcp = new WeshCraftMcp({ workspace: ws, autoRun: false });
         const r = await mcp.publish({ provider: o.provider || 'github', repo: o.repo, branch: o.branch, base: o.base, apiUrl: o['api-url'], title: o.title, prefix: o.prefix });
         process.stdout.write(`${r.changed === false ? 'nothing changed' : 'published'}: ${r.url}\n`);
-      } finally { ws.source.close(); }
+      } finally { ws.source?.close(); }
       return;
     }
     case 'zip': {
@@ -188,18 +199,20 @@ async function main() {
       try {
         await ws.run();
         const provider = o.provider === 'gitlab' ? 'gitlab' : 'github';
-        const files = collectFiles(ws.outDir, { provider, designFile: ws.source.file });
+        const files = collectFiles(ws.outDir, { provider, designInputs: ws.designInputs() });
         const name = ws.manifest.source.name.replace(/[^\w.-]+/g, '-');
         const target = path.resolve(o.zip ?? `${name}-specs.zip`);
         fs.writeFileSync(target, writeZip(files.map(f => [`${name}/${f.path}`, f.data])));
         process.stdout.write(`${files.length} files → ${target}\n`);
-      } finally { ws.source.close(); }
+      } finally { ws.source?.close(); }
       return;
     }
     case 'init': {
       // MCP config for Claude Code (.mcp.json) and/or OpenCode (opencode.json), in this folder.
       const cli = o['figcraft-cli'] || 'figcraft-cli';
-      const serverArgs = ['mcp', ...(o.attach ? ['--attach', o.attach] : ['--mcp']), '--figcraft-cli', cli, '--out', '.', '--web', ...(o.sync ? ['--sync', o.sync] : []), ...(o['sync-push'] ? ['--sync-push'] : [])];
+      const surfaceArgs = [...(o.surface ?? []).flatMap(f => ['--surface', f]), ...(o['mcp-server'] ?? []).flatMap(c => ['--mcp-server', c])];
+      const visual = o.attach ? ['--attach', o.attach, '--figcraft-cli', cli] : o.file ? ['--file', o.file] : surfaceArgs.length ? [] : ['--mcp', '--figcraft-cli', cli];
+      const serverArgs = ['mcp', ...visual, ...surfaceArgs, '--out', '.', '--web', ...(o.sync ? ['--sync', o.sync] : []), ...(o['sync-push'] ? ['--sync-push'] : [])];
       // From a checkout: run this very file. With WESHCRAFT_PACKAGE (e.g. github:you/weshcraft): npx it.
       const command = process.env.WESHCRAFT_PACKAGE ? ['npx', '--yes', process.env.WESHCRAFT_PACKAGE, ...serverArgs] : ['node', fileURLToPath(import.meta.url), ...serverArgs];
       const clients = (o.client || (fs.existsSync('opencode.json') || fs.existsSync('.opencode') ? 'both' : 'claude')).split(',').flatMap(c => (c === 'both' ? ['claude', 'opencode'] : [c]));

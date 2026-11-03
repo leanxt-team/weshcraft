@@ -2,7 +2,7 @@
 
 Every place where the prototype meets the back end: 4 operation links and 3 data links across 2 screens. **1 gap** (below).
 
-Legend: ▶ triggers an operation · ⇢ submits a request field · ☰ list filled by an operation · ◉ shows an entity field.
+Legend: ▶ triggers an operation · ⇢ submits a request field · ☰ list filled by an operation · ◉ shows an entity field · ⚙ MCP tool calls it · ↗ public endpoint.
 
 ## Map
 
@@ -126,6 +126,6 @@ _No notes yet._
  ],
  "gaps": 1,
  "kind": "links",
- "sourceHash": "cf02030f8386f01b"
+ "sourceHash": "071d12bcdc75e2a0"
 }
 -->

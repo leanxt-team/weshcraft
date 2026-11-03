@@ -8,7 +8,7 @@
   "engines": { "node": ">=20" },
   "scripts": {
     "start": "node bin/weshcraft.mjs serve",
-    "test": "node --test \"test/**/*.test.mjs\"",
+    "test": "node --test test/weshcraft.test.mjs",
     "demo": "node bin/weshcraft.mjs serve --file test/fixtures/ridgeline-app.figcraft --out .weshcraft-demo"
   },
   "files": ["bin", "src", "docs", "wesh-bundle", "README.md", "LICENSE", "NOTICE"]

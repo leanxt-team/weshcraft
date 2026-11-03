@@ -9,7 +9,7 @@ import { ciFiles } from './ci.mjs';
 const TEXT = new Set(['.md', '.json', '.html', '.css', '.yml', '.yaml', '.txt', '.js', '.mjs', '.svg']);
 
 /** Files to publish: everything WeshCraft wrote under outDir, plus CI and the design source. */
-export function collectFiles(outDir, { designFile, prefix = '', ci = true, provider = 'github', designPath } = {}) {
+export function collectFiles(outDir, { designFile, designInputs, prefix = '', ci = true, provider = 'github', designPath } = {}) {
   const files = [];
   const walk = dir => {
     for (const e of fs.readdirSync(path.join(outDir, dir), { withFileTypes: true })) {
@@ -19,9 +19,19 @@ export function collectFiles(outDir, { designFile, prefix = '', ci = true, provi
     }
   };
   for (const d of ['prototype', 'specs']) if (fs.existsSync(path.join(outDir, d))) walk(d);
-  const design = designPath ?? (designFile ? path.posix.join(prefix, 'design', path.basename(designFile)) : null);
-  if (designFile && fs.existsSync(designFile)) files.push({ path: design, data: fs.readFileSync(designFile) });
-  if (ci) for (const f of ciFiles(provider, { prefix, design })) files.push({ path: f.path, data: Buffer.from(f.content) });
+  // Design inputs (a .figcraft, OpenAPI, MCP tool lists, surface files) go to design/ by name.
+  const inputs = designInputs ?? (designFile ? [{ abs: designFile, arg: '--file' }] : []);
+  const args = [];
+  const seen = new Set();
+  for (const x of inputs) {
+    if (!fs.existsSync(x.abs) || x.abs.startsWith(path.resolve(outDir, 'specs'))) continue;
+    const p = designPath && x.arg === '--file' ? designPath : path.posix.join(prefix, 'design', path.basename(x.abs));
+    if (seen.has(p)) continue;
+    seen.add(p);
+    files.push({ path: p, data: fs.readFileSync(x.abs) });
+    if (x.arg) args.push(`${x.arg} ${p}`);
+  }
+  if (ci) for (const f of ciFiles(provider, { prefix, args: args.join(' ') })) files.push({ path: f.path, data: Buffer.from(f.content) });
   return files;
 }
 

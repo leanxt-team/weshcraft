@@ -287,7 +287,72 @@ export function buildLinks(screens, domain) {
   return { edges, gaps: dedupGaps };
 }
 
-export function buildManifest(model, { sourceName = model.name } = {}) {
+/** A document with no pages: for services whose only "front" is an MCP server or an API. */
+export function emptyModel(name = 'Service') {
+  return { name, pages: [], nodes: new Map(), variables: { collections: [], variables: [] }, styles: [], comments: [], truncated: false };
+}
+
+const tokens = s => String(s ?? '').replace(/([a-z0-9])([A-Z])/g, '$1 $2').toLowerCase().split(/[^a-z0-9]+/).filter(Boolean);
+const singular = w => w.replace(/ies$/, 'y').replace(/s$/, '');
+
+/** Fold the MCP/API surface into the manifest: entities, operations and front ⇄ back links. */
+function surfaceInto(surface, domain, links) {
+  const out = { name: surface.name, mcp: null, api: null };
+  const strip = x => { const { origin, ...rest } = x; return rest; };
+  if (surface.api) {
+    const api = strip(surface.api);
+    out.api = api;
+    // Entities: schemas the API returns (resources), with typed fields.
+    const returned = new Set(api.endpoints.flatMap(e => e.responses.map(r => r.schema)).filter(n => n && api.schemas[n]));
+    for (const name of [...returned].sort()) {
+      const sch = api.schemas[name];
+      const existing = domain.entities.find(e => e.name === name);
+      const fields = sch.fields.filter(f => !f.name.includes('.')).map(f => ({ name: f.name, type: f.format === 'email' ? 'email' : f.format === 'date' ? 'date' : f.format === 'date-time' ? 'datetime' : f.format === 'uuid' ? 'id' : f.type, sources: [], confidence: 'explicit', required: !!f.required, ...(f.enum ? { enum: f.enum } : {}) }));
+      if (existing) { for (const f of fields) if (!existing.fields.some(x => x.name === f.name)) existing.fields.push(f); existing.confidence = 'explicit'; existing.schema = name; }
+      else domain.entities.push({ name, confidence: 'explicit', sources: [], fields, schema: name });
+    }
+    domain.entities.sort((a, b) => a.name.localeCompare(b.name));
+    // Operations: one per endpoint (a visual operation on the same method + path is the same one).
+    for (const ep of api.endpoints) {
+      const ok = ep.responses.find(r => /^2/.test(r.status) && r.schema && api.schemas[r.schema]);
+      const same = domain.operations.find(o => o.method === ep.method && o.path === ep.path);
+      if (same) { same.endpoint = ep.key; same.confidence = 'explicit'; continue; }
+      domain.operations.push({
+        key: `op-${ep.key}`, name: ep.summary || ep.operationId || `${ep.method} ${ep.path}`, method: ep.method, path: ep.path, screen: 'api',
+        trigger: null, entity: ok ? ok.schema : null, kind: ok?.list ? 'list' : 'endpoint', confidence: 'explicit', sources: [], fields: [], endpoint: ep.key,
+      });
+    }
+    for (const ep of api.endpoints) {
+      const op = domain.operations.find(o => o.endpoint === ep.key);
+      links.edges.push({ rel: 'exposes', node: `ep:${ep.method} ${ep.path}`, screen: 'api', label: `${ep.method} ${ep.path}`, op: op.key });
+    }
+  }
+  if (surface.mcp) {
+    const mcp = strip(surface.mcp);
+    out.mcp = mcp;
+    const explicit = new Map((surface.links || []).filter(l => l.tool).map(l => [l.tool, l.endpoint ?? null]));
+    for (const t of mcp.tools) {
+      let op = null;
+      if (explicit.has(t.name)) {
+        const target = explicit.get(t.name);
+        if (target) { const [m, ...p] = target.split(/\s+/); op = domain.operations.find(o => o.method === m.toUpperCase() && o.path === p.join(' ')); }
+        t.link = target ? 'explicit' : 'none';
+      } else if (out.api) {
+        // Same words as an operationId (create_invoice <-> createInvoice), singular/plural tolerant.
+        const want = tokens(t.name).map(singular).join(' ');
+        const ep = out.api.endpoints.find(e => tokens(e.operationId).map(singular).join(' ') === want);
+        if (ep) { op = domain.operations.find(o => o.endpoint === ep.key); t.link = 'inferred'; }
+      }
+      t.op = op?.key ?? null;
+      if (op) links.edges.push({ rel: 'invokes', node: `tool:${t.name}`, screen: 'mcp', label: t.name, op: op.key });
+    }
+  }
+  // Operations nothing reaches are gaps unless a public endpoint is the reason they exist.
+  links.gaps = links.gaps.filter(g => g.kind !== 'unused-operation' || !links.edges.some(e => e.op === g.op));
+  return out;
+}
+
+export function buildManifest(model, { sourceName = model.name, surface = null } = {}) {
   const tok = tokenIndex(model);
   const components = componentsOf(model);
   const keys = new Map();
@@ -319,11 +384,13 @@ export function buildManifest(model, { sourceName = model.name } = {}) {
   for (const c of components) c.usedIn = usage.get(c.id) ?? [];
   const domain = domainOf(model, screens, components);
   const links = buildLinks(screens, domain);
+  const surf = surface ? surfaceInto(surface, domain, links) : null;
   const manifest = {
     schema: 'weshcraft/manifest@2',
-    source: { name: sourceName, truncated: !!model.truncated },
+    source: { name: screens.length ? sourceName : surf?.name ?? sourceName, truncated: !!model.truncated },
     screens, components, tokens: tokensOf(model), flows, domain, links,
+    ...(surf ? { surface: surf } : {}),
   };
-  manifest.source.hash = sha({ screens, components, tokens: manifest.tokens, flows, domain, links }, 16);
+  manifest.source.hash = sha({ screens, components, tokens: manifest.tokens, flows, domain, links, surface: surf }, 16);
   return manifest;
 }

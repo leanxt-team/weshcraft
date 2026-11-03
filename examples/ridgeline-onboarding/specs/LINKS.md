@@ -2,7 +2,7 @@
 
 Every place where the prototype meets the back end: 2 operation links and 0 data links across 2 screens. No gaps.
 
-Legend: ▶ triggers an operation · ⇢ submits a request field · ☰ list filled by an operation · ◉ shows an entity field.
+Legend: ▶ triggers an operation · ⇢ submits a request field · ☰ list filled by an operation · ◉ shows an entity field · ⚙ MCP tool calls it · ↗ public endpoint.
 
 ## Map
 
@@ -69,6 +69,6 @@ _No notes yet._
  ],
  "gaps": 0,
  "kind": "links",
- "sourceHash": "4eb686542c05a6f7"
+ "sourceHash": "046006b98ea38890"
 }
 -->

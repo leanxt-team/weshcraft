@@ -4,11 +4,12 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { bus, pool, writeFileSafe } from '../util/common.mjs';
-import { buildManifest } from '../model/manifest.mjs';
+import { buildManifest, emptyModel } from '../model/manifest.mjs';
 import { renderPrototype } from '../proto/html.mjs';
 import { screenSpec, componentSpec, tokensSpec, tokensCss, flowsSpec } from './front.mjs';
 import { domainSpec, apiSpec, openapi, conventionsSpec } from './back.mjs';
 import { linksSpec } from './links.mjs';
+import { mcpToolSpec, mcpIndexSpec, endpointSpec, apiIndexSpec } from './surface.mjs';
 import { readNotes } from './contract.mjs';
 import { diffManifests, updateChangelog, summaryLine } from './diff.mjs';
 import { agentPrompt, runAgent, sanitizeNotes, DEFAULT_AGENT } from './agent.mjs';
@@ -20,6 +21,7 @@ export class Workspace {
    */
   constructor(o) {
     this.source = o.source;
+    this.surface = o.surface ?? null; // MCP server / public API ("front" without screens)
     this.outDir = path.resolve(o.outDir);
     this.concurrency = o.concurrency ?? 6;
     this.agent = o.agent ? (typeof o.agent === 'string' ? o.agent : DEFAULT_AGENT) : null;
@@ -41,10 +43,12 @@ export class Workspace {
   file(rel) { return path.join(this.outDir, rel); }
 
   async snapshot() {
-    this.emit('log', { level: 'info', message: `Reading prototype from ${this.source.describe()}` });
-    const { model, thumbnail } = await this.source.load();
+    this.emit('log', { level: 'info', message: `Reading ${this.describe()}` });
+    const { model, thumbnail } = this.source ? await this.source.load() : { model: emptyModel(), thumbnail: null };
+    const surface = this.surface ? await this.surface.load() : null;
     this.model = model;
-    this.manifest = buildManifest(model);
+    this.surfaceData = surface;
+    this.manifest = buildManifest(model, { surface });
     this.thumbnail = thumbnail;
     // What changed since the manifest on disk (the last run, or what git checked out).
     const prevFile = this.file('specs/manifest.json');
@@ -65,6 +69,18 @@ export class Workspace {
     return this.manifest;
   }
 
+  /** Files that define the product (design + surfaces), with the CLI flag CI needs for each. */
+  designInputs() {
+    const out = [];
+    if (this.source?.file) out.push({ abs: path.resolve(this.source.file), arg: '--file' });
+    for (const x of this.surface?.inputs ?? []) if (!out.some(y => y.abs === x.abs)) out.push(x);
+    return out;
+  }
+
+  describe() {
+    return [this.source && this.source.kind !== 'none' ? this.source.describe() : null, this.surface?.describe()].filter(Boolean).join(' + ') || 'nothing';
+  }
+
   summary() {
     const m = this.manifest;
     if (!m) return null;
@@ -72,7 +88,8 @@ export class Workspace {
       name: m.source.name, hash: m.source.hash,
       screens: m.screens.map(s => ({ key: s.key, name: s.name, id: s.id, width: s.width, height: s.height, devStatus: s.devStatus })),
       components: m.components.length, tokens: m.tokens.variables.length,
-      entities: m.domain.entities.length, operations: m.domain.operations.length, links: m.links.edges.length, gaps: m.links.gaps.length,
+      entities: m.domain.entities.length, operations: m.domain.operations.length,
+      tools: m.surface?.mcp?.tools.length ?? 0, endpoints: m.surface?.api?.endpoints.length ?? 0, links: m.links.edges.length, gaps: m.links.gaps.length,
     };
   }
 
@@ -82,8 +99,16 @@ export class Workspace {
     const jobs = [];
     for (const s of m.screens) jobs.push({ id: `front:screen:${s.key}`, group: 'front', title: `Screen · ${s.name}`, file: `specs/front/screens/${s.key}.md`, fingerprint: s.fingerprint, node: s.id, screen: s.key, build: notes => screenSpec(this.model, m, s, { notes, ops: m.domain.operations, code: this.codeCache?.get(s.id), hasRender: fs.existsSync(this.file(`prototype/screens/${s.key}.png`)) }) });
     for (const c of m.components) jobs.push({ id: `front:component:${c.key}`, group: 'front', title: `Component · ${c.name}`, file: `specs/front/components/${c.key}.md`, fingerprint: c.fingerprint, node: c.id, build: notes => componentSpec(this.model, m, c, { notes, code: this.codeCache?.get(`c${c.id}`) }) });
-    jobs.push({ id: 'front:tokens', group: 'front', title: 'Design tokens', file: 'specs/front/tokens.md', build: notes => tokensSpec(m, { notes }), extra: () => [['specs/front/tokens.css', tokensCss(m)]] });
-    jobs.push({ id: 'front:flows', group: 'front', title: 'Navigation & flows', file: 'specs/front/flows.md', build: notes => flowsSpec(m, { notes }) });
+    if (m.surface?.mcp) {
+      jobs.push({ id: 'front:mcp', group: 'front', title: 'MCP server', file: 'specs/front/mcp/README.md', build: notes => mcpIndexSpec(m, { notes }) });
+      for (const t of m.surface.mcp.tools) jobs.push({ id: `front:mcp:${t.name}`, group: 'front', title: `MCP · ${t.name}`, file: `specs/front/mcp/${t.key}.md`, node: `tool:${t.name}`, build: notes => mcpToolSpec(m, t, { notes }) });
+    }
+    if (m.surface?.api) {
+      jobs.push({ id: 'front:api', group: 'front', title: 'Public API', file: 'specs/front/api/README.md', build: notes => apiIndexSpec(m, { notes }) });
+      for (const ep of m.surface.api.endpoints) jobs.push({ id: `front:api:${ep.key}`, group: 'front', title: `API · ${ep.method} ${ep.path}`, file: `specs/front/api/${ep.key}.md`, node: `ep:${ep.method} ${ep.path}`, build: notes => endpointSpec(m, ep, { notes }) });
+    }
+    if (m.screens.length || m.tokens.variables.length) jobs.push({ id: 'front:tokens', group: 'front', title: 'Design tokens', file: 'specs/front/tokens.md', build: notes => tokensSpec(m, { notes }), extra: () => [['specs/front/tokens.css', tokensCss(m)]] });
+    if (m.screens.length) jobs.push({ id: 'front:flows', group: 'front', title: 'Navigation & flows', file: 'specs/front/flows.md', build: notes => flowsSpec(m, { notes }) });
     jobs.push({ id: 'back:domain', group: 'back', title: 'Domain model', file: 'specs/back/domain.md', build: notes => domainSpec(m, { notes }) });
     jobs.push({ id: 'back:api', group: 'back', title: 'API & OpenAPI', file: 'specs/back/api.md', build: notes => apiSpec(m, { notes }), extra: () => [['specs/back/openapi.json', `${JSON.stringify(openapi(m), null, 2)}\n`]] });
     jobs.push({ id: 'links:map', group: 'links', title: 'Front ⇄ back map', file: 'specs/LINKS.md', build: notes => linksSpec(m, { notes }) });
@@ -101,7 +126,7 @@ export class Workspace {
   /** FigCraft renders and Dev Mode code, when a live FigCraft is attached. */
   async references() {
     this.codeCache = new Map();
-    if (this.source.kind !== 'mcp') return;
+    if (this.source?.kind !== 'mcp') return;
     const m = this.manifest;
     await pool(m.screens, 2, async s => {
       try {
@@ -189,7 +214,7 @@ export class Workspace {
   /** Specs for screens/components deleted in FigCraft are removed, not left to rot. */
   removeOrphans() {
     const keep = new Set(this.plan().map(j => j.file));
-    for (const dir of ['specs/front/screens', 'specs/front/components']) {
+    for (const dir of ['specs/front/screens', 'specs/front/components', 'specs/front/mcp', 'specs/front/api']) {
       const abs = this.file(dir);
       if (!fs.existsSync(abs)) continue;
       for (const f of fs.readdirSync(abs)) {
@@ -213,22 +238,28 @@ export class Workspace {
   writeIndex() {
     const m = this.manifest;
     const L = [`# ${m.source.name} — specifications`, ''];
-    L.push(`Generated by [WeshCraft](https://github.com/) from the FigCraft prototype \`${m.source.hash}\`. Parity: ${this.report.ok ? '✅ in sync' : '❌ out of sync'} (${this.report.score}%, see [PARITY.md](PARITY.md)).`);
+    const from = [m.screens.length ? 'the FigCraft prototype' : null, m.surface?.mcp ? 'the MCP server' : null, m.surface?.api ? 'the public API' : null].filter(Boolean).join(', ');
+    L.push(`Generated by WeshCraft from ${from || 'the design'} \`${m.source.hash}\`. Parity: ${this.report.ok ? '✅ in sync' : '❌ out of sync'} (${this.report.score}%, see [PARITY.md](PARITY.md)).`);
     L.push('');
-    L.push('- Clickable prototype: [`prototype/index.html`](../prototype/index.html)');
-    L.push('- Manifest (machine-readable inventory of the prototype): [`manifest.json`](manifest.json)');
+    L.push(`- ${m.screens.length ? 'Clickable prototype' : 'Interface catalog'}: [\`prototype/index.html\`](../prototype/index.html)`);
+    L.push('- Manifest (machine-readable inventory): [`manifest.json`](manifest.json)');
     L.push('');
     L.push('## Front end');
     L.push('');
-    L.push('| Screen | Size | Texts | Interactions | Back-end calls |');
-    L.push('|---|---|---|---|---|');
-    for (const s of m.screens) L.push(`| [${s.name}](front/screens/${s.key}.md) | ${s.width}×${s.height} | ${s.texts.length} | ${s.actions.length} | ${m.domain.operations.filter(o => o.screen === s.key).map(o => `\`${o.method} ${o.path}\``).join(', ') || '—'} |`);
-    L.push('');
+    if (m.screens.length) {
+      L.push('| Screen | Size | Texts | Interactions | Back-end calls |');
+      L.push('|---|---|---|---|---|');
+      for (const s of m.screens) L.push(`| [${s.name}](front/screens/${s.key}.md) | ${s.width}×${s.height} | ${s.texts.length} | ${s.actions.length} | ${m.domain.operations.filter(o => o.screen === s.key).map(o => `\`${o.method} ${o.path}\``).join(', ') || '—'} |`);
+      L.push('');
+    }
+    if (m.surface?.mcp) { L.push(`- [MCP server](front/mcp/README.md): ${m.surface.mcp.tools.map(t => `[\`${t.name}\`](front/mcp/${t.key}.md)`).join(' · ')}`); }
+    if (m.surface?.api) { L.push(`- [Public API](front/api/README.md): ${m.surface.api.endpoints.length} endpoints`); }
+    if (m.surface) L.push('');
     if (m.components.length) {
       L.push('Components: ' + m.components.map(c => `[${c.name}](front/components/${c.key}.md)`).join(' · '));
       L.push('');
     }
-    L.push('Also: [design tokens](front/tokens.md) ([CSS](front/tokens.css)) · [navigation & flows](front/flows.md)');
+    if (m.screens.length) L.push('Also: [design tokens](front/tokens.md) ([CSS](front/tokens.css)) · [navigation & flows](front/flows.md)');
     L.push('');
     const { edges, gaps } = m.links;
     L.push(`## Front ⇄ back`);
@@ -249,8 +280,8 @@ export class Workspace {
       report: this.report,
       running: !!this.running,
       agent: this.agent,
-      source: this.source.describe(),
-      sourceKind: this.source.kind,
+      source: this.describe(),
+      sourceKind: this.source?.kind ?? 'none',
       log: this.log.slice(-50),
     };
   }

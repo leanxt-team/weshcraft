@@ -1,0 +1,43 @@
+{
+  "server": { "name": "billing-mcp", "version": "0.3.0" },
+  "tools": [
+    {
+      "name": "create_invoice",
+      "title": "Create invoice",
+      "description": "Create a draft invoice for a customer. Returns the invoice.",
+      "inputSchema": { "type": "object", "required": ["customerId", "amount", "currency"], "properties": {
+        "customerId": { "type": "string", "format": "uuid", "description": "Customer to bill." },
+        "amount": { "type": "integer", "minimum": 1, "description": "Total in minor units." },
+        "currency": { "type": "string", "enum": ["EUR", "USD", "GBP"] },
+        "dueDate": { "type": "string", "format": "date" } } },
+      "annotations": { "readOnlyHint": false, "destructiveHint": false, "idempotentHint": false, "openWorldHint": false }
+    },
+    {
+      "name": "list_invoices",
+      "title": "List invoices",
+      "description": "List invoices, optionally by status.",
+      "inputSchema": { "type": "object", "properties": { "status": { "type": "string", "enum": ["draft", "open", "paid", "void"] }, "limit": { "type": "integer", "minimum": 1, "maximum": 100, "default": 20 } } },
+      "annotations": { "readOnlyHint": true, "openWorldHint": false }
+    },
+    {
+      "name": "send_invoice",
+      "title": "Send invoice",
+      "description": "Email an open invoice to its customer. Sends a real email.",
+      "inputSchema": { "type": "object", "required": ["id"], "properties": { "id": { "type": "string", "format": "uuid" } } },
+      "annotations": { "readOnlyHint": false, "destructiveHint": false, "idempotentHint": true, "openWorldHint": true }
+    },
+    {
+      "name": "void_invoice",
+      "title": "Void invoice",
+      "description": "Void an invoice. Cannot be undone.",
+      "inputSchema": { "type": "object", "required": ["id", "reason"], "properties": { "id": { "type": "string", "format": "uuid" }, "reason": { "type": "string", "minLength": 3 } } },
+      "annotations": { "destructiveHint": true, "idempotentHint": true, "openWorldHint": false }
+    }
+  ],
+  "resources": [
+    { "uri": "billing://invoices/{id}.pdf", "uriTemplate": "billing://invoices/{id}.pdf", "name": "Invoice PDF", "mimeType": "application/pdf", "description": "Rendered invoice." }
+  ],
+  "prompts": [
+    { "name": "chase_overdue", "description": "Draft polite reminders for overdue invoices.", "arguments": [{ "name": "days", "required": false, "description": "Overdue for at least this many days." }] }
+  ]
+}

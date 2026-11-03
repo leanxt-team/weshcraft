@@ -39,9 +39,9 @@ export function domainSpec(manifest, { notes } = {}) {
     L.push(`<a id="${entityAnchor(e.name)}"></a>`);
     L.push(`## ${e.name}`);
     L.push('');
-    L.push(`Source layers: ${e.sources.map(ref).join(', ')} · ${e.confidence}`);
+    L.push(e.sources.length ? `Source layers: ${e.sources.map(ref).join(', ')} · ${e.confidence}` : `Source: API schema \`${e.schema ?? e.name}\` · ${e.confidence}`);
     L.push('');
-    L.push('| Field | Type | Example (from the prototype) | Shown by | Screens | Loaded by | Confidence |');
+    L.push('| Field | Type | Example | Shown by | Screens | Loaded by | Confidence |');
     L.push('|---|---|---|---|---|---|---|');
     L.push(`| id | id | — | — | — | — | required |`);
     for (const f of e.fields) {
@@ -74,7 +74,8 @@ export function apiSpec(manifest, { notes } = {}) {
   L.push('Every operation a screen needs, grouped by screen. Conventions (auth, errors, pagination) are in [conventions](conventions.md); the machine-readable contract is [`openapi.json`](openapi.json).');
   L.push('');
   if (!ops.length) L.push('The prototype triggers no back-end operation. Annotate a layer with `GET /path` (Dev Mode annotation) or name actions with verbs (Save, Create, Continue…) to add one.');
-  for (const s of manifest.screens) {
+  const groups = [...manifest.screens, ...(ops.some(o => o.screen === 'api') ? [{ key: 'api', name: 'Public API', inputs: [] }] : [])];
+  for (const s of groups) {
     const here = ops.filter(o => o.screen === s.key);
     if (!here.length) continue;
     L.push(`## ${s.name}`);
@@ -83,10 +84,16 @@ export function apiSpec(manifest, { notes } = {}) {
       L.push(`<a id="${o.key}"></a>`);
       L.push(`### \`${o.method} ${o.path}\` — ${mdEscape(o.name)}`);
       L.push('');
-      L.push(`- Screen: [${mdEscape(s.name)}](../front/screens/${s.key}.md)${o.trigger ? `, triggered by ${ref(o.trigger)}` : ', on screen load'}`);
+      L.push(s.key === 'api'
+        ? `- Public endpoint: [\`${o.method} ${o.path}\`](../front/api/${o.endpoint}.md)`
+        : `- Screen: [${mdEscape(s.name)}](../front/screens/${s.key}.md)${o.trigger ? `, triggered by ${ref(o.trigger)}` : ', on screen load'}`);
+      const tools = manifest.surface?.mcp?.tools.filter(t => t.op === o.key) ?? [];
+      if (tools.length) L.push(`- MCP: ${tools.map(t => `[\`${t.name}\`](../front/mcp/${t.key}.md)`).join(', ')}`);
       L.push(`- Kind: ${o.kind} · confidence: ${o.confidence}`);
       const used = manifest.links.edges.filter(x => x.op === o.key);
-      if (used.length) L.push(`- Front end: ${used.map(x => `${{ triggers: '▶', submits: '⇢', lists: '☰' }[x.rel]} \`#${x.node}\` ${mdEscape(x.label)}`).join(' · ')}`);
+      // Screens' layers; MCP tools and public endpoints have their own lines above.
+      const layers = used.filter(x => typeof x.node === 'number');
+      if (layers.length) L.push(`- Front end: ${layers.map(x => `${{ triggers: '▶', submits: '⇢', lists: '☰' }[x.rel]} \`#${x.node}\` ${mdEscape(x.label)}`).join(' · ')}`);
       if (o.entity) {
         const shown = manifest.links.edges.filter(x => x.via === o.key);
         if (shown.length) L.push(`- Response shown: ${[...new Set(shown.map(x => x.field))].map(f => `\`${f}\` (${shown.filter(x => x.field === f).map(x => `\`#${x.node}\``).join(' ')})`).join(', ')}`);
@@ -145,7 +152,20 @@ export function openapi(manifest) {
       },
     };
     if (o.kind === 'list') op.parameters = [{ name: 'cursor', in: 'query', schema: { type: 'string' } }, { name: 'limit', in: 'query', schema: { type: 'integer', minimum: 1, maximum: 100, default: 20 } }];
-    if (fields.length && o.method !== 'GET' && o.method !== 'DELETE') {
+    // A public endpoint keeps its own parameters, body and tags.
+    const ep = o.endpoint && manifest.surface?.api?.endpoints.find(e => e.key === o.endpoint);
+    const jsonType = f => ({ type: /\[\]$/.test(f.type) ? 'array' : ['string', 'integer', 'number', 'boolean', 'object', 'array'].includes(f.type) ? f.type : 'string', ...(f.format ? { format: f.format } : {}), ...(f.enum ? { enum: f.enum } : {}), ...(f.description ? { description: f.description } : {}) });
+    if (ep) {
+      op.tags = ep.tags.length ? ep.tags : ['Public API'];
+      if (ep.operationId) op.operationId = ep.operationId;
+      if (ep.params.length) op.parameters = ep.params.map(p => ({ name: p.name, in: p.in, required: !!p.required, schema: jsonType(p), ...(p.description ? { description: p.description } : {}) }));
+      if (ep.body) op.requestBody = { required: ep.body.required, content: { 'application/json': { schema: ep.body.ref ? { $ref: `#/components/schemas/${ep.body.ref}` } : { type: 'object', required: ep.body.fields.filter(f => f.required && !f.name.includes('.')).map(f => f.name), properties: Object.fromEntries(ep.body.fields.filter(f => !f.name.includes('.')).map(f => [f.name, jsonType(f)])) } } } };
+      if (ep.body?.ref && !schemas[ep.body.ref]) {
+        const sch = manifest.surface.api.schemas[ep.body.ref];
+        if (sch) schemas[ep.body.ref] = { type: 'object', required: sch.fields.filter(f => f.required && !f.name.includes('.')).map(f => f.name), properties: Object.fromEntries(sch.fields.filter(f => !f.name.includes('.')).map(f => [f.name, jsonType(f)])) };
+      }
+      for (const r of ep.responses) if (!op.responses[r.status]) op.responses[r.status] = { description: r.description || 'See the API description' };
+    } else if (fields.length && o.method !== 'GET' && o.method !== 'DELETE') {
       op.requestBody = { required: true, content: { 'application/json': { schema: { type: 'object', properties: Object.fromEntries(fields.map(f => [slug(f.name).replace(/-/g, '_'), { type: 'string', 'x-weshcraft-node': f.id }])) } } } };
     }
     const existing = paths[o.path]?.[o.method.toLowerCase()];

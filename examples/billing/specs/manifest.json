@@ -1,0 +1,953 @@
+{
+ "schema": "weshcraft/manifest@2",
+ "source": {
+  "name": "Billing service",
+  "truncated": false,
+  "hash": "4adc5ece25fbe421"
+ },
+ "screens": [],
+ "components": [],
+ "tokens": {
+  "collections": [],
+  "variables": []
+ },
+ "flows": [],
+ "domain": {
+  "entities": [
+   {
+    "name": "Customer",
+    "confidence": "explicit",
+    "sources": [],
+    "fields": [
+     {
+      "name": "id",
+      "type": "id",
+      "sources": [],
+      "confidence": "explicit",
+      "required": true
+     },
+     {
+      "name": "name",
+      "type": "string",
+      "sources": [],
+      "confidence": "explicit",
+      "required": false
+     },
+     {
+      "name": "email",
+      "type": "email",
+      "sources": [],
+      "confidence": "explicit",
+      "required": true
+     }
+    ],
+    "schema": "Customer"
+   },
+   {
+    "name": "Invoice",
+    "confidence": "explicit",
+    "sources": [],
+    "fields": [
+     {
+      "name": "customerId",
+      "type": "id",
+      "sources": [],
+      "confidence": "explicit",
+      "required": true
+     },
+     {
+      "name": "amount",
+      "type": "integer",
+      "sources": [],
+      "confidence": "explicit",
+      "required": true
+     },
+     {
+      "name": "currency",
+      "type": "string",
+      "sources": [],
+      "confidence": "explicit",
+      "required": true,
+      "enum": [
+       "EUR",
+       "USD",
+       "GBP"
+      ]
+     },
+     {
+      "name": "dueDate",
+      "type": "date",
+      "sources": [],
+      "confidence": "explicit",
+      "required": false
+     },
+     {
+      "name": "id",
+      "type": "id",
+      "sources": [],
+      "confidence": "explicit",
+      "required": true
+     },
+     {
+      "name": "status",
+      "type": "string",
+      "sources": [],
+      "confidence": "explicit",
+      "required": true,
+      "enum": [
+       "draft",
+       "open",
+       "paid",
+       "void"
+      ]
+     },
+     {
+      "name": "sentAt",
+      "type": "datetime",
+      "sources": [],
+      "confidence": "explicit",
+      "required": false
+     }
+    ],
+    "schema": "Invoice"
+   }
+  ],
+  "operations": [
+   {
+    "key": "op-ep-get-invoices",
+    "name": "List invoices",
+    "method": "GET",
+    "path": "/invoices",
+    "screen": "api",
+    "trigger": null,
+    "entity": "Invoice",
+    "kind": "list",
+    "confidence": "explicit",
+    "sources": [],
+    "fields": [],
+    "endpoint": "ep-get-invoices"
+   },
+   {
+    "key": "op-ep-post-invoices",
+    "name": "Create a draft invoice",
+    "method": "POST",
+    "path": "/invoices",
+    "screen": "api",
+    "trigger": null,
+    "entity": "Invoice",
+    "kind": "endpoint",
+    "confidence": "explicit",
+    "sources": [],
+    "fields": [],
+    "endpoint": "ep-post-invoices"
+   },
+   {
+    "key": "op-ep-get-invoices-id",
+    "name": "Get one invoice",
+    "method": "GET",
+    "path": "/invoices/{id}",
+    "screen": "api",
+    "trigger": null,
+    "entity": "Invoice",
+    "kind": "endpoint",
+    "confidence": "explicit",
+    "sources": [],
+    "fields": [],
+    "endpoint": "ep-get-invoices-id"
+   },
+   {
+    "key": "op-ep-post-invoices-id-send",
+    "name": "Email the invoice to the customer",
+    "method": "POST",
+    "path": "/invoices/{id}/send",
+    "screen": "api",
+    "trigger": null,
+    "entity": null,
+    "kind": "endpoint",
+    "confidence": "explicit",
+    "sources": [],
+    "fields": [],
+    "endpoint": "ep-post-invoices-id-send"
+   },
+   {
+    "key": "op-ep-get-customers",
+    "name": "List customers",
+    "method": "GET",
+    "path": "/customers",
+    "screen": "api",
+    "trigger": null,
+    "entity": "Customer",
+    "kind": "list",
+    "confidence": "explicit",
+    "sources": [],
+    "fields": [],
+    "endpoint": "ep-get-customers"
+   }
+  ]
+ },
+ "links": {
+  "edges": [
+   {
+    "rel": "exposes",
+    "node": "ep:GET /invoices",
+    "screen": "api",
+    "label": "GET /invoices",
+    "op": "op-ep-get-invoices"
+   },
+   {
+    "rel": "exposes",
+    "node": "ep:POST /invoices",
+    "screen": "api",
+    "label": "POST /invoices",
+    "op": "op-ep-post-invoices"
+   },
+   {
+    "rel": "exposes",
+    "node": "ep:GET /invoices/{id}",
+    "screen": "api",
+    "label": "GET /invoices/{id}",
+    "op": "op-ep-get-invoices-id"
+   },
+   {
+    "rel": "exposes",
+    "node": "ep:POST /invoices/{id}/send",
+    "screen": "api",
+    "label": "POST /invoices/{id}/send",
+    "op": "op-ep-post-invoices-id-send"
+   },
+   {
+    "rel": "exposes",
+    "node": "ep:GET /customers",
+    "screen": "api",
+    "label": "GET /customers",
+    "op": "op-ep-get-customers"
+   },
+   {
+    "rel": "invokes",
+    "node": "tool:create_invoice",
+    "screen": "mcp",
+    "label": "create_invoice",
+    "op": "op-ep-post-invoices"
+   },
+   {
+    "rel": "invokes",
+    "node": "tool:list_invoices",
+    "screen": "mcp",
+    "label": "list_invoices",
+    "op": "op-ep-get-invoices"
+   },
+   {
+    "rel": "invokes",
+    "node": "tool:send_invoice",
+    "screen": "mcp",
+    "label": "send_invoice",
+    "op": "op-ep-post-invoices-id-send"
+   }
+  ],
+  "gaps": []
+ },
+ "surface": {
+  "name": "Billing service",
+  "mcp": {
+   "server": "billing-mcp",
+   "version": "0.3.0",
+   "instructions": null,
+   "tools": [
+    {
+     "key": "tool-create-invoice",
+     "name": "create_invoice",
+     "title": "Create invoice",
+     "description": "Create a draft invoice for a customer. Returns the invoice.",
+     "input": [
+      {
+       "name": "customerId",
+       "type": "string",
+       "required": true,
+       "description": "Customer to bill.",
+       "enum": null,
+       "format": "uuid",
+       "min": null,
+       "max": null,
+       "default": null,
+       "ref": null
+      },
+      {
+       "name": "amount",
+       "type": "integer",
+       "required": true,
+       "description": "Total in minor units.",
+       "enum": null,
+       "format": null,
+       "min": 1,
+       "max": null,
+       "default": null,
+       "ref": null
+      },
+      {
+       "name": "currency",
+       "type": "string",
+       "required": true,
+       "description": "",
+       "enum": [
+        "EUR",
+        "USD",
+        "GBP"
+       ],
+       "format": null,
+       "min": null,
+       "max": null,
+       "default": null,
+       "ref": null
+      },
+      {
+       "name": "dueDate",
+       "type": "string",
+       "required": false,
+       "description": "",
+       "enum": null,
+       "format": "date",
+       "min": null,
+       "max": null,
+       "default": null,
+       "ref": null
+      }
+     ],
+     "output": null,
+     "hints": {
+      "readOnly": false,
+      "destructive": false,
+      "idempotent": false,
+      "openWorld": false
+     },
+     "fingerprint": "dc429baba1d6",
+     "link": "explicit",
+     "op": "op-ep-post-invoices"
+    },
+    {
+     "key": "tool-list-invoices",
+     "name": "list_invoices",
+     "title": "List invoices",
+     "description": "List invoices, optionally by status.",
+     "input": [
+      {
+       "name": "status",
+       "type": "string",
+       "required": false,
+       "description": "",
+       "enum": [
+        "draft",
+        "open",
+        "paid",
+        "void"
+       ],
+       "format": null,
+       "min": null,
+       "max": null,
+       "default": null,
+       "ref": null
+      },
+      {
+       "name": "limit",
+       "type": "integer",
+       "required": false,
+       "description": "",
+       "enum": null,
+       "format": null,
+       "min": 1,
+       "max": 100,
+       "default": 20,
+       "ref": null
+      }
+     ],
+     "output": null,
+     "hints": {
+      "readOnly": true,
+      "destructive": false,
+      "idempotent": false,
+      "openWorld": false
+     },
+     "fingerprint": "1b6a38534bc0",
+     "link": "inferred",
+     "op": "op-ep-get-invoices"
+    },
+    {
+     "key": "tool-send-invoice",
+     "name": "send_invoice",
+     "title": "Send invoice",
+     "description": "Email an open invoice to its customer. Sends a real email.",
+     "input": [
+      {
+       "name": "id",
+       "type": "string",
+       "required": true,
+       "description": "",
+       "enum": null,
+       "format": "uuid",
+       "min": null,
+       "max": null,
+       "default": null,
+       "ref": null
+      }
+     ],
+     "output": null,
+     "hints": {
+      "readOnly": false,
+      "destructive": false,
+      "idempotent": true,
+      "openWorld": true
+     },
+     "fingerprint": "dec5c565b001",
+     "link": "inferred",
+     "op": "op-ep-post-invoices-id-send"
+    },
+    {
+     "key": "tool-void-invoice",
+     "name": "void_invoice",
+     "title": "Void invoice",
+     "description": "Void an invoice. Cannot be undone.",
+     "input": [
+      {
+       "name": "id",
+       "type": "string",
+       "required": true,
+       "description": "",
+       "enum": null,
+       "format": "uuid",
+       "min": null,
+       "max": null,
+       "default": null,
+       "ref": null
+      },
+      {
+       "name": "reason",
+       "type": "string",
+       "required": true,
+       "description": "",
+       "enum": null,
+       "format": null,
+       "min": 3,
+       "max": null,
+       "default": null,
+       "ref": null
+      }
+     ],
+     "output": null,
+     "hints": {
+      "readOnly": false,
+      "destructive": true,
+      "idempotent": true,
+      "openWorld": false
+     },
+     "fingerprint": "3b4e6c4cc1d1",
+     "link": "none",
+     "op": null
+    }
+   ],
+   "resources": [
+    {
+     "uri": "billing://invoices/{id}.pdf",
+     "name": "Invoice PDF",
+     "description": "Rendered invoice.",
+     "mimeType": "application/pdf",
+     "template": true
+    }
+   ],
+   "prompts": [
+    {
+     "name": "chase_overdue",
+     "description": "Draft polite reminders for overdue invoices.",
+     "arguments": [
+      {
+       "name": "days",
+       "required": false,
+       "description": "Overdue for at least this many days."
+      }
+     ]
+    }
+   ]
+  },
+  "api": {
+   "title": "Billing API",
+   "version": "1.0.0",
+   "description": "Invoices for customers. Amounts are in minor units (cents).",
+   "servers": [
+    "https://api.example.com/v1"
+   ],
+   "endpoints": [
+    {
+     "key": "ep-get-invoices",
+     "method": "GET",
+     "path": "/invoices",
+     "operationId": "listInvoices",
+     "summary": "List invoices",
+     "description": "",
+     "tags": [
+      "Invoices"
+     ],
+     "deprecated": false,
+     "params": [
+      {
+       "name": "status",
+       "type": "string",
+       "required": false,
+       "description": "Only invoices in this state.",
+       "enum": [
+        "draft",
+        "open",
+        "paid",
+        "void"
+       ],
+       "format": null,
+       "min": null,
+       "max": null,
+       "default": null,
+       "ref": null,
+       "in": "query"
+      },
+      {
+       "name": "limit",
+       "type": "integer",
+       "required": false,
+       "description": "",
+       "enum": null,
+       "format": null,
+       "min": 1,
+       "max": 100,
+       "default": 20,
+       "ref": null,
+       "in": "query"
+      }
+     ],
+     "body": null,
+     "responses": [
+      {
+       "status": "200",
+       "description": "A page of invoices.",
+       "schema": "Invoice",
+       "list": true
+      }
+     ],
+     "security": [
+      "bearer"
+     ],
+     "fingerprint": "13e6328bfc0c"
+    },
+    {
+     "key": "ep-post-invoices",
+     "method": "POST",
+     "path": "/invoices",
+     "operationId": "createInvoice",
+     "summary": "Create a draft invoice",
+     "description": "",
+     "tags": [
+      "Invoices"
+     ],
+     "deprecated": false,
+     "params": [],
+     "body": {
+      "ref": "InvoiceInput",
+      "required": true,
+      "fields": [
+       {
+        "name": "customerId",
+        "type": "string",
+        "required": true,
+        "description": "Customer to bill.",
+        "enum": null,
+        "format": "uuid",
+        "min": null,
+        "max": null,
+        "default": null,
+        "ref": null
+       },
+       {
+        "name": "amount",
+        "type": "integer",
+        "required": true,
+        "description": "Total in minor units.",
+        "enum": null,
+        "format": null,
+        "min": 1,
+        "max": null,
+        "default": null,
+        "ref": null
+       },
+       {
+        "name": "currency",
+        "type": "string",
+        "required": true,
+        "description": "",
+        "enum": [
+         "EUR",
+         "USD",
+         "GBP"
+        ],
+        "format": null,
+        "min": null,
+        "max": null,
+        "default": null,
+        "ref": null
+       },
+       {
+        "name": "dueDate",
+        "type": "string",
+        "required": false,
+        "description": "",
+        "enum": null,
+        "format": "date",
+        "min": null,
+        "max": null,
+        "default": null,
+        "ref": null
+       }
+      ]
+     },
+     "responses": [
+      {
+       "status": "201",
+       "description": "Created.",
+       "schema": "Invoice",
+       "list": false
+      },
+      {
+       "status": "400",
+       "description": "Validation error.",
+       "schema": null,
+       "list": false
+      }
+     ],
+     "security": [
+      "bearer"
+     ],
+     "fingerprint": "a16ef171e6fe"
+    },
+    {
+     "key": "ep-get-invoices-id",
+     "method": "GET",
+     "path": "/invoices/{id}",
+     "operationId": "getInvoice",
+     "summary": "Get one invoice",
+     "description": "",
+     "tags": [
+      "Invoices"
+     ],
+     "deprecated": false,
+     "params": [
+      {
+       "name": "id",
+       "type": "string",
+       "required": true,
+       "description": "",
+       "enum": null,
+       "format": "uuid",
+       "min": null,
+       "max": null,
+       "default": null,
+       "ref": null,
+       "in": "path"
+      }
+     ],
+     "body": null,
+     "responses": [
+      {
+       "status": "200",
+       "description": "The invoice.",
+       "schema": "Invoice",
+       "list": false
+      },
+      {
+       "status": "404",
+       "description": "Not found.",
+       "schema": null,
+       "list": false
+      }
+     ],
+     "security": [
+      "bearer"
+     ],
+     "fingerprint": "423c17621467"
+    },
+    {
+     "key": "ep-post-invoices-id-send",
+     "method": "POST",
+     "path": "/invoices/{id}/send",
+     "operationId": "sendInvoice",
+     "summary": "Email the invoice to the customer",
+     "description": "",
+     "tags": [
+      "Invoices"
+     ],
+     "deprecated": false,
+     "params": [
+      {
+       "name": "id",
+       "type": "string",
+       "required": true,
+       "description": "",
+       "enum": null,
+       "format": "uuid",
+       "min": null,
+       "max": null,
+       "default": null,
+       "ref": null,
+       "in": "path"
+      }
+     ],
+     "body": null,
+     "responses": [
+      {
+       "status": "202",
+       "description": "Queued.",
+       "schema": null,
+       "list": false
+      },
+      {
+       "status": "409",
+       "description": "Invoice is not open.",
+       "schema": null,
+       "list": false
+      }
+     ],
+     "security": [
+      "bearer"
+     ],
+     "fingerprint": "2de66f647f66"
+    },
+    {
+     "key": "ep-get-customers",
+     "method": "GET",
+     "path": "/customers",
+     "operationId": "listCustomers",
+     "summary": "List customers",
+     "description": "",
+     "tags": [
+      "Customers"
+     ],
+     "deprecated": false,
+     "params": [],
+     "body": null,
+     "responses": [
+      {
+       "status": "200",
+       "description": "Customers.",
+       "schema": "Customer",
+       "list": true
+      }
+     ],
+     "security": [
+      "bearer"
+     ],
+     "fingerprint": "cf87224ea2c5"
+    }
+   ],
+   "schemas": {
+    "Customer": {
+     "name": "Customer",
+     "description": "",
+     "fields": [
+      {
+       "name": "id",
+       "type": "string",
+       "required": true,
+       "description": "",
+       "enum": null,
+       "format": "uuid",
+       "min": null,
+       "max": null,
+       "default": null,
+       "ref": null
+      },
+      {
+       "name": "name",
+       "type": "string",
+       "required": false,
+       "description": "",
+       "enum": null,
+       "format": null,
+       "min": null,
+       "max": null,
+       "default": null,
+       "ref": null
+      },
+      {
+       "name": "email",
+       "type": "string",
+       "required": true,
+       "description": "",
+       "enum": null,
+       "format": "email",
+       "min": null,
+       "max": null,
+       "default": null,
+       "ref": null
+      }
+     ]
+    },
+    "InvoiceInput": {
+     "name": "InvoiceInput",
+     "description": "",
+     "fields": [
+      {
+       "name": "customerId",
+       "type": "string",
+       "required": true,
+       "description": "Customer to bill.",
+       "enum": null,
+       "format": "uuid",
+       "min": null,
+       "max": null,
+       "default": null,
+       "ref": null
+      },
+      {
+       "name": "amount",
+       "type": "integer",
+       "required": true,
+       "description": "Total in minor units.",
+       "enum": null,
+       "format": null,
+       "min": 1,
+       "max": null,
+       "default": null,
+       "ref": null
+      },
+      {
+       "name": "currency",
+       "type": "string",
+       "required": true,
+       "description": "",
+       "enum": [
+        "EUR",
+        "USD",
+        "GBP"
+       ],
+       "format": null,
+       "min": null,
+       "max": null,
+       "default": null,
+       "ref": null
+      },
+      {
+       "name": "dueDate",
+       "type": "string",
+       "required": false,
+       "description": "",
+       "enum": null,
+       "format": "date",
+       "min": null,
+       "max": null,
+       "default": null,
+       "ref": null
+      }
+     ]
+    },
+    "Invoice": {
+     "name": "Invoice",
+     "description": "",
+     "fields": [
+      {
+       "name": "customerId",
+       "type": "string",
+       "required": true,
+       "description": "Customer to bill.",
+       "enum": null,
+       "format": "uuid",
+       "min": null,
+       "max": null,
+       "default": null,
+       "ref": null
+      },
+      {
+       "name": "amount",
+       "type": "integer",
+       "required": true,
+       "description": "Total in minor units.",
+       "enum": null,
+       "format": null,
+       "min": 1,
+       "max": null,
+       "default": null,
+       "ref": null
+      },
+      {
+       "name": "currency",
+       "type": "string",
+       "required": true,
+       "description": "",
+       "enum": [
+        "EUR",
+        "USD",
+        "GBP"
+       ],
+       "format": null,
+       "min": null,
+       "max": null,
+       "default": null,
+       "ref": null
+      },
+      {
+       "name": "dueDate",
+       "type": "string",
+       "required": false,
+       "description": "",
+       "enum": null,
+       "format": "date",
+       "min": null,
+       "max": null,
+       "default": null,
+       "ref": null
+      },
+      {
+       "name": "id",
+       "type": "string",
+       "required": true,
+       "description": "",
+       "enum": null,
+       "format": "uuid",
+       "min": null,
+       "max": null,
+       "default": null,
+       "ref": null
+      },
+      {
+       "name": "status",
+       "type": "string",
+       "required": true,
+       "description": "",
+       "enum": [
+        "draft",
+        "open",
+        "paid",
+        "void"
+       ],
+       "format": null,
+       "min": null,
+       "max": null,
+       "default": null,
+       "ref": null
+      },
+      {
+       "name": "sentAt",
+       "type": "string",
+       "required": false,
+       "description": "",
+       "enum": null,
+       "format": "date-time",
+       "min": null,
+       "max": null,
+       "default": null,
+       "ref": null
+      }
+     ]
+    }
+   },
+   "auth": [
+    {
+     "name": "bearer",
+     "type": "http",
+     "scheme": "bearer"
+    }
+   ]
+  }
+ }
+}

@@ -338,6 +338,10 @@ test('init writes MCP config for Claude Code and OpenCode 1 and 2', () => {
   const oc2 = JSON.parse(fs.readFileSync(path.join(dir2, 'opencode.json'), 'utf8'));
   assert.equal(oc2.mcp.servers.weshcraft.disabled, false);
   assert.ok(oc2.mcp.servers.other, 'existing servers kept');
+  const dir3 = tmp();
+  execFileSync(process.execPath, [bin, 'init', '--client', 'claude', '--surface', 'api/openapi.yaml'], { cwd: dir3 });
+  const c3 = JSON.parse(fs.readFileSync(path.join(dir3, '.mcp.json'), 'utf8')).mcpServers.weshcraft.args;
+  assert.ok(c3.includes('--surface') && !c3.includes('--mcp'), 'API-only projects need no FigCraft');
 });
 
 import { diffManifests, updateChangelog, summaryLine } from '../src/spec/diff.mjs';
@@ -363,4 +367,90 @@ test('design changelog: copy, screens and operations, newest first', async () =>
   const w2 = new Workspace({ source: new FileSource(file), outDir: out });
   await w2.run();
   assert.match(fs.readFileSync(path.join(out, 'specs/CHANGES.md'), 'utf8'), /Join WeshTrails/);
+});
+
+import { parseYaml } from '../src/surface/yaml.mjs';
+import { loadSurfaceFile, loadMcpServer, SurfaceSource } from '../src/surface/load.mjs';
+import { emptyModel } from '../src/model/manifest.mjs';
+
+const BILLING = path.join(here, 'fixtures/billing/weshcraft.surface.json');
+
+test('YAML subset: maps, sequences, flow, block scalars, comments', () => {
+  const y = parseYaml('a: 1\nb:\n  - x\n  - {k: v, n: [1, 2]}\nc: |\n  line one\n  line two\nd: "q: x" # note\ne: >-\n  folded\n  text\n');
+  assert.deepEqual(y, { a: 1, b: ['x', { k: 'v', n: [1, 2] }], c: 'line one\nline two\n', d: 'q: x', e: 'folded text' });
+  assert.throws(() => parseYaml('a: &x 1\nb: *x\n'));
+});
+
+test('surface: OpenAPI (YAML, $ref, allOf) and MCP tools become one manifest', () => {
+  const s = loadSurfaceFile(BILLING);
+  assert.equal(s.api.endpoints.length, 5);
+  const list = s.api.endpoints.find(e => e.operationId === 'listInvoices');
+  assert.deepEqual(list.params.map(p => p.name), ['status', 'limit'], 'parameter $ref resolved');
+  assert.ok(s.api.schemas.Invoice.fields.some(f => f.name === 'status'), 'allOf merged');
+  const m = buildManifest(emptyModel(), { surface: s });
+  assert.equal(m.source.name, 'Billing service');
+  assert.deepEqual(m.domain.entities.map(e => e.name), ['Customer', 'Invoice']);
+  const tool = n => m.surface.mcp.tools.find(t => t.name === n);
+  assert.equal(tool('create_invoice').link, 'explicit');
+  assert.equal(tool('list_invoices').link, 'inferred', 'list_invoices ↔ listInvoices');
+  assert.equal(tool('void_invoice').op, null);
+  assert.ok(tool('void_invoice').hints.destructive);
+  assert.ok(m.links.edges.some(e => e.rel === 'invokes' && e.node === 'tool:send_invoice'));
+  assert.equal(m.links.gaps.length, 0);
+});
+
+test('non-visual workspace: MCP + API specs, catalog, parity, drift on a schema change', async () => {
+  const dir = tmp();
+  for (const f of fs.readdirSync(path.dirname(BILLING))) fs.copyFileSync(path.join(path.dirname(BILLING), f), path.join(dir, f));
+  const out = tmp();
+  const ws = new Workspace({ source: null, surface: new SurfaceSource({ files: [path.join(dir, 'weshcraft.surface.json')] }), outDir: out });
+  const r = await ws.run();
+  assert.ok(r.report.ok, JSON.stringify(r.report.issues.slice(0, 3)));
+  for (const f of ['specs/front/mcp/README.md', 'specs/front/mcp/tool-void-invoice.md', 'specs/front/api/README.md', 'specs/front/api/ep-post-invoices.md', 'specs/back/openapi.json', 'specs/LINKS.md'])
+    assert.ok(fs.existsSync(path.join(out, f)), f);
+  assert.ok(!fs.existsSync(path.join(out, 'specs/front/flows.md')), 'no screens, no flows spec');
+  const tool = fs.readFileSync(path.join(out, 'specs/front/mcp/tool-void-invoice.md'), 'utf8');
+  assert.match(tool, /\*\*destructive\*\*/);
+  assert.match(tool, /Calling without `reason` returns a tool error/);
+  const proto = fs.readFileSync(path.join(out, 'prototype/index.html'), 'utf8');
+  assert.match(proto, /id="surface-mcp"/);
+  assert.match(proto, /data-node="tool:void_invoice"/);
+  assert.match(proto, /data-node="ep:POST \/invoices"/);
+  const oa = JSON.parse(fs.readFileSync(path.join(out, 'specs/back/openapi.json'), 'utf8'));
+  assert.equal(oa.paths['/invoices'].post.operationId, 'createInvoice');
+  assert.equal(oa.paths['/invoices'].post.requestBody.content['application/json'].schema.$ref, '#/components/schemas/InvoiceInput');
+  // Change a tool's schema in the server: its spec is stale until regenerated.
+  const tf = path.join(dir, 'mcp-tools.json');
+  const tools = JSON.parse(fs.readFileSync(tf, 'utf8'));
+  tools.tools.find(t => t.name === 'void_invoice').inputSchema.properties.notify = { type: 'boolean' };
+  fs.writeFileSync(tf, JSON.stringify(tools));
+  await ws.snapshot();
+  const issues = ws.check().issues;
+  assert.ok(issues.some(i => i.code === 'stale' && i.file === 'specs/front/mcp/tool-void-invoice.md'));
+  assert.ok(issues.some(i => i.code === 'mcp-input-differs'));
+  const r2 = await ws.run();
+  assert.ok(r2.report.ok);
+  assert.match(fs.readFileSync(path.join(out, 'specs/CHANGES.md'), 'utf8'), /MCP tool `void_invoice`: \+`notify`/);
+  // Publishing carries the surface files and a CI check that uses them.
+  const files = collectFiles(out, { provider: 'github', designInputs: ws.designInputs() });
+  const names = files.map(f => f.path);
+  for (const n of ['design/weshcraft.surface.json', 'design/openapi.yaml', 'design/mcp-tools.json']) assert.ok(names.includes(n), n);
+  const ci = files.find(f => f.path === '.github/workflows/weshcraft-parity.yml').data.toString();
+  assert.match(ci, /--surface design\/weshcraft\.surface\.json/);
+  assert.doesNotMatch(ci, /--surface design\/openapi\.yaml/, 'referenced files are copied, not passed');
+});
+
+test('live MCP server introspection (tools/list over stdio) with a snapshot for CI', async () => {
+  const s = await loadMcpServer(`${FAKE} --fixture ${ONBOARDING}`);
+  assert.ok(s.mcp.tools.some(t => t.name === 'inspect_document'));
+  const out = tmp();
+  const src = new SurfaceSource({ servers: [`${FAKE}`], snapshotDir: path.join(out, 'design') });
+  const ws = new Workspace({ source: null, surface: src, outDir: out });
+  const r = await ws.run();
+  assert.ok(r.report.ok, JSON.stringify(r.report.issues.slice(0, 3)));
+  const snap = ws.designInputs().find(x => x.abs.endsWith('.mcp.json'));
+  assert.ok(snap && fs.existsSync(snap.abs), 'snapshot written for CI');
+  // The snapshot alone reproduces the same manifest (what CI checks against).
+  const fromSnap = buildManifest(emptyModel(), { surface: loadSurfaceFile(snap.abs) });
+  assert.equal(fromSnap.source.hash, ws.manifest.source.hash);
 });

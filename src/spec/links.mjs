@@ -3,9 +3,10 @@
 import { mdEscape } from '../util/common.mjs';
 import { embedContract, notesBlock } from './contract.mjs';
 
-const ref = id => `\`#${id}\``;
-const REL = { triggers: 'triggers', submits: 'submits', lists: 'is filled by', displays: 'shows' };
-const ICON = { triggers: '▶', submits: '⇢', lists: '☰', displays: '◉' };
+const ref = id => (typeof id === 'number' ? `\`#${id}\`` : `\`${String(id).replace(/^(tool|ep):/, '')}\``);
+const REL = { triggers: 'triggers', submits: 'submits', lists: 'is filled by', displays: 'shows', invokes: 'MCP tool calls it', exposes: 'public endpoint' };
+const ICON = { triggers: '▶', submits: '⇢', lists: '☰', displays: '◉', invokes: '⚙', exposes: '↗' };
+const SURFACE = { mcp: 'MCP tools', api: 'Public API' };
 export const entityAnchor = name => `entity-${String(name).toLowerCase()}`;
 const nodeId = s => s.replace(/[^A-Za-z0-9_]/g, '_');
 
@@ -34,7 +35,7 @@ export function linksSpec(manifest, { notes } = {}) {
   const L = ['# Front ⇄ back links', ''];
   L.push(`Every place where the prototype meets the back end: ${edges.filter(e => e.op).length} operation links and ${edges.filter(e => e.field).length} data links across ${new Set(edges.map(e => e.screen)).size} screens. ${gaps.length ? `**${gaps.length} gap${gaps.length > 1 ? 's' : ''}** (below).` : 'No gaps.'}`);
   L.push('');
-  L.push('Legend: ▶ triggers an operation · ⇢ submits a request field · ☰ list filled by an operation · ◉ shows an entity field.');
+  L.push('Legend: ▶ triggers an operation · ⇢ submits a request field · ☰ list filled by an operation · ◉ shows an entity field · ⚙ MCP tool calls it · ↗ public endpoint.');
   L.push('');
   if (edges.length) {
     L.push('## Map');
@@ -43,6 +44,7 @@ export function linksSpec(manifest, { notes } = {}) {
     L.push('flowchart LR');
     L.push('  subgraph Front[Front end]');
     for (const s of manifest.screens.filter(s => edges.some(e => e.screen === s.key))) L.push(`    ${nodeId(s.key)}["${s.name.replace(/"/g, "'")}"]`);
+    for (const [k, name] of Object.entries(SURFACE)) if (edges.some(e => e.screen === k)) L.push(`    ${nodeId(`surface_${k}`)}["${name}"]`);
     L.push('  end');
     L.push('  subgraph API');
     for (const o of ops) L.push(`    ${nodeId(o.key)}["${o.method} ${o.path}"]`);
@@ -53,7 +55,8 @@ export function linksSpec(manifest, { notes } = {}) {
     const seen = new Set();
     const line = (a, arrow, b, label) => { const k = `${a}${arrow}${b}${label}`; if (!seen.has(k)) { seen.add(k); L.push(`  ${a} ${arrow}${label ? `|${label}|` : ''} ${b}`); } };
     for (const o of ops) {
-      if (o.screen) line(nodeId(o.screen), o.kind === 'list' ? '<-.->' : '-->', nodeId(o.key), o.kind === 'list' ? 'list' : 'calls');
+      if (o.screen && !SURFACE[o.screen]) line(nodeId(o.screen), o.kind === 'list' ? '<-.->' : '-->', nodeId(o.key), o.kind === 'list' ? 'list' : 'calls');
+      for (const k of Object.keys(SURFACE)) if (edges.some(e => e.screen === k && e.op === o.key)) line(nodeId(`surface_${k}`), '-->', nodeId(o.key), 'calls');
       if (o.entity) line(nodeId(o.key), '-->', nodeId(`ent-${o.entity}`), 'returns');
     }
     for (const e of edges.filter(x => x.field)) line(nodeId(`ent-${e.field.split('.')[0]}`), '-.->', nodeId(e.screen), 'shown on');
@@ -67,7 +70,7 @@ export function linksSpec(manifest, { notes } = {}) {
     const mine = edges.filter(e => e.op === o.key);
     L.push(`### [\`${o.method} ${o.path}\`](back/api.md#${o.key}) — ${mdEscape(o.name)}`);
     L.push('');
-    L.push(`Screen: [${mdEscape(screenName(o.screen))}](front/screens/${o.screen}.md) · ${o.kind} · ${o.confidence}${o.entity ? ` · returns [\`${o.entity}${o.kind === 'list' ? '[]' : ''}\`](back/domain.md#${entityAnchor(o.entity)})` : ''}`);
+    L.push(`${SURFACE[o.screen] ? `${SURFACE[o.screen]}: [\`${o.method} ${o.path}\`](front/api/${o.endpoint}.md)` : `Screen: [${mdEscape(screenName(o.screen))}](front/screens/${o.screen}.md)`} · ${o.kind} · ${o.confidence}${o.entity ? ` · returns [\`${o.entity}${o.kind === 'list' ? '[]' : ''}\`](back/domain.md#${entityAnchor(o.entity)})` : ''}`);
     L.push('');
     L.push('| Link | Layer | Element |');
     L.push('|---|---|---|');

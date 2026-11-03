@@ -6,7 +6,7 @@
 <title>Account — prototype</title>
 <meta name="generator" content="weshcraft">
 <meta name="color-scheme" content="light dark">
-<meta name="weshcraft-source-hash" content="cf02030f8386f01b">
+<meta name="weshcraft-source-hash" content="071d12bcdc75e2a0">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:ital,wght@0,100..900;1,100..900&display=swap">
 <style>
 
@@ -25,12 +25,17 @@ html.sc-embed nav.sc-nav button[aria-current="true"]{background:#fff;color:#1d1d
 .sc-screen>[data-node]{box-shadow:0 1px 2px rgba(0,0,0,.12),0 24px 60px -12px rgba(15,23,42,.35)}
 .sc-screen [data-go]:focus-visible{outline:2px solid #0d99ff;outline-offset:2px}
 .sc-hl{outline:2px solid #ff3d7f!important;outline-offset:1px}
+*{scrollbar-width:thin;scrollbar-color:rgba(127,127,135,.4) transparent}
+::-webkit-scrollbar{width:11px;height:11px;background:transparent}
+::-webkit-scrollbar-track,::-webkit-scrollbar-corner{background:transparent}
+::-webkit-scrollbar-thumb{background:rgba(127,127,135,.38);border-radius:99px;border:3px solid transparent;background-clip:padding-box}
+::-webkit-scrollbar-thumb:hover{background-color:rgba(127,127,135,.6)}
 .sc-hl-op{outline:2px solid #3b82f6!important;outline-offset:1px}
 .sc-hl-field{outline:2px solid #10b981!important;outline-offset:1px}
-body.sc-data [data-link]{outline:1.5px dashed #10b981;outline-offset:1px}
-body.sc-data [data-op]{outline:2px dashed #3b82f6}
-body.sc-data [data-link]::after{content:attr(data-link-label);position:absolute;z-index:50;left:0;top:-15px;font:600 9.5px/1.3 ui-monospace,Menlo,monospace;color:#fff;background:#0f766e;padding:1px 5px;border-radius:4px;white-space:nowrap;pointer-events:none;max-width:260px;overflow:hidden;text-overflow:ellipsis}
-body.sc-data [data-op]::after{background:#1d4ed8}
+body.sc-data [data-link]{outline:1.5px solid rgba(0,168,138,.7);outline-offset:1px;border-radius:inherit}
+body.sc-data [data-op]{outline:2px solid rgba(0,122,255,.75)}
+body.sc-data [data-link]::after{content:attr(data-link-label);position:absolute;z-index:50;right:4px;top:4px;font:600 9px/1.4 -apple-system,BlinkMacSystemFont,Inter,system-ui,sans-serif;letter-spacing:.01em;color:#fff;background:rgba(0,150,122,.92);padding:1px 6px;border-radius:99px;white-space:nowrap;pointer-events:none;max-width:calc(100% - 8px);overflow:hidden;text-overflow:ellipsis;box-shadow:0 1px 3px rgba(0,0,0,.18)}
+body.sc-data [data-op]::after{background:rgba(0,122,255,.94)}
 body.sc-data [data-link]{position:relative}
 nav.sc-nav .sc-toggle{position:sticky;right:0;margin-left:4px;display:inline-flex;align-items:center;gap:6px;background:#2c2c2e!important;box-shadow:-14px 0 12px -4px #2c2c2e}
 nav.sc-nav .sc-toggle::before{content:'';width:8px;height:8px;border-radius:50%;box-shadow:inset 0 0 0 1.5px #00a88a}
@@ -39,12 +44,14 @@ html.sc-embed nav.sc-nav .sc-toggle{background:#f7f8fa!important;box-shadow:-14p
 @media (prefers-color-scheme:dark){html.sc-embed nav.sc-nav .sc-toggle{background:#2b2d34!important;box-shadow:-14px 0 12px -4px #2b2d34}}
 @media (max-width:480px){nav.sc-nav button{padding:6px 11px;font-size:12px}}
 nav.sc-nav .sc-toggle[aria-pressed="true"]{color:#00a88a!important}
+
 </style>
 </head>
 <body>
 <nav class="sc-nav" aria-label="Screens"><button type="button" data-show="scr-sign-up">Sign up</button><button type="button" data-show="scr-profile">Profile</button><button type="button" class="sc-toggle" data-overlay aria-pressed="false" title="Show which layers call the back end (▶ ⇢ ☰) or show its data (◉). Shortcut: D">Data links</button></nav>
 <section class="sc-screen" id="scr-sign-up" data-screen="scr-sign-up" aria-label="Sign up"><div data-node="2" data-name="Sign up" style="width:393px;height:600px;background:#ffffff;overflow:hidden;display:flex;flex-direction:column;align-items:flex-start;gap:14px;padding:56px 32px 32px 32px;box-sizing:border-box;position:relative"><div data-node="4" data-name="Title" style="flex-shrink:0;white-space:pre;font-family:'Inter', system-ui, sans-serif;font-size:26px;font-weight:700;line-height:1.4;text-align:left;color:#0f172a">Create your account</div><div data-node="5" data-name="Subtitle" style="flex-shrink:0;white-space:pre;font-family:'Inter', system-ui, sans-serif;font-size:15px;font-weight:400;line-height:1.4;text-align:left;color:#475569">Plan trips and save trails across devices.</div><div data-node="6" data-name="Email field" data-link="submits" data-link-label="⇢ POST /users" data-op="op-create-account-10" style="flex-shrink:0;align-self:stretch;height:48px;background:#f1f5f9;border-radius:10px;display:flex;flex-direction:row;align-items:center;gap:8px;padding:0px 14px 0px 14px;box-sizing:border-box;position:relative"><div data-node="7" data-name="Placeholder" style="flex-shrink:0;white-space:pre;font-family:'Inter', system-ui, sans-serif;font-size:15px;font-weight:400;line-height:1.4;text-align:left;color:#64748b">you@example.com</div></div><div data-node="8" data-name="Password field" data-link="submits" data-link-label="⇢ POST /users" data-op="op-create-account-10" style="flex-shrink:0;align-self:stretch;height:48px;background:#f1f5f9;border-radius:10px;display:flex;flex-direction:row;align-items:center;gap:8px;padding:0px 14px 0px 14px;box-sizing:border-box;position:relative"><div data-node="9" data-name="Placeholder" style="flex-shrink:0;white-space:pre;font-family:'Inter', system-ui, sans-serif;font-size:15px;font-weight:400;line-height:1.4;text-align:left;color:#64748b">At least 8 characters</div></div><div data-node="10" data-name="Button/Create account" data-link="triggers" data-link-label="▶ POST /users" data-op="op-create-account-10" data-go="scr-profile" role="button" tabindex="0" style="flex-shrink:0;align-self:stretch;height:50px;background:#0e7c66;border-radius:12px;display:flex;flex-direction:row;justify-content:center;align-items:center;box-sizing:border-box;position:relative;cursor:pointer"><div data-node="11" data-name="Label" style="flex-shrink:0;white-space:pre;font-family:'Inter', system-ui, sans-serif;font-size:16px;font-weight:600;line-height:1.4;text-align:left;color:#ffffff">Create account</div></div></div></section>
 <section class="sc-screen" id="scr-profile" data-screen="scr-profile" aria-label="Profile" hidden><div data-node="3" data-name="Profile" style="width:393px;height:600px;background:#f8fafc;overflow:hidden;display:flex;flex-direction:column;align-items:flex-start;gap:12px;padding:56px 32px 32px 32px;box-sizing:border-box;position:relative"><div data-node="12" data-name="Name" data-link="displays" data-link-label="◉ User.name" data-field="User.name" style="flex-shrink:0;white-space:pre;font-family:'Inter', system-ui, sans-serif;font-size:24px;font-weight:700;line-height:1.4;text-align:left;color:#0f172a">{{user.name}}</div><div data-node="13" data-name="Email" data-link="displays" data-link-label="◉ User.email" data-field="User.email" style="flex-shrink:0;white-space:pre;font-family:'Inter', system-ui, sans-serif;font-size:15px;font-weight:400;line-height:1.4;text-align:left;color:#475569">{{user.email:email}}</div><div data-node="14" data-name="Plan" data-link="displays" data-link-label="◉ Subscription.plan" data-field="Subscription.plan" style="flex-shrink:0;white-space:pre;font-family:'Inter', system-ui, sans-serif;font-size:15px;font-weight:600;line-height:1.4;text-align:left;color:#0e7c66">{{subscription.plan}}</div><div data-node="15" data-name="Button/Save" data-link="triggers" data-link-label="▶ PATCH /users/me" data-op="op-patch-users-me-15" style="flex-shrink:0;align-self:stretch;height:50px;background:#0e7c66;border-radius:12px;display:flex;flex-direction:row;justify-content:center;align-items:center;box-sizing:border-box;position:relative"><div data-node="16" data-name="Label" style="flex-shrink:0;white-space:pre;font-family:'Inter', system-ui, sans-serif;font-size:16px;font-weight:600;line-height:1.4;text-align:left;color:#ffffff">Save</div></div></div></section>
+
 <script>
 (() => {
   if (parent !== window) document.documentElement.classList.add('sc-embed');
@@ -92,12 +99,13 @@ nav.sc-nav .sc-toggle[aria-pressed="true"]{color:#00a88a!important}
     if (m.weshcraft === 'show') show(m.key);
     if (m.weshcraft === 'overlay') overlay(!!m.on);
     if (m.weshcraft === 'highlightMany') {
-      document.querySelectorAll('.sc-hl,.sc-hl-op,.sc-hl-field').forEach(x => x.classList.remove('sc-hl', 'sc-hl-op', 'sc-hl-field'));
+      document.querySelectorAll('.sc-hl,.sc-hl-op,.sc-hl-field,.cat-hl').forEach(x => x.classList.remove('sc-hl', 'sc-hl-op', 'sc-hl-field', 'cat-hl'));
       let first = null;
       for (const h of m.items || []) {
-        const el = document.querySelector('[data-node="' + Number(h.node) + '"]');
+        const el = document.querySelector('[data-node="' + CSS.escape(String(h.node)) + '"]');
         if (!el) continue;
-        el.classList.add(h.kind === 'op' ? 'sc-hl-op' : h.kind === 'field' ? 'sc-hl-field' : 'sc-hl');
+        el.classList.add(el.closest('.cat') ? 'cat-hl' : h.kind === 'op' ? 'sc-hl-op' : h.kind === 'field' ? 'sc-hl-field' : 'sc-hl');
+        if (el.tagName === 'DETAILS') el.open = true;
         const s = el.closest('.sc-screen');
         if (!first && s && (m.screen ? s.id === m.screen : true)) first = el;
       }
@@ -105,11 +113,12 @@ nav.sc-nav .sc-toggle[aria-pressed="true"]{color:#00a88a!important}
     }
     if (m.weshcraft === 'highlight') {
       document.querySelectorAll('.sc-hl').forEach(x => x.classList.remove('sc-hl'));
-      const el = document.querySelector('[data-node="' + Number(m.node) + '"]');
+      const el = document.querySelector('[data-node="' + CSS.escape(String(m.node)) + '"]');
       if (el) { const s = el.closest('.sc-screen'); if (s && s.hidden) show(s.id); el.classList.add('sc-hl'); el.scrollIntoView({ block: 'center', behavior: 'smooth' }); }
     }
   });
   show(location.hash.slice(1) || "scr-sign-up", false);
+  
 })();
 </script>
 </body>

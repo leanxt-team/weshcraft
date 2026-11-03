@@ -24,6 +24,7 @@ WeshCraft sits between [FigCraft](https://github.com/storytold/figcraft) (open-s
 - **A clean, native-feeling workspace.** Liquid Glass styling: floating translucent panes, capsule controls, system type and colours, dense macOS-style lists, light and dark. It switches to solid materials when the system asks for reduced transparency or more contrast, and turns off motion for reduced motion. On phones it becomes an iOS-style app: one full-height view at a time, a floating tab bar (Specs · Prototype · Links · Spec), 44 pt rows, an action sheet and bottom-sheet dialogs, safe areas respected, screens scaled to fit.
 - **Specs built in parallel, shown live.** One job per screen, per component, plus tokens, flows, domain model, API (with OpenAPI 3.1) and conventions. The browser's **Spec builder** section shows each job queue, write, get enriched by an agent (streamed) and finish.
 - **Specs match the visual prototype.** Each spec embeds a machine-readable contract (an HTML comment). `weshcraft check` compares it with a fresh extraction of the design: copy verbatim on its row, interactions and destinations, component instances and variants, inputs, frame sizes, tokens and values, navigation edges, entities and operations, and that the pushed prototype was built from the same design. Every spec line cites its layer as `#id`; click it in the browser and the prototype highlights that layer.
+- **Services with little or no UI.** The "front" can be an **MCP server** (agents are the users) and/or a **public HTTP API** (developers are the users): give an OpenAPI file (JSON or YAML), an MCP `tools/list` dump, a live server (`--mcp-server "node server.js"`, introspected over stdio), or a `weshcraft.surface.json` combining them — with or without a FigCraft design. Each MCP tool and endpoint gets a spec (arguments, rules, safety hints, example call, acceptance criteria), API schemas become the domain model, tools are linked to the endpoints they call, and the prototype becomes a clean **catalog** of tools and endpoints. A changed schema makes its spec stale, like a changed screen.
 - **Front ⇄ back links, highlighted everywhere.** WeshCraft maps every place the prototype meets the back end: a layer ▶ triggers an operation, ⇢ submits a field to it, ☰ is a list it fills, ◉ shows an entity field (and which operation loads it). You see it in `specs/LINKS.md` (tables + Mermaid map), in each screen spec, in `api.md` (“Front end”, “Response shown”) and `domain.md` (“Shown by”, “Loaded by”), in the browser's **Front ⇄ back** tab (an interactive wire map: click an element, an operation or a field to trace it and highlight its layers in the prototype), and as a **Data links** overlay on the prototype itself (click a layer to open its back-end spec). Gaps — data shown that nothing loads, operations nothing reaches — are flagged; link drift fails the parity check.
 - **GitHub and GitLab.** One click (or `weshcraft publish`) commits `prototype/`, `specs/`, the `.figcraft` source and a CI parity job to a branch and opens or updates a PR/MR with the parity summary.
 - **An advanced spec format, kept in git.** Design, prototype, contract-checked specs, links and a design changelog (`specs/CHANGES.md`, `weshcraft diff`) form one versioned folder ([format](docs/SPEC-FORMAT.md)). Updates say what changed in the design; sync commits and PR/MR descriptions carry that changelog.
@@ -50,6 +51,25 @@ node bin/weshcraft.mjs serve --file path/to/app.figcraft --out path/to/your/repo
 ```
 
 The file is watched: save in FigCraft and the specs regenerate. Or drop a `.figcraft` file on **Open .figcraft** in the browser.
+
+### An API or MCP server (no screens)
+
+```bash
+node bin/weshcraft.mjs serve --surface api/openapi.yaml --out .
+```
+
+```bash
+node bin/weshcraft.mjs serve --mcp-server "node dist/server.js" --surface api/openapi.yaml --out .
+```
+
+`weshcraft.surface.json` (see [`examples/billing/`](examples/billing/)) names the parts and pins tool ⇄ endpoint links that names alone cannot tell:
+
+```json
+{ "weshcraft": "surface@1", "name": "Billing service", "api": "openapi.yaml", "mcp": "mcp-tools.json",
+  "links": [{ "tool": "create_invoice", "endpoint": "POST /invoices" }, { "tool": "void_invoice", "endpoint": null }] }
+```
+
+Without links, a tool is matched to the endpoint whose `operationId` has the same words (`list_invoices` ⇄ `listInvoices`). A live `--mcp-server` is snapshotted to `design/<name>.mcp.json`, so CI checks the same tool list.
 
 ### Live FigCraft over MCP
 
@@ -90,7 +110,7 @@ That writes `.mcp.json` (Claude Code) and `opencode.json` (OpenCode; OpenCode 1 
 | `zip [source] --zip F` | Everything a repo needs, as a zip. |
 | `init [--client claude\|opencode\|both]` | Write the MCP config for Claude Code (`.mcp.json`) and/or OpenCode (`opencode.json`). |
 
-Source: `--file F` (offline), `--mcp` (spawns `figcraft-cli mcp`), or `--attach PORT` (running app).
+Source: `--file F` (offline), `--mcp` (spawns `figcraft-cli mcp`), or `--attach PORT` (running app); and/or non-visual fronts: `--surface FILE` (OpenAPI JSON/YAML, MCP tool list, `weshcraft.surface.json`; repeatable) and `--mcp-server "CMD"` (repeatable).
 
 ### MCP tools
 
@@ -117,6 +137,8 @@ specs/LINKS.md              front ⇄ back map: operations → layers, entity fi
 specs/CHANGES.md            design changelog, newest first (one entry per regeneration that changed the design)
 specs/PARITY.md             parity report; specs/parity.json
 specs/manifest.json         the extracted inventory
+specs/front/mcp/*.md        MCP server index + one spec per tool (arguments, rules, safety hints, example, criteria)
+specs/front/api/*.md        public API index + one spec per endpoint (parameters, body, responses, curl, criteria)
 specs/front/screens/*.md    purpose, layout tree with auto layout, root CSS, copy table with typography,
                             colour and WCAG contrast, components, interactions, inputs, back-end calls,
                             tokens, designer annotations, acceptance criteria, notes
@@ -129,7 +151,7 @@ specs/back/openapi.json     OpenAPI 3.1 with x-weshcraft node references
 specs/back/conventions.md   auth, errors, pagination, idempotency, observability
 ```
 
-See [`examples/ridgeline-onboarding/`](examples/ridgeline-onboarding/) for a full output, and [`examples/account/`](examples/account/) for a small design that uses every front ⇄ back convention (bindings, annotations with results, inputs, and one deliberate gap).
+See [`examples/ridgeline-onboarding/`](examples/ridgeline-onboarding/) for a full output, [`examples/account/`](examples/account/) for a small design that uses every front ⇄ back convention (bindings, annotations with results, inputs, and one deliberate gap), and [`examples/billing/`](examples/billing/) for a service with no screens: an MCP server and a public API.
 
 ### Making the back end explicit
 
@@ -191,6 +213,8 @@ bin/weshcraft.mjs          CLI
 src/figcraft/              MCP client + sources (file, headless, attached)
 src/model/                 normalised model + manifest extraction
 src/proto/html.mjs         prototype renderer
+src/proto/catalog.mjs      MCP/API catalog page
+src/surface/               OpenAPI (JSON/YAML), MCP tool lists and live MCP servers
 src/spec/                  front/back generators, contracts, workspace (parallel jobs), agent pass
 src/parity/check.mjs       parity
 src/spec/diff.mjs          design changelog

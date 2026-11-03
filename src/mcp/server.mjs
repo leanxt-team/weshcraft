@@ -40,7 +40,7 @@ export class WeshCraftMcp {
 
   async tools() {
     const out = [...SPEC_TOOLS];
-    if (this.ws.source.kind === 'mcp') {
+    if (this.ws.source?.kind === 'mcp') {
       if (!this.figcraftTools) {
         try { this.figcraftTools = await this.ws.source.tools(); } catch (e) { this.figcraftTools = []; this.ws.emit('log', { level: 'warn', message: `FigCraft tools unavailable: ${e.message}` }); }
       }
@@ -65,7 +65,7 @@ export class WeshCraftMcp {
   async callTool(name, args = {}) {
     try {
       if (name.startsWith('figcraft_')) {
-        if (this.ws.source.kind !== 'mcp') return text('FigCraft tools need a live FigCraft: start WeshCraft with --mcp or --attach <port>.', true);
+        if (this.ws.source?.kind !== 'mcp') return text('FigCraft tools need a live FigCraft: start WeshCraft with --mcp or --attach <port>.', true);
         const inner = name.slice('figcraft_'.length);
         const r = await this.ws.source.call(inner, args);
         if (!READ_ONLY.has(inner) && !(inner === 'run_command' && /^(inspect|variable\.export|template\.list|help)\b/.test(args.command ?? ''))) this.scheduleRun();
@@ -134,7 +134,7 @@ export class WeshCraftMcp {
     const provider = args.provider === 'gitlab' ? 'gitlab' : 'github';
     const token = args.token || (provider === 'gitlab' ? process.env.GITLAB_TOKEN : process.env.GITHUB_TOKEN);
     const m = this.ws.manifest;
-    const files = collectFiles(this.ws.outDir, { provider, designFile: this.ws.source.file, prefix: args.prefix || '' });
+    const files = collectFiles(this.ws.outDir, { provider, designInputs: this.ws.designInputs(), prefix: args.prefix || '' });
     const res = await publish(provider, {
       repo: args.repo, token, branch: args.branch || `weshcraft/${m.source.hash}`, base: args.base, apiUrl: args.apiUrl,
       title: args.title || `Specs: ${m.source.name} (${m.screens.length} screens, parity ${this.ws.report.score}%)`,
@@ -159,7 +159,7 @@ export class WeshCraftMcp {
           serverInfo: { name: 'weshcraft', version: '0.1.0' },
           instructions: [
             'WeshCraft keeps front-end and back-end specs in lockstep with a FigCraft prototype.',
-            this.ws.source.kind === 'mcp' ? 'Design with the figcraft_* tools (the full FigCraft MCP); after edits, specs regenerate automatically.' : 'Source is a .figcraft file (read-only here); edit it in FigCraft and WeshCraft regenerates on save.',
+            this.ws.source?.kind === 'mcp' ? 'Design with the figcraft_* tools (the full FigCraft MCP); after edits, specs regenerate automatically.' : 'Source is a .figcraft file (read-only here); edit it in FigCraft and WeshCraft regenerates on save.',
             'Use weshcraft_status / weshcraft_check to see parity, weshcraft_links for front ⇄ back links, weshcraft_write_notes to add states, edge cases and questions, weshcraft_publish to open a PR/MR, weshcraft_sync to keep a GitHub/GitLab branch or the local git repository in step.',
             'Facts in specs (copy, sizes, colours, interactions, operations) come from the design only: to change them, change the design.',
             this.webUrl ? `Live view: ${this.webUrl}` : '',

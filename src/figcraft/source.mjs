@@ -85,6 +85,9 @@ export class McpSource {
 
 export function sourceFromOptions(o) {
   if (o.attach || o.mcp) return new McpSource({ attach: o.attach, file: o.file, command: o.figcraftCli });
-  if (!o.file) throw new Error('give a .figcraft file (--file) or a FigCraft MCP source (--mcp / --attach <port>)');
+  if (!o.file) {
+    if (o.surfaceOnly) return null;
+    throw new Error('give a .figcraft file (--file), a FigCraft MCP source (--mcp / --attach <port>), or a non-visual front (--surface openapi.yaml|weshcraft.surface.json|tools.json, --mcp-server "cmd")');
+  }
   return new FileSource(o.file);
 }

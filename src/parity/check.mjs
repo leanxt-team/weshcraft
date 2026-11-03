@@ -100,14 +100,51 @@ export function checkParity(manifest, outDir) {
     if (!setEq(comp.variants.map(v => v.id), spec.c.variants || [])) err('variants-differ', rel(file), 'variants differ from the prototype');
   }
 
-  const tokens = loadSpec(path.join(outDir, 'specs/front/tokens.md'), 'front-tokens');
+  // MCP tools and public endpoints: one spec each, fingerprints and argument lists match.
+  const mcp = manifest.surface?.mcp;
+  if (mcp) {
+    const idx = loadSpec(path.join(outDir, 'specs/front/mcp/README.md'), 'front-mcp');
+    if (idx) { checks++; if (!setEq(mcp.tools.map(t => t.name), idx.c.tools || []) || !setEq(mcp.resources.map(r => r.uri), idx.c.resources || []) || !setEq(mcp.prompts.map(p => p.name), idx.c.prompts || [])) err('mcp-differs', 'specs/front/mcp/README.md', 'tools, resources or prompts differ from the MCP server'); }
+    for (const t of mcp.tools) {
+      const file = path.join(outDir, 'specs/front/mcp', `${t.key}.md`);
+      const spec = loadSpec(file, 'front-mcp-tool');
+      if (!spec) continue;
+      checks += 3;
+      if (spec.c.fingerprint !== t.fingerprint) err('stale', rel(file), `MCP tool ${t.name} changed (description, schema or annotations) since this spec was written`);
+      if (!setEq(t.input.map(f => f.name), spec.c.input || [])) err('mcp-input-differs', rel(file), `arguments of ${t.name} differ from its input schema`);
+      if ((spec.c.op ?? null) !== (t.op ?? null)) err('links-differ', rel(file), `back-end link of ${t.name} differs`);
+    }
+  }
+  const apiSurf = manifest.surface?.api;
+  if (apiSurf) {
+    const idx = loadSpec(path.join(outDir, 'specs/front/api/README.md'), 'front-api');
+    if (idx) { checks++; if (!setEq(apiSurf.endpoints.map(e => e.key), idx.c.endpoints || [])) err('api-differs', 'specs/front/api/README.md', 'endpoints differ from the OpenAPI document'); }
+    for (const ep of apiSurf.endpoints) {
+      const file = path.join(outDir, 'specs/front/api', `${ep.key}.md`);
+      const spec = loadSpec(file, 'front-endpoint');
+      if (!spec) continue;
+      checks++;
+      if (spec.c.fingerprint !== ep.fingerprint) err('stale', rel(file), `${ep.method} ${ep.path} changed (parameters, body, responses or auth) since this spec was written`);
+    }
+  }
+  for (const [dir, keys] of [['specs/front/mcp', new Set((mcp?.tools ?? []).map(t => `${t.key}.md`))], ['specs/front/api', new Set((apiSurf?.endpoints ?? []).map(e => `${e.key}.md`))]]) {
+    const abs = path.join(outDir, dir);
+    if (!fs.existsSync(abs)) continue;
+    for (const name of fs.readdirSync(abs)) {
+      if (!name.endsWith('.md') || name === 'README.md') continue;
+      checks++;
+      if (!keys.has(name)) err('orphan-spec', `${dir}/${name}`, 'spec for a tool or endpoint that no longer exists');
+    }
+  }
+
+  const tokens = manifest.screens.length || manifest.tokens.variables.length ? loadSpec(path.join(outDir, 'specs/front/tokens.md'), 'front-tokens') : null;
   if (tokens) {
     const want = manifest.tokens.variables.map(v => key({ name: v.name, values: v.values }));
     checks++;
     if (!setEq(want, (tokens.c.tokens || []).map(t => key({ name: t.name, values: t.values })))) err('tokens-differ', 'specs/front/tokens.md', 'token names or values differ from the prototype variables');
   }
 
-  const flows = loadSpec(path.join(outDir, 'specs/front/flows.md'), 'front-flows');
+  const flows = manifest.screens.length ? loadSpec(path.join(outDir, 'specs/front/flows.md'), 'front-flows') : null;
   if (flows) {
     const want = manifest.screens.flatMap(s => s.actions.filter(a => a.destScreen).map(a => key({ from: s.key, to: a.destScreen, node: a.id })));
     checks++;

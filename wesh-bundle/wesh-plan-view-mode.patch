@@ -88,10 +88,10 @@ index df06071..ef74e50 100644
  // wesh's own files in a project: they are not the project's code, so the code graph must not index them.
 diff --git a/skills/wesh-plan-view-mode/FORMAT.md b/skills/wesh-plan-view-mode/FORMAT.md
 new file mode 100644
-index 0000000..c82b22a
+index 0000000..6250b51
 --- /dev/null
 +++ b/skills/wesh-plan-view-mode/FORMAT.md
-@@ -0,0 +1,67 @@
+@@ -0,0 +1,77 @@
 +# WeshCraft spec format (v1)
 +
 +An **advanced spec**: a folder in a git repository that holds a visual prototype and the front-end and back-end specifications generated from it, with machine-checkable links between all three. Plain markdown and JSON, readable without any tool; `weshcraft check` verifies it, `/wesh-plan-view-mode` iterates on it, `weshcraft_sync` keeps it in a branch.
@@ -101,8 +101,12 @@ index 0000000..c82b22a
 +## Layout
 +
 +```
-+design/<name>.figcraft            source of truth: the FigCraft prototype (the only file people edit by design)
-+prototype/index.html              clickable prototype rendered from the design; every element has data-node="<id>"
++design/<name>.figcraft            source of truth for screens: the FigCraft prototype
++design/weshcraft.surface.json     source of truth for non-visual fronts (optional): names an OpenAPI
++design/openapi.yaml|json          document and an MCP tool list, and pins tool ⇄ endpoint links
++design/<server>.mcp.json          an MCP server's tools/resources/prompts (snapshot of a live server)
++prototype/index.html              clickable prototype rendered from the design (data-node="<id>"), plus a
++                                  catalog of MCP tools (data-node="tool:<name>") and endpoints (data-node="ep:<METHOD path>")
 +prototype/tokens.css              design tokens as CSS custom properties
 +prototype/screens/*.png           FigCraft renders, when generated from a live FigCraft (visual reference)
 +specs/manifest.json               the extracted inventory (below); generated
@@ -112,7 +116,9 @@ index 0000000..c82b22a
 +specs/LINKS.md                    front ⇄ back map
 +specs/front/screens/<key>.md      one per screen
 +specs/front/components/<key>.md   one per component (set)
-+specs/front/tokens.md, tokens.css, flows.md
++specs/front/tokens.md, tokens.css, flows.md   (only with screens)
++specs/front/mcp/README.md, tool-<name>.md     (only with an MCP server)
++specs/front/api/README.md, ep-<method>-<path>.md   (only with a public API)
 +specs/back/domain.md, api.md, openapi.json, conventions.md
 +.github/workflows/weshcraft-parity.yml | ci/weshcraft.gitlab-ci.yml   CI parity gate
 +```
@@ -138,7 +144,11 @@ index 0000000..c82b22a
 + "links":[{"rel":"triggers","node":10,"op":"op-create-account-10"},{"rel":"submits","node":6,"op":"op-create-account-10"}]}
 +```
 +
-+Kinds: `front-screen`, `front-component`, `front-tokens`, `front-flows`, `back-domain`, `back-api`, `back-conventions`, `links`.
++Kinds: `front-screen`, `front-component`, `front-tokens`, `front-flows`, `front-mcp`, `front-mcp-tool` (`name`, `fingerprint`, `input`, `op`), `front-api`, `front-endpoint` (`key`, `fingerprint`, `op`), `back-domain`, `back-api`, `back-conventions`, `links`.
++
++## Non-visual fronts
++
++A product's front can be an MCP server, a public API, or both, with or without screens. `manifest.surface` holds `{name, mcp: {server, tools[], resources[], prompts[]}, api: {title, servers, auth, endpoints[], schemas{}}}`. Each tool has `hints` (read-only, destructive, idempotent, open world, from MCP annotations), flattened `input` fields and a `fingerprint` over description, schemas and annotations; each endpoint has `params`, `body`, `responses`, `security` and a `fingerprint`. API schemas returned by endpoints become entities; each endpoint is an operation; links: `exposes` (endpoint → operation), `invokes` (tool → operation, from `weshcraft.surface.json` links or matching `operationId`).
 +
 +## Front ⇄ back links
 +
@@ -148,7 +158,7 @@ index 0000000..c82b22a
 +
 +## Parity (`weshcraft check`)
 +
-+Fails (exit 1) when any of these differ between a fresh extraction of `design/*.figcraft` and the files: screen and component fingerprints, copy (verbatim on its own Copy row), interactions and destinations, instances, inputs, frame sizes, tokens and values, navigation edges, entities and fields, operations (spec and OpenAPI), front ⇄ back links, the prototype's source hash; plus any `#id` cited that does not exist. Gaps and source-hash drift are warnings.
++Fails (exit 1) when any of these differ between a fresh extraction of the design inputs and the files: MCP tool and endpoint fingerprints, tool arguments and links, the lists of tools, resources, prompts and endpoints; screen and component fingerprints, copy (verbatim on its own Copy row), interactions and destinations, instances, inputs, frame sizes, tokens and values, navigation edges, entities and fields, operations (spec and OpenAPI), front ⇄ back links, the prototype's source hash; plus any `#id` cited that does not exist. Gaps and source-hash drift are warnings.
 +
 +## Lifecycle in git
 +
@@ -161,22 +171,22 @@ index 0000000..c82b22a
 +Commit messages: `docs(specs): <name>: <change summary>`, body = prototype hash, parity, changelog lines.
 diff --git a/skills/wesh-plan-view-mode/SKILL.md b/skills/wesh-plan-view-mode/SKILL.md
 new file mode 100644
-index 0000000..3d64cd1
+index 0000000..fdba862
 --- /dev/null
 +++ b/skills/wesh-plan-view-mode/SKILL.md
-@@ -0,0 +1,67 @@
+@@ -0,0 +1,69 @@
 +---
 +name: wesh-plan-view-mode
 +description: Plan in view mode. Iterate on a FigCraft prototype through WeshCraft MCP, generate front and back specs in parallel that match it exactly, then update, sync or push the advanced spec in a git repo. Use for /wesh-plan-view-mode.
 +disable-model-invocation: true
-+argument-hint: "[design.figcraft | --attach <port>] [new | update | sync | push] [github:owner/repo | gitlab:group/project | git]"
++argument-hint: "[design.figcraft | --attach <port> | openapi.yaml | weshcraft.surface.json] [new | update | sync | push] [github:owner/repo | gitlab:group/project | git]"
 +---
 +
 +`/wesh-plan`, but decisions land in the prototype, not in prose. Output is the **WeshCraft advanced spec**: design + clickable prototype + contract-checked front/back specs + front ⇄ back links + changelog, in git. Format: `FORMAT.md` next to this file. Building the wrong screen is the most expensive token spend.
 +
 +## 0. Setup and mode
 +- `weshcraft_status` tool missing: tell user to run `npx weshcraft init --client claude|opencode|both` (writes `.mcp.json` / `opencode.json`: WeshCraft MCP + live FigCraft; `--sync git` keeps this repo in step), restart, rerun. Stop.
-+- `sourceKind: mcp`: `figcraft_*` tools design live. `file`: read-only here; user edits in FigCraft, WeshCraft regenerates on save.
++- `sourceKind: mcp`: `figcraft_*` tools design live. `file`: read-only here; user edits in FigCraft, WeshCraft regenerates on save. `none` with a surface: the product's front is an MCP server and/or a public API (no screens); `init --surface openapi.yaml` or `--mcp-server "cmd"` sets that up.
 +- Give user the live view URL from `weshcraft_status` (`web`): prototype, spec builder filling in parallel, Front ⇄ back map, parity. They watch; you work.
 +- Mode from the argument, else from the repo:
 +  - `new` (no `specs/manifest.json`): steps 1-7.
@@ -199,6 +209,8 @@ index 0000000..3d64cd1
 +- Back-end call → Dev Mode annotation on the trigger layer: `POST /trails → Trail` (`figcraft_run_command annotation.add`). Data a screen loads → annotate the screen frame: `GET /users/me → User`. Explicit operation, linked to the layers that trigger it, submit to it, show what it returns.
 +- Not visual (rule, limit, perf, security, analytics) → `weshcraft_write_notes` on the owning spec.
 +Edits through `figcraft_*` regenerate specs automatically (debounced). Never write a fact into notes that the design contradicts: change the design.
++
++No screens (MCP server / API): the source of truth is `design/openapi.yaml`, the MCP tool list (or the server's code) and `weshcraft.surface.json`. Answers land there instead: a tool's name, description, input schema and annotations (`readOnlyHint`, `destructiveHint`…), an endpoint's parameters, body and responses, and `links` from tools to endpoints. Agents are the users of MCP tools: settle descriptions and safety hints as carefully as copy on a screen.
 +
 +## 3. Generate in parallel
 +`weshcraft_generate`. Fan out: one subagent per group, max 6 at once, each told to use `wesh-spec-front` (screens, components, tokens, flows) or `wesh-spec-back` (domain, API, conventions), read with `weshcraft_read_spec`, write only Notes with `weshcraft_write_notes`. Update mode: changed specs only. Headless alternative: `weshcraft serve --agent`.
@@ -259,7 +271,7 @@ index db512ce..052e1c2 100644
  Diff, then callers of every changed function, functions it calls, tests, README. Signature or behavior changed: find every caller (`codegraph callers <fn>` per changed function when the project has an index, else grep; plus grep for string or dynamic references). The CLI reads the last synced index: run `codegraph sync` first when the answer decides a delete, a rename or "unused". Find the expected load (README, deploy config) and state it.
 diff --git a/skills/wesh-spec-back/SKILL.md b/skills/wesh-spec-back/SKILL.md
 new file mode 100644
-index 0000000..bce79f7
+index 0000000..ec37940
 --- /dev/null
 +++ b/skills/wesh-spec-back/SKILL.md
 @@ -0,0 +1,24 @@
@@ -271,7 +283,7 @@ index 0000000..bce79f7
 +Entities, fields and operations are derived from the prototype (explicit bindings and annotations, or inferred from repeated components and action labels) and contract-checked. Do not add, rename or drop them in prose. You write only the Notes block (`weshcraft_write_notes`).
 +
 +## Read first
-+`specs/back/domain.md`, `api.md`, `openapi.json`, `conventions.md`, `specs/LINKS.md` (or `weshcraft_links`): which layers trigger, submit to and show each operation's data; the screens each operation cites. Existing back-end code: models, routes, auth, validation library, error format, migrations. Reuse them; name the file you would extend.
++`specs/back/domain.md`, `api.md`, `openapi.json`, `conventions.md`, the public API and MCP specs under `specs/front/api` and `specs/front/mcp` when present, `specs/LINKS.md` (or `weshcraft_links`): which layers trigger, submit to and show each operation's data; the screens each operation cites. Existing back-end code: models, routes, auth, validation library, error format, migrations. Reuse them; name the file you would extend.
 +
 +## Write, only what applies
 +- `### Validation`: per request field (its input `#id`): required, type, length, format, server-side rule, error message the screen shows.
@@ -289,10 +301,10 @@ index 0000000..bce79f7
 +- Under 60 lines per spec. No preamble.
 diff --git a/skills/wesh-spec-front/SKILL.md b/skills/wesh-spec-front/SKILL.md
 new file mode 100644
-index 0000000..d1d7f21
+index 0000000..fd9d0bb
 --- /dev/null
 +++ b/skills/wesh-spec-front/SKILL.md
-@@ -0,0 +1,22 @@
+@@ -0,0 +1,30 @@
 +---
 +name: wesh-spec-front
 +description: Enrich WeshCraft front specs (specs/front/*.md) from a FigCraft prototype: states, a11y, analytics, open questions. Never changes generated facts. Use for "enrich/complete front spec".
@@ -310,6 +322,14 @@ index 0000000..d1d7f21
 +- `### Responsive`: behaviour outside the designed frame width, from auto layout sizing (fill/hug/fixed) in §Layout.
 +- `### Analytics`: one event per user decision (`screen_viewed`, `<action>_clicked`), properties, no personal data.
 +- `### Open questions`: numbered, each with a recommended answer; prefer "add a state/frame in FigCraft" over prose decisions.
++
++## MCP tools and API endpoints (specs/front/mcp, specs/front/api)
++The user is an agent (tools) or a developer (endpoints). Write, when they apply:
++- `### When to use`: the situations an agent should pick this tool, and the near-miss tools it should not be confused with.
++- `### Errors`: each failure as the tool result / status + body the caller gets, worded so an agent can recover.
++- `### Safety`: confirmation needed (destructive), side effects outside the service (open world), rate limits, idempotency keys.
++- `### Compatibility`: what would break callers (renames, new required arguments, enum changes); versioning.
++Never contradict the schema or annotations; to change them, change the server or the OpenAPI document.
 +
 +## Rules
 +- Cite layers as `#id` in backticks, only ids present in the spec. No new copy, colours or sizes: those come from the design.
