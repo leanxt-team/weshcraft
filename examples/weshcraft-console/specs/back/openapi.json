@@ -1,0 +1,611 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "WeshCraft Console API",
+    "version": "0.1.0",
+    "x-weshcraft-source-hash": "d5a504f901758656"
+  },
+  "paths": {
+    "/jobs": {
+      "get": {
+        "operationId": "listJobScrDashboardLight",
+        "summary": "List Job",
+        "tags": [
+          "Dashboard — Light"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Job"
+                      }
+                    },
+                    "next": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated"
+          }
+        },
+        "parameters": [
+          {
+            "name": "cursor",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20
+            }
+          }
+        ],
+        "x-weshcraft": {
+          "keys": [
+            "op-list-job-scr-dashboard-light",
+            "op-get-jobs-6",
+            "op-list-job-scr-dashboard-dark",
+            "op-get-jobs-71"
+          ],
+          "screens": [
+            "scr-dashboard-light",
+            "scr-dashboard-light",
+            "scr-dashboard-dark",
+            "scr-dashboard-dark"
+          ],
+          "trigger": null,
+          "confidence": "inferred",
+          "sources": [
+            39,
+            43,
+            47,
+            51
+          ]
+        }
+      }
+    },
+    "/specs/publish": {
+      "post": {
+        "operationId": "postSpecsPublish23",
+        "summary": "POST /specs/publish → Spec",
+        "tags": [
+          "Dashboard — Light"
+        ],
+        "responses": {
+          "201": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Spec"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "search_jobs": {
+                    "type": "string",
+                    "x-weshcraft-node": 21
+                  }
+                }
+              }
+            }
+          }
+        },
+        "x-weshcraft": {
+          "keys": [
+            "op-post-specs-publish-23",
+            "op-post-specs-publish-88"
+          ],
+          "screens": [
+            "scr-dashboard-light",
+            "scr-dashboard-dark"
+          ],
+          "trigger": 23,
+          "confidence": "explicit",
+          "sources": [
+            23
+          ]
+        }
+      }
+    },
+    "/parity": {
+      "get": {
+        "operationId": "getParity25",
+        "summary": "GET /parity → Parity",
+        "tags": [
+          "Dashboard — Light"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Parity"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated"
+          }
+        },
+        "x-weshcraft": {
+          "keys": [
+            "op-get-parity-25",
+            "op-get-parity-90"
+          ],
+          "screens": [
+            "scr-dashboard-light",
+            "scr-dashboard-dark"
+          ],
+          "trigger": 25,
+          "confidence": "explicit",
+          "sources": [
+            25
+          ]
+        }
+      }
+    },
+    "/links": {
+      "get": {
+        "operationId": "getLinks55",
+        "summary": "GET /links → Link",
+        "tags": [
+          "Dashboard — Light"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Link"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated"
+          }
+        },
+        "x-weshcraft": {
+          "keys": [
+            "op-get-links-55",
+            "op-get-links-116"
+          ],
+          "screens": [
+            "scr-dashboard-light",
+            "scr-dashboard-dark"
+          ],
+          "trigger": 55,
+          "confidence": "explicit",
+          "sources": [
+            55
+          ]
+        }
+      }
+    },
+    "/events": {
+      "get": {
+        "operationId": "getEvents66",
+        "summary": "GET /events → Event",
+        "tags": [
+          "Dashboard — Light"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Event"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated"
+          }
+        },
+        "x-weshcraft": {
+          "keys": [
+            "op-get-events-66",
+            "op-get-events-127"
+          ],
+          "screens": [
+            "scr-dashboard-light",
+            "scr-dashboard-dark"
+          ],
+          "trigger": 66,
+          "confidence": "explicit",
+          "sources": [
+            66
+          ]
+        }
+      }
+    },
+    "/specs/{id}": {
+      "get": {
+        "operationId": "getSpecsId131",
+        "summary": "GET /specs/{id} → Spec",
+        "tags": [
+          "Spec detail"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Spec"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated"
+          }
+        },
+        "x-weshcraft": {
+          "keys": [
+            "op-get-specs-id-131"
+          ],
+          "screens": [
+            "scr-spec-detail"
+          ],
+          "trigger": null,
+          "confidence": "explicit",
+          "sources": [
+            131
+          ]
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Event": {
+        "type": "object",
+        "required": [
+          "id"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "message": {
+            "type": "string",
+            "x-weshcraft-nodes": [
+              68,
+              69,
+              70,
+              129,
+              130
+            ],
+            "x-weshcraft-confidence": "explicit"
+          }
+        }
+      },
+      "Job": {
+        "type": "object",
+        "required": [
+          "id"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "file": {
+            "type": "string",
+            "x-weshcraft-nodes": [
+              40,
+              44,
+              48,
+              52,
+              105,
+              109,
+              113
+            ],
+            "x-weshcraft-confidence": "inferred"
+          },
+          "status": {
+            "type": "string",
+            "x-weshcraft-nodes": [
+              41,
+              45,
+              49,
+              53,
+              106,
+              110,
+              114
+            ],
+            "x-weshcraft-confidence": "inferred"
+          },
+          "updated": {
+            "type": "string",
+            "x-weshcraft-nodes": [
+              42,
+              46,
+              50,
+              54,
+              107,
+              111,
+              115
+            ],
+            "x-weshcraft-confidence": "inferred"
+          }
+        }
+      },
+      "Link": {
+        "type": "object",
+        "required": [
+          "id"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "rel": {
+            "type": "string",
+            "x-weshcraft-nodes": [
+              59,
+              62,
+              65,
+              120,
+              123,
+              126
+            ],
+            "x-weshcraft-confidence": "explicit"
+          }
+        }
+      },
+      "Parity": {
+        "type": "object",
+        "required": [
+          "id"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "score": {
+            "type": "string",
+            "x-weshcraft-nodes": [
+              27,
+              92
+            ],
+            "x-weshcraft-confidence": "explicit"
+          },
+          "checks": {
+            "type": "string",
+            "x-weshcraft-nodes": [
+              30,
+              95
+            ],
+            "x-weshcraft-confidence": "explicit"
+          },
+          "errors": {
+            "type": "string",
+            "x-weshcraft-nodes": [
+              33,
+              98
+            ],
+            "x-weshcraft-confidence": "explicit"
+          },
+          "screens": {
+            "type": "string",
+            "x-weshcraft-nodes": [
+              36,
+              101
+            ],
+            "x-weshcraft-confidence": "explicit"
+          }
+        }
+      },
+      "Spec": {
+        "type": "object",
+        "required": [
+          "id"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "title": {
+            "type": "string",
+            "x-weshcraft-nodes": [
+              134
+            ],
+            "x-weshcraft-confidence": "explicit"
+          },
+          "file": {
+            "type": "string",
+            "x-weshcraft-nodes": [
+              135
+            ],
+            "x-weshcraft-confidence": "explicit"
+          },
+          "status": {
+            "type": "string",
+            "x-weshcraft-nodes": [
+              137
+            ],
+            "x-weshcraft-confidence": "explicit"
+          },
+          "heading": {
+            "type": "string",
+            "x-weshcraft-nodes": [
+              139
+            ],
+            "x-weshcraft-confidence": "explicit"
+          },
+          "fingerprint": {
+            "type": "string",
+            "x-weshcraft-nodes": [
+              148
+            ],
+            "x-weshcraft-confidence": "explicit"
+          },
+          "checks": {
+            "type": "string",
+            "x-weshcraft-nodes": [
+              150
+            ],
+            "x-weshcraft-confidence": "explicit"
+          },
+          "errors": {
+            "type": "string",
+            "x-weshcraft-nodes": [
+              152
+            ],
+            "x-weshcraft-confidence": "explicit"
+          },
+          "layer": {
+            "type": "string",
+            "x-weshcraft-nodes": [
+              154
+            ],
+            "x-weshcraft-confidence": "explicit"
+          },
+          "owner": {
+            "type": "string",
+            "x-weshcraft-nodes": [
+              156
+            ],
+            "x-weshcraft-confidence": "explicit"
+          }
+        }
+      },
+      "Error": {
+        "type": "object",
+        "required": [
+          "code",
+          "message"
+        ],
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "fields": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "securitySchemes": {
+      "bearer": {
+        "type": "http",
+        "scheme": "bearer"
+      }
+    }
+  },
+  "security": [
+    {
+      "bearer": []
+    }
+  ]
+}
