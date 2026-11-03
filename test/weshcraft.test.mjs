@@ -322,24 +322,20 @@ test('GitLab sync skips files the branch already has', async () => {
   } finally { server.close(); }
 });
 
-test('init: Claude Code MCP, OpenCode 2 plugin (default) or OpenCode 2 MCP (--no-plugin)', () => {
+test('init: MCP server for Claude Code (.mcp.json) and OpenCode (opencode.json)', () => {
   const bin = path.join(here, '..', 'bin', 'weshcraft.mjs');
   const dir = tmp();
+  fs.writeFileSync(path.join(dir, 'opencode.json'), JSON.stringify({ mcp: { servers: { other: {} } } }));
   execFileSync(process.execPath, [bin, 'init', '--client', 'both', '--attach', '7979', '--sync', 'git'], { cwd: dir });
   const claude = JSON.parse(fs.readFileSync(path.join(dir, '.mcp.json'), 'utf8'));
   assert.ok(claude.mcpServers.weshcraft.args.includes('--attach'));
   assert.ok(claude.mcpServers.weshcraft.args.includes('git'));
-  const shim = fs.readFileSync(path.join(dir, '.opencode/plugins/weshcraft.js'), 'utf8');
-  assert.match(shim, /^export \{ default \} from "file:.*\/opencode\/plugin\.mjs";$/m);
-  assert.equal(shim.match(/^export /gm).length, 1, 'only the default export');
-  assert.deepEqual(JSON.parse(fs.readFileSync(path.join(dir, '.opencode/weshcraft.json'), 'utf8')), { attach: 7979, sync: 'git' });
-  assert.ok(!fs.existsSync(path.join(dir, 'opencode.json')), 'plugin mode adds no MCP entry (no duplicate tools)');
-  const dir2 = tmp();
-  fs.writeFileSync(path.join(dir2, 'opencode.json'), JSON.stringify({ mcp: { servers: { other: {} } } }));
-  execFileSync(process.execPath, [bin, 'init', '--client', 'opencode', '--no-plugin'], { cwd: dir2 });
-  const oc2 = JSON.parse(fs.readFileSync(path.join(dir2, 'opencode.json'), 'utf8'));
-  assert.equal(oc2.mcp.servers.weshcraft.disabled, false);
-  assert.ok(oc2.mcp.servers.other, 'existing servers kept');
+  const oc = JSON.parse(fs.readFileSync(path.join(dir, 'opencode.json'), 'utf8'));
+  assert.equal(oc.mcp.servers.weshcraft.type, 'local');
+  assert.equal(oc.mcp.servers.weshcraft.disabled, false);
+  assert.ok(oc.mcp.servers.weshcraft.command.includes('--attach'));
+  assert.ok(oc.mcp.servers.other, 'existing servers kept');
+  assert.ok(!fs.existsSync(path.join(dir, '.opencode')), 'no plugin is installed');
   const dir3 = tmp();
   execFileSync(process.execPath, [bin, 'init', '--client', 'claude', '--surface', 'api/openapi.yaml'], { cwd: dir3 });
   const c3 = JSON.parse(fs.readFileSync(path.join(dir3, '.mcp.json'), 'utf8')).mcpServers.weshcraft.args;
@@ -455,107 +451,4 @@ test('live MCP server introspection (tools/list over stdio) with a snapshot for 
   // The snapshot alone reproduces the same manifest (what CI checks against).
   const fromSnap = buildManifest(emptyModel(), { surface: loadSurfaceFile(snap.abs) });
   assert.equal(fromSnap.source.hash, ws.manifest.source.hash);
-});
-
-
-import { createPlugin, detectConfig, serveArgs } from '../opencode/plugin.mjs';
-
-const billingProject = () => {
-  const dir = tmp();
-  fs.mkdirSync(path.join(dir, 'design'));
-  for (const f of fs.readdirSync(path.dirname(BILLING))) fs.copyFileSync(path.join(path.dirname(BILLING), f), path.join(dir, 'design', f));
-  return dir;
-};
-const waitFor = async (fn, ms = 15000) => { const t0 = Date.now(); for (;;) { const v = await fn().catch(() => null); if (v) return v; if (Date.now() - t0 > ms) throw new Error('timed out'); await new Promise(r => setTimeout(r, 150)); } };
-
-test('OpenCode plugin: project detection and serve arguments', () => {
-  assert.equal(detectConfig(tmp()), null, 'nothing to spec: idle');
-  const dir = billingProject();
-  const cfg = detectConfig(dir);
-  assert.deepEqual(cfg.surface, ['design/weshcraft.surface.json']);
-  assert.ok(cfg.port >= 4600 && cfg.port < 4900);
-  assert.equal(detectConfig(dir).port, cfg.port, 'stable port per project');
-  fs.mkdirSync(path.join(dir, '.opencode'));
-  fs.writeFileSync(path.join(dir, '.opencode/weshcraft.json'), JSON.stringify({ surface: 'design/openapi.yaml', port: 4777, sync: 'git' }));
-  const c2 = detectConfig(dir);
-  assert.deepEqual(serveArgs(c2).slice(0, 8), ['serve', '--out', '.', '--port', '4777', '--concurrency', '6', '--surface']);
-  assert.ok(serveArgs(c2).includes('--sync'));
-});
-
-test('OpenCode 2 plugin: starts WeshCraft, namespaced tools, /weshcraft command, regenerates on save, cleanup', async () => {
-  const dir = billingProject();
-  const port = 4870 + Math.floor(Math.random() * 25);
-  const plugin = createPlugin({ config: { ...detectConfig(dir), port } });
-  const tools = new Map(), namespaces = [], commands = new Map(), prompts = [];
-  const ctx = {
-    location: { directory: dir, project: { id: 'p', directory: dir, canonical: dir } },
-    options: {},
-    tool: { transform: async cb => cb({ namespace: n => namespaces.push(n.name), add: t => tools.set(`${t.options?.namespace ? `${t.options.namespace}_` : ''}${t.name}`, t) }) },
-    command: { transform: async cb => cb({ add: c => commands.set(c.name, c) }) },
-    session: { prompt: async p => prompts.push(p) },
-  };
-  const cleanup = await plugin.setup(ctx);
-  try {
-    assert.deepEqual(namespaces, ['weshcraft']);
-    for (const n of ['weshcraft_open', 'weshcraft_status', 'weshcraft_generate', 'weshcraft_check', 'weshcraft_links', 'weshcraft_sync', 'weshcraft_read_spec']) assert.ok(tools.has(n), n);
-    assert.equal(tools.get('weshcraft_links').input.additionalProperties, false);
-    assert.deepEqual(tools.get('weshcraft_read_spec').input.required, ['path']);
-    assert.match((await tools.get('weshcraft_open').execute({})).content, /^WeshCraft: http:\/\/127\.0\.0\.1:\d+\//);
-    await waitFor(async () => /"ok": true/.test((await tools.get('weshcraft_check').execute({}, { signal: AbortSignal.timeout(5000) })).content));
-    assert.match((await tools.get('weshcraft_read_spec').execute({ path: 'specs/front/mcp/tool-void-invoice.md' })).content, /\*\*destructive\*\*/);
-    // /weshcraft sends the instructions into the session, with whatever the user typed after it.
-    await commands.get('weshcraft').execute({ sessionID: 's1', prompt: { text: 'focus on the API' }, delivery: 'queue' });
-    assert.equal(prompts[0].sessionID, 's1');
-    assert.match(prompts[0].text, /Call weshcraft_open[\s\S]*focus on the API$/);
-    // Saving the MCP tool list (by OpenCode or anyone) regenerates: the new tool gets its spec.
-    const tf = path.join(dir, 'design', 'mcp-tools.json');
-    const j = JSON.parse(fs.readFileSync(tf, 'utf8'));
-    j.tools.push({ name: 'refund_invoice', description: 'Refund a paid invoice.', inputSchema: { type: 'object', required: ['id'], properties: { id: { type: 'string' } } }, annotations: { destructiveHint: true } });
-    fs.writeFileSync(tf, JSON.stringify(j));
-    await waitFor(async () => fs.existsSync(path.join(dir, 'specs/front/mcp/tool-refund-invoice.md')));
-  } finally { cleanup?.(); }
-  await waitFor(async () => { try { await fetch(`http://127.0.0.1:${port}/api/state`, { signal: AbortSignal.timeout(300) }); return false; } catch { return true; } });
-});
-
-test('OpenCode 2 plugin: idle where there is nothing to spec; options come from opencode.json', async () => {
-  const empty = createPlugin();
-  assert.equal(await empty.setup({ location: { directory: tmp() }, tool: { transform: () => assert.fail('no tools') } }), undefined);
-  const dir = billingProject();
-  assert.equal(detectConfig(tmp(), { surface: 'x.yaml', port: 4999 }).port, 4999, 'plugin options are config');
-  assert.deepEqual(detectConfig(dir, { surface: 'design/openapi.yaml' }).surface, ['design/openapi.yaml'], 'options win over detection');
-});
-
-import { createService, listen } from '../openchamber/service/main.js';
-
-test('OpenChamber extension: manifest, built frames, service (auth, state, run, empty project)', async () => {
-  const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-  const pkg = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'));
-  const oc = pkg.openchamber;
-  assert.equal(oc.apiVersion, 1);
-  for (const entry of [oc.contributes.panel.entry, oc.contributes.statusSection.entry, oc.contributes.service.entry, oc.contributes.panel.icon]) assert.ok(fs.existsSync(path.join(root, entry)), entry);
-  for (const f of ['openchamber/panel/main.js', 'openchamber/status/main.js']) assert.ok(fs.statSync(path.join(root, f)).size > 1000, `${f} is built`);
-  assert.ok(oc.contributes.tools.some(t => t.match === 'weshcraft_read_spec' && t.output === 'markdown'));
-  // The SDK's own parser accepts it, when the dev dependency is installed.
-  const parse = path.join(root, 'node_modules/@openchamber/sdk/dist/parse.js');
-  if (fs.existsSync(parse)) assert.equal((await import(parse)).parseManifestJson(JSON.stringify(pkg)).ok, true);
-
-  const dir = billingProject();
-  const port = 4900 + Math.floor(Math.random() * 25);
-  const service = createService({ config: d => (d === dir ? { ...detectConfig(d), port } : detectConfig(d)) });
-  const svcPort = 4930 + Math.floor(Math.random() * 25);
-  const server = listen({ port: svcPort, token: 't0k', service });
-  const call = (p, init = {}, token = 't0k') => fetch(`http://127.0.0.1:${svcPort}${p}`, { ...init, headers: { authorization: `Bearer ${token}` } });
-  try {
-    await new Promise(r => server.once('listening', r));
-    assert.equal((await call('/health', {}, 'wrong')).status, 401);
-    const empty = await (await call(`/state?directory=${encodeURIComponent(fs.mkdtempSync(path.join(os.tmpdir(), 'wc-empty-')))}`)).json();
-    assert.equal(empty.status, 'none');
-    let st;
-    await waitFor(async () => { st = await (await call(`/state?directory=${encodeURIComponent(dir)}`)).json(); return st.status === 'ok' && st.report?.ok; });
-    assert.match(st.url, new RegExp(`^http://127\\.0\\.0\\.1:${port}/`));
-    assert.ok(st.summary.tools > 0 && st.summary.endpoints > 0);
-    assert.ok(st.jobs.some(j => j.file === 'specs/front/mcp/README.md'));
-    assert.ok(!st.source.includes(dir), 'source is shown relative to the project');
-    assert.equal((await call('/run', { method: 'POST', body: JSON.stringify({ directory: dir }) })).status, 200);
-  } finally { service.stop(); server.close(); }
 });

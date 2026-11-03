@@ -71,14 +71,6 @@ node bin/weshcraft.mjs serve --mcp-server "node dist/server.js" --surface api/op
 
 Without links, a tool is matched to the endpoint whose `operationId` has the same words (`list_invoices` ⇄ `listInvoices`). A live `--mcp-server` is snapshotted to `design/<name>.mcp.json`, so CI checks the same tool list.
 
-### In OpenCode 2 and OpenChamber (native plugin)
-
-```bash
-node bin/weshcraft.mjs init --client opencode --global
-```
-
-Installs the WeshCraft plugin for OpenCode 2.2+ and OpenChamber: WeshCraft starts with the project, its tools appear under the `weshcraft` namespace, `/weshcraft` reports status, and specs regenerate when design, OpenAPI or MCP files are saved. In OpenChamber, also add this folder in **Settings → Extensions**: a WeshCraft rail panel (parity, specs, links and gaps, open the full view in the browser panel), a Work Status line and styled WeshCraft tool calls in the chat. See [`opencode/README.md`](opencode/README.md).
-
 ### Live FigCraft over MCP
 
 Build FigCraft's CLI (`cargo build --release -p figcraft-cli`, see FigCraft's `docs/mcp.md`), then either:
@@ -103,7 +95,7 @@ node bin/weshcraft.mjs serve --attach 7979 --figcraft-cli /path/to/figcraft-cli
 node bin/weshcraft.mjs init --client both --attach 7979 --figcraft-cli /path/to/figcraft-cli --sync git
 ```
 
-That writes `.mcp.json` for Claude Code (a `weshcraft` stdio server that also serves the browser view) and the OpenCode 2 plugin under `.opencode/plugins/` with its settings in `.opencode/weshcraft.json`; both commit the specs in this repository after every in-sync run. Drop `--sync git` to commit yourself, or use `--sync github:owner/repo` to sync a branch on GitHub instead. Install the wesh update (below), restart Claude Code, run `/wesh-plan-view-mode`. The agent plans with you in rounds, puts each decision into the prototype, generates the specs, fans out sub-agents to enrich them with `wesh-spec-front` / `wesh-spec-back`, gates on parity and publishes when you say so.
+That writes `.mcp.json` for Claude Code and `opencode.json` for OpenCode: a `weshcraft` stdio MCP server that also serves the browser view; both commit the specs in this repository after every in-sync run. Drop `--sync git` to commit yourself, or use `--sync github:owner/repo` to sync a branch on GitHub instead. Install the wesh update (below), restart Claude Code, run `/wesh-plan-view-mode`. The agent plans with you in rounds, puts each decision into the prototype, generates the specs, fans out sub-agents to enrich them with `wesh-spec-front` / `wesh-spec-back`, gates on parity and publishes when you say so.
 
 ## Commands
 
@@ -116,7 +108,7 @@ That writes `.mcp.json` for Claude Code (a `weshcraft` stdio server that also se
 | `diff --file F [--against GIT_REF]` | What changed in the design since the specs on disk (or committed at a ref). |
 | `publish [source] --provider github\|gitlab --repo R` | Commit and open/update a PR/MR. Token from `GITHUB_TOKEN` / `GITLAB_TOKEN`; `--api-url` for GitHub Enterprise or self-managed GitLab. |
 | `zip [source] --zip F` | Everything a repo needs, as a zip. |
-| `init [--client claude\|opencode\|both] [--global] [--no-plugin]` | Claude Code: MCP server in `.mcp.json`. OpenCode 2 / OpenChamber: native plugin (`.opencode/plugins/`, or `~/.config/opencode/plugins/` with `--global`); `--no-plugin`: MCP server in `opencode.json`. |
+| `init [--client claude\|opencode\|both]` | MCP server for Claude Code (`.mcp.json`) and/or OpenCode (`opencode.json`, `mcp.servers.weshcraft`). |
 
 Source: `--file F` (offline), `--mcp` (spawns `figcraft-cli mcp`), or `--attach PORT` (running app); and/or non-visual fronts: `--surface FILE` (OpenAPI JSON/YAML, MCP tool list, `weshcraft.surface.json`; repeatable) and `--mcp-server "CMD"` (repeatable).
 
@@ -223,8 +215,6 @@ src/model/                 normalised model + manifest extraction
 src/proto/html.mjs         prototype renderer
 src/proto/catalog.mjs      MCP/API catalog page
 src/surface/               OpenAPI (JSON/YAML), MCP tool lists and live MCP servers
-opencode/                  OpenCode 2 / OpenChamber plugin
-openchamber/               OpenChamber extension: panel, Work Status section, service (manifest in package.json)
 src/spec/                  front/back generators, contracts, workspace (parallel jobs), agent pass
 src/parity/check.mjs       parity
 src/spec/diff.mjs          design changelog

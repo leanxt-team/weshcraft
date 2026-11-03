@@ -13,138 +13,15 @@
   "scripts": {
     "start": "node bin/weshcraft.mjs serve",
     "test": "node --test test/weshcraft.test.mjs",
-    "demo": "node bin/weshcraft.mjs serve --file test/fixtures/ridgeline-app.figcraft --out .weshcraft-demo",
-    "build:openchamber": "node openchamber/build.mjs"
+    "demo": "node bin/weshcraft.mjs serve --file test/fixtures/ridgeline-app.figcraft --out .weshcraft-demo"
   },
   "files": [
     "bin",
     "src",
     "docs",
-    "opencode",
     "wesh-bundle",
-    "openchamber",
     "README.md",
     "LICENSE",
     "NOTICE"
-  ],
-  "openchamber": {
-    "apiVersion": 1,
-    "engines": {
-      "openchamber": ">=2.0.1"
-    },
-    "contributes": {
-      "panel": {
-        "id": "weshcraft",
-        "name": "WeshCraft",
-        "icon": "openchamber/icon.svg",
-        "entry": "openchamber/panel/index.html"
-      },
-      "page": {
-        "entry": "openchamber/panel/index.html",
-        "title": "WeshCraft"
-      },
-      "statusSection": {
-        "entry": "openchamber/status/index.html",
-        "title": "WeshCraft",
-        "height": 56
-      },
-      "service": {
-        "entry": "openchamber/service/main.js",
-        "runtime": "host"
-      },
-      "tools": [
-        {
-          "match": "weshcraft_status",
-          "name": "WeshCraft",
-          "icon": "pulse-line",
-          "title": "Status",
-          "output": "json"
-        },
-        {
-          "match": "weshcraft_generate",
-          "name": "WeshCraft",
-          "icon": "refresh-line",
-          "title": "Generate specs",
-          "output": "json"
-        },
-        {
-          "match": "weshcraft_check",
-          "name": "WeshCraft",
-          "icon": "shield-check-line",
-          "title": "Parity check",
-          "output": "json"
-        },
-        {
-          "match": "weshcraft_manifest",
-          "name": "WeshCraft",
-          "icon": "list-check-2",
-          "title": "Manifest",
-          "subtitle": "{input.screen}",
-          "output": "json"
-        },
-        {
-          "match": "weshcraft_links",
-          "name": "WeshCraft",
-          "icon": "links-line",
-          "title": "Front ⇄ back links",
-          "subtitle": "{input.screen}",
-          "output": "json"
-        },
-        {
-          "match": "weshcraft_read_spec",
-          "name": "WeshCraft",
-          "icon": "file-text-line",
-          "title": "{input.path}",
-          "output": "markdown"
-        },
-        {
-          "match": "weshcraft_write_notes",
-          "name": "WeshCraft",
-          "icon": "sticky-note-line",
-          "title": "{input.path}",
-          "subtitle": "Notes",
-          "output": "text"
-        },
-        {
-          "match": "weshcraft_sync",
-          "name": "WeshCraft",
-          "icon": "git-branch-line",
-          "title": "Sync",
-          "subtitle": "{input.target}",
-          "output": "json"
-        },
-        {
-          "match": "weshcraft_publish",
-          "name": "WeshCraft",
-          "icon": "git-pull-request-line",
-          "title": "Publish",
-          "subtitle": "{input.repo}",
-          "output": "json"
-        },
-        {
-          "match": "weshcraft_open",
-          "name": "WeshCraft",
-          "icon": "external-link-line",
-          "title": "Open WeshCraft",
-          "output": "markdown"
-        },
-        {
-          "match": "weshcraft_*",
-          "name": "WeshCraft",
-          "icon": "openchamber/icon.svg",
-          "output": "auto"
-        },
-        {
-          "match": "figcraft_*",
-          "name": "FigCraft",
-          "icon": "pen-nib-line",
-          "output": "auto"
-        }
-      ]
-    }
-  },
-  "devDependencies": {
-    "@openchamber/sdk": "^2.6.0",
-    "esbuild": "^0.28.2"
-  }
+  ]
 }

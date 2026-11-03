@@ -491,7 +491,7 @@ async function init() {
   renderSync(st.sync);
   connect();
   if (!st.summary && !st.running) run(false);
-  // Deep link (OpenChamber panel, PR links): ?open=specs/front/screens/scr-home.md#anchor
+  // Deep link (PR links, bookmarks): ?open=specs/front/screens/scr-home.md#anchor
   const open = new URLSearchParams(location.search).get('open');
   if (open && /^specs\//.test(open)) { openFile(open); if (phone.matches) setPhoneView('read'); }
 }
