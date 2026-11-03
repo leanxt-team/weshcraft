@@ -22,3 +22,5 @@ jobs:
       - run: npm test
       - name: Example output is in sync with its design
         run: node bin/weshcraft.mjs check --file examples/ridgeline-onboarding/design/ridgeline-onboarding.figcraft --out examples/ridgeline-onboarding
+      - name: Account example is in sync with its design
+        run: node bin/weshcraft.mjs check --file examples/account/design/account.figcraft.json --out examples/account

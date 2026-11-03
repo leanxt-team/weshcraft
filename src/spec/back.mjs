@@ -5,6 +5,7 @@
 // labels). Inferred items are listed as open questions until a designer or agent confirms them.
 import { mdEscape, slug } from '../util/common.mjs';
 import { embedContract, notesBlock } from './contract.mjs';
+import { entityAnchor } from './links.mjs';
 
 const NOTES_PLACEHOLDER = '_No notes yet. Agent or human additions go here; WeshCraft keeps this block when it regenerates the file._';
 const ref = id => `\`#${id}\``;
@@ -35,14 +36,20 @@ export function domainSpec(manifest, { notes } = {}) {
     L.push('- layer data `set_properties {props: {pluginData: {weshcraft: "{\\"entity\\":\\"Trail\\",\\"field\\":\\"name\\"}"}}}`');
   }
   for (const e of entities) {
+    L.push(`<a id="${entityAnchor(e.name)}"></a>`);
     L.push(`## ${e.name}`);
     L.push('');
     L.push(`Source layers: ${e.sources.map(ref).join(', ')} · ${e.confidence}`);
     L.push('');
-    L.push('| Field | Type | Example (from the prototype) | Source | Confidence |');
-    L.push('|---|---|---|---|---|');
-    L.push(`| id | id | — | — | required |`);
-    for (const f of e.fields) L.push(`| ${f.name} | ${f.type} | ${mdEscape(sample(manifest, f) ?? '—')} | ${f.sources.map(ref).join(', ')} | ${f.confidence} |`);
+    L.push('| Field | Type | Example (from the prototype) | Shown by | Screens | Loaded by | Confidence |');
+    L.push('|---|---|---|---|---|---|---|');
+    L.push(`| id | id | — | — | — | — | required |`);
+    for (const f of e.fields) {
+      const shown = manifest.links.edges.filter(x => x.field === `${e.name}.${f.name}`);
+      const screens = [...new Set(shown.map(x => x.screen))].map(k => `[${mdEscape(manifest.screens.find(s => s.key === k)?.name ?? k)}](../front/screens/${k}.md)`);
+      const via = [...new Set(shown.map(x => x.via))].map(k => manifest.domain.operations.find(o => o.key === k)).map(o => (o ? `[\`${o.method} ${o.path}\`](api.md#${o.key})` : '⚠️ nothing'));
+      L.push(`| ${f.name} | ${f.type} | ${mdEscape(sample(manifest, f) ?? '—')} | ${f.sources.map(ref).join(', ')} | ${screens.join(', ') || '—'} | ${via.join(', ') || '—'} | ${f.confidence} |`);
+    }
     L.push('');
   }
   const open = entities.flatMap(e => e.fields.filter(f => f.confidence !== 'explicit').map(f => `${e.name}.${f.name}`));
@@ -78,7 +85,13 @@ export function apiSpec(manifest, { notes } = {}) {
       L.push('');
       L.push(`- Screen: [${mdEscape(s.name)}](../front/screens/${s.key}.md)${o.trigger ? `, triggered by ${ref(o.trigger)}` : ', on screen load'}`);
       L.push(`- Kind: ${o.kind} · confidence: ${o.confidence}`);
-      if (o.entity) L.push(`- Returns: \`${o.entity}[]\` (paginated)`);
+      const used = manifest.links.edges.filter(x => x.op === o.key);
+      if (used.length) L.push(`- Front end: ${used.map(x => `${{ triggers: '▶', submits: '⇢', lists: '☰' }[x.rel]} \`#${x.node}\` ${mdEscape(x.label)}`).join(' · ')}`);
+      if (o.entity) {
+        const shown = manifest.links.edges.filter(x => x.via === o.key);
+        if (shown.length) L.push(`- Response shown: ${[...new Set(shown.map(x => x.field))].map(f => `\`${f}\` (${shown.filter(x => x.field === f).map(x => `\`#${x.node}\``).join(' ')})`).join(', ')}`);
+      }
+      if (o.entity) L.push(o.kind === 'list' ? `- Returns: \`${o.entity}[]\` (paginated)` : `- Returns: \`${o.entity}\``);
       const fields = (o.fields || []).map(id => s.inputs.find(i => i.id === id)).filter(Boolean);
       if (fields.length) L.push(`- Request body: ${fields.map(f => `\`${slug(f.name).replace(/-/g, '_')}\` from ${ref(f.id)}`).join(', ')}`);
       L.push(`- Errors: 400 validation (field errors shown next to the inputs), 401 unauthenticated, 409 conflict, 5xx shown as a retryable banner.`);
@@ -122,9 +135,11 @@ export function openapi(manifest) {
       summary: o.name,
       tags: [s?.name ?? 'default'],
       responses: {
-        [o.method === 'POST' ? '201' : o.method === 'DELETE' ? '204' : '200']: o.entity
-          ? { description: 'OK', content: { 'application/json': { schema: { type: 'object', properties: { items: { type: 'array', items: { $ref: `#/components/schemas/${o.entity}` } }, next: { type: ['string', 'null'] } } } } } }
-          : { description: 'OK' },
+        [o.method === 'POST' ? '201' : o.method === 'DELETE' ? '204' : '200']: !o.entity
+          ? { description: 'OK' }
+          : o.kind === 'list'
+            ? { description: 'OK', content: { 'application/json': { schema: { type: 'object', properties: { items: { type: 'array', items: { $ref: `#/components/schemas/${o.entity}` } }, next: { type: ['string', 'null'] } } } } } }
+            : { description: 'OK', content: { 'application/json': { schema: { $ref: `#/components/schemas/${o.entity}` } } } },
         400: { description: 'Validation error', content: { 'application/json': { schema: { $ref: '#/components/schemas/Error' } } } },
         401: { description: 'Unauthenticated' },
       },

@@ -24,7 +24,9 @@ export function bindingOf(node) {
 function apiAnnotation(node) {
   for (const a of node.annotations || []) {
     const m = /\b(GET|POST|PUT|PATCH|DELETE)\s+(\/[\w\-/{}.:]*)/.exec(a.label || '');
-    if (m) return { method: m[1], path: m[2], confidence: 'explicit', note: a.label };
+    // Optional result: `GET /users/me → User` (or `-> User`, `returns User`).
+    const r = /(?:→|->|returns)\s*([A-Za-z]\w*)/.exec(a.label || '');
+    if (m) return { method: m[1], path: m[2], confidence: 'explicit', note: a.label, entity: r ? pascal(r[1]) : null };
   }
   const pd = node.pluginData?.weshcraft;
   if (pd) {
@@ -32,7 +34,7 @@ function apiAnnotation(node) {
       const j = JSON.parse(pd);
       if (j.action) {
         const [method, path] = String(j.action).split(/\s+/);
-        return { method: method.toUpperCase(), path, confidence: 'explicit', note: j.note };
+        return { method: method.toUpperCase(), path, confidence: 'explicit', note: j.note, entity: j.returns ? pascal(j.returns) : null };
       }
     } catch { /* ignore */ }
   }
@@ -82,7 +84,7 @@ function screenContents(model, screen, tok) {
     }
     const b = bindingOf(n);
     if (b) bindings.push({ id: n.id, name: n.name, ...b });
-    for (const a of n.annotations || []) annotations.push({ id: n.id, name: n.name, label: a.label, category: a.category ?? null, properties: a.properties ?? [] });
+    for (const a of n.annotations || []) annotations.push({ id: n.id, name: n.name, text: textOf(model, n.id), label: a.label, category: a.category ?? null, properties: a.properties ?? [] });
   }
   return { texts, instances, actions, inputs, bindings, annotations, colors: [...colors].sort(), nodeIds: all.map(n => n.id) };
 }
@@ -173,6 +175,8 @@ function domainOf(model, screens, components) {
     entities.set(entity, e);
   };
   const compName = new Map(components.map(c => [c.id, c]));
+  const samples = new Map();
+  const sampleSeen = new Set();
   const operations = [];
   for (const s of screens) {
     for (const b of s.bindings) if (b.entity && b.field) addField(b.entity, b.field, b.type || 'string', b.id, 'explicit');
@@ -194,7 +198,24 @@ function domainOf(model, screens, components) {
       if (textProps.length === 0 && !repeated) continue;
       const entity = pascal(comp.name.replace(/\b(card|row|item|tile|cell|list|component|featured)\b/gi, '').trim() || comp.name);
       if (!textProps.length) continue;
-      for (const [prop] of textProps) addField(entity, camel(prop.replace(/#.*$/, '')), 'string', list[0].id, 'inferred');
+      // Each text property is a field; its sources are the text layers that show its value in
+      // every instance (matched by value), so front-end layers link to the exact field they show.
+      for (const inst of list) {
+        const values = {};
+        for (const [prop] of textProps) { const v = inst.props?.[prop]; values[camel(prop.replace(/#.*$/, ''))] = typeof v === 'object' ? v?.value : v; }
+        const key = `${entity}|${JSON.stringify(values)}`;
+        if (!sampleSeen.has(key)) { sampleSeen.add(key); (samples.get(entity) ?? samples.set(entity, []).get(entity)).push(values); }
+      }
+      for (const [prop] of textProps) {
+        const field = camel(prop.replace(/#.*$/, ''));
+        for (const inst of list) {
+          const v = inst.props?.[prop];
+          const value = typeof v === 'object' ? v?.value : v;
+          const shown = [...descendants(model, inst.id)].filter(d => d.text && d.visible && d.text.characters === value);
+          if (shown.length) for (const d of shown) addField(entity, field, 'string', d.id, 'inferred');
+          else addField(entity, field, 'string', inst.id, 'inferred');
+        }
+      }
       if (repeated) {
         operations.push({
           key: `op-list-${slug(entity)}-${s.key}`, name: `List ${entity}`, method: 'GET', path: `/${slug(entity)}s`,
@@ -207,7 +228,7 @@ function domainOf(model, screens, components) {
       const node = model.nodes.get(a.id);
       const api = apiAnnotation(node);
       if (api) {
-        operations.push({ key: `op-${slug(a.label || a.name)}-${a.id}`, name: a.label || a.name, method: api.method, path: api.path, screen: s.key, trigger: a.id, entity: null, kind: 'annotated', confidence: 'explicit', sources: [a.id], fields: s.inputs.map(i => i.id) });
+        operations.push({ key: `op-${slug(a.label || a.name)}-${a.id}`, name: a.label || a.name, method: api.method, path: api.path, screen: s.key, trigger: a.id, entity: api.entity, kind: 'annotated', confidence: 'explicit', sources: [a.id], fields: s.inputs.map(i => i.id) });
       } else if (MUTATE_RE.test(a.label) && (BUTTON_RE.test(a.name) || a.label)) {
         const verb = MUTATE_RE.exec(a.label)[1].toLowerCase();
         operations.push({
@@ -220,7 +241,7 @@ function domainOf(model, screens, components) {
     for (const n of s.annotations) {
       const api = apiAnnotation(model.nodes.get(n.id));
       if (api && !operations.some(o => o.trigger === n.id)) {
-        operations.push({ key: `op-${slug(api.method + ' ' + api.path)}-${n.id}`, name: n.label, method: api.method, path: api.path, screen: s.key, trigger: n.id, entity: null, kind: 'annotated', confidence: 'explicit', sources: [n.id], fields: [] });
+        operations.push({ key: `op-${slug(api.method + ' ' + api.path)}-${n.id}`, name: n.label, method: api.method, path: api.path, screen: s.key, trigger: api.entity && n.id === s.id ? null : n.id, entity: api.entity, kind: 'annotated', confidence: 'explicit', sources: [n.id], fields: api.method === 'GET' ? [] : s.inputs.map(i => i.id) });
       }
     }
   }
@@ -228,11 +249,50 @@ function domainOf(model, screens, components) {
   for (const o of operations) if (!dedup.has(o.key)) dedup.set(o.key, o);
   return {
     entities: [...entities.values()].map(e => ({
-      name: e.name, confidence: e.confidence, sources: [...e.sources].sort((a, b) => a - b),
+      name: e.name, confidence: e.confidence, sources: [...e.sources].sort((a, b) => a - b), samples: samples.get(e.name) ?? [],
       fields: [...e.fields.values()].map(f => ({ ...f, sources: [...new Set(f.sources)].sort((a, b) => a - b) })),
     })).sort((a, b) => a.name.localeCompare(b.name)),
     operations: [...dedup.values()],
   };
+}
+
+/**
+ * Front <-> back links: which layer triggers which operation, which inputs it submits, which
+ * repeated layers an operation fills, which layers display which entity field, and the gaps
+ * (data shown that no operation loads, operations nothing on screen triggers or shows).
+ */
+export function buildLinks(screens, domain) {
+  const screenOf = new Map();
+  for (const s of screens) for (const id of s.nodeIds) screenOf.set(id, s.key);
+  const nodeName = new Map();
+  for (const s of screens) {
+    nodeName.set(s.id, s.name);
+    for (const t of s.texts) nodeName.set(t.id, t.characters.length > 40 ? `${t.characters.slice(0, 40)}…` : t.characters);
+    for (const i of s.instances) if (!nodeName.has(i.id)) nodeName.set(i.id, i.name);
+    for (const i of s.inputs) nodeName.set(i.id, i.name);
+    for (const a of s.actions) nodeName.set(a.id, a.label || a.name);
+    for (const a of s.annotations) if (!nodeName.has(a.id)) nodeName.set(a.id, a.text || a.name);
+  }
+  const edges = [];
+  const add = (rel, node, target, extra = {}) => {
+    if (node == null) return;
+    edges.push({ rel, node, screen: screenOf.get(node) ?? null, label: nodeName.get(node) ?? `#${node}`, ...target, ...extra });
+  };
+  for (const o of domain.operations) {
+    if (o.trigger != null) add('triggers', o.trigger, { op: o.key });
+    for (const f of o.fields || []) add('submits', f, { op: o.key });
+    if (o.kind === 'list') for (const id of o.sources) add('lists', id, { op: o.key });
+  }
+  for (const e of domain.entities) for (const f of e.fields) for (const id of f.sources) add('displays', id, { field: `${e.name}.${f.name}` });
+  // Which operation brings each displayed field to its screen.
+  const loads = new Map();
+  for (const o of domain.operations) if (o.entity) loads.set(`${o.screen}|${o.entity}`, o.key);
+  for (const e of edges) if (e.rel === 'displays') e.via = loads.get(`${e.screen}|${e.field.split('.')[0]}`) ?? null;
+  const gaps = [];
+  for (const e of edges.filter(x => x.rel === 'displays' && !x.via)) gaps.push({ kind: 'unloaded-data', node: e.node, screen: e.screen, field: e.field, message: `${e.field} is shown on ${e.screen} but no operation on that screen loads ${e.field.split('.')[0]}` });
+  for (const o of domain.operations) if (!edges.some(x => x.op === o.key || x.via === o.key)) gaps.push({ kind: 'unused-operation', op: o.key, message: `${o.method} ${o.path} is not triggered or shown by any layer` });
+  const dedupGaps = [...new Map(gaps.map(g => [`${g.kind}|${g.screen}|${g.field ?? g.op}`, g])).values()];
+  return { edges, gaps: dedupGaps };
 }
 
 export function buildManifest(model, { sourceName = model.name } = {}) {
@@ -266,11 +326,12 @@ export function buildManifest(model, { sourceName = model.name } = {}) {
   }
   for (const c of components) c.usedIn = usage.get(c.id) ?? [];
   const domain = domainOf(model, screens, components);
+  const links = buildLinks(screens, domain);
   const manifest = {
-    schema: 'weshcraft/manifest@1',
+    schema: 'weshcraft/manifest@2',
     source: { name: sourceName, truncated: !!model.truncated },
-    screens, components, tokens: tokensOf(model), flows, domain,
+    screens, components, tokens: tokensOf(model), flows, domain, links,
   };
-  manifest.source.hash = sha({ screens, components, tokens: manifest.tokens, flows, domain }, 16);
+  manifest.source.hash = sha({ screens, components, tokens: manifest.tokens, flows, domain, links }, 16);
   return manifest;
 }

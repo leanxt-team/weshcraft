@@ -19,6 +19,7 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 const APP = path.join(here, 'fixtures/ridgeline-app.figcraft');
 const ONBOARDING = path.join(here, 'fixtures/ridgeline-onboarding.figcraft');
 const FAKE = path.join(here, 'fake-figcraft-mcp.mjs');
+const ACCOUNT = path.join(here, 'fixtures/account.figcraft.json');
 const tmp = () => fs.mkdtempSync(path.join(os.tmpdir(), 'weshcraft-'));
 
 test('manifest is deterministic and exhaustive for the onboarding flow', async () => {
@@ -189,4 +190,228 @@ test('GitHub publish: branch, tree, commit, PR (mock API)', async () => {
 test('WCAG contrast math', () => {
   assert.equal(contrast('#000000', '#ffffff'), 21);
   assert.equal(contrast('#ffffff', '#ffffff'), 1);
+});
+
+test('front ⇄ back links: triggers, submits, displays, loaded-by and gaps', async () => {
+  const m = buildManifest((await new FileSource(ACCOUNT).load()).model);
+  const rel = (r, node) => m.links.edges.find(e => e.rel === r && e.node === node);
+  const create = m.domain.operations.find(o => o.method === 'POST' && o.path === '/users');
+  assert.equal(create.entity, 'User');
+  const signup = m.screens.find(s => s.key === 'scr-sign-up');
+  const button = signup.actions.find(a => a.label === 'Create account');
+  assert.equal(rel('triggers', button.id).op, create.key);
+  for (const input of signup.inputs) assert.equal(rel('submits', input.id).op, create.key, input.name);
+  const name = m.screens.find(s => s.key === 'scr-profile').texts.find(t => t.characters === '{{user.name}}');
+  const shows = rel('displays', name.id);
+  assert.equal(shows.field, 'User.name');
+  assert.equal(m.domain.operations.find(o => o.key === shows.via).path, '/users/me');
+  assert.deepEqual(m.links.gaps.map(g => `${g.kind}:${g.field ?? g.op}`), ['unloaded-data:Subscription.plan']);
+});
+
+test('links show up on both sides and parity guards them', async () => {
+  const out = tmp();
+  const ws = new Workspace({ source: new FileSource(ACCOUNT), outDir: out });
+  const r = await ws.run();
+  assert.ok(r.report.ok, JSON.stringify(r.report.issues.slice(0, 3)));
+  assert.ok(r.report.issues.some(i => i.code === 'gap-unloaded-data' && i.level === 'warning'));
+  const read = f => fs.readFileSync(path.join(out, f), 'utf8');
+  assert.match(read('specs/front/screens/scr-profile.md'), /\[`User\.name`\]\(\.\.\/\.\.\/back\/domain\.md#entity-user\) \| loaded by \[`GET \/users\/me`\]/);
+  assert.match(read('specs/back/api.md'), /- Front end: ▶ `#\d+` Create account · ⇢ `#\d+` Email field/);
+  assert.match(read('specs/back/domain.md'), /<a id="entity-user"><\/a>/);
+  assert.match(read('specs/LINKS.md'), /flowchart LR/);
+  const oa = JSON.parse(read('specs/back/openapi.json'));
+  assert.equal(oa.paths['/users/me'].get.responses['200'].content['application/json'].schema.$ref, '#/components/schemas/User');
+  assert.match(read('prototype/index.html'), /data-op="op-create-account-\d+"/);
+  // Drop one link from the screen contract: parity must fail.
+  const f = path.join(out, 'specs/front/screens/scr-sign-up.md');
+  fs.writeFileSync(f, read('specs/front/screens/scr-sign-up.md').replace(/\{\n\s*"node": \d+,\n\s*"op": "op-create-account-\d+",\n\s*"rel": "submits"\n\s*\},?/, ''));
+  assert.ok(ws.check().issues.some(i => i.code === 'links-differ'));
+});
+
+import { execFileSync } from 'node:child_process';
+import { Syncer, parseTarget } from '../src/publish/sync.mjs';
+import { publishGitLab, gitBlobSha } from '../src/publish/git.mjs';
+
+const gitRepo = () => {
+  const dir = tmp();
+  const g = (...a) => execFileSync('git', a, { cwd: dir, encoding: 'utf8' }).trim();
+  g('init', '-q', '-b', 'main');
+  g('config', 'user.name', 'Test');
+  g('config', 'user.email', 'test@example.com');
+  fs.writeFileSync(path.join(dir, 'README.md'), '# app\n');
+  fs.writeFileSync(path.join(dir, 'notes.txt'), 'mine, uncommitted\n');
+  g('add', 'README.md');
+  g('commit', '-q', '-m', 'init');
+  return { dir, g };
+};
+
+test('sync targets parse', () => {
+  assert.deepEqual(parseTarget('github:o/r@specs'), { kind: 'github', repo: 'o/r', branch: 'specs' });
+  assert.deepEqual(parseTarget('git'), { kind: 'git', repo: null, branch: null });
+  assert.throws(() => parseTarget('github'));
+  assert.throws(() => parseTarget('svn:x'));
+});
+
+test('local git sync commits only WeshCraft paths, then is a no-op, and never switches branches', async () => {
+  const { dir, g } = gitRepo();
+  const design = path.join(dir, 'design', 'account.figcraft.json');
+  fs.mkdirSync(path.dirname(design));
+  fs.copyFileSync(ACCOUNT, design);
+  const ws = new Workspace({ source: new FileSource(design), outDir: dir });
+  const sync = new Syncer(ws, parseTarget('git', { auto: false }));
+  try {
+    await ws.run();
+    const r1 = await sync.sync();
+    assert.equal(r1.changed, true);
+    const files = g('show', '--name-only', '--format=', 'HEAD').split('\n');
+    assert.ok(files.includes('specs/LINKS.md') && files.includes('prototype/index.html') && files.includes('design/account.figcraft.json'));
+    assert.ok(files.includes('.github/workflows/weshcraft-parity.yml'));
+    assert.ok(!files.includes('notes.txt'), 'user files are left alone');
+    assert.match(g('status', '--porcelain'), /\?\? notes\.txt/);
+    assert.doesNotMatch(g('log', '-1', '--format=%B'), /claude|co-authored/i);
+    const r2 = await sync.sync();
+    assert.equal(r2.changed, false);
+    sync.configure(parseTarget('git@release', { auto: false }));
+    await assert.rejects(sync.sync(), /check out release first/);
+  } finally { sync.close(); }
+});
+
+test('auto sync runs after an in-sync regeneration', async () => {
+  const { dir, g } = gitRepo();
+  const ws = new Workspace({ source: new FileSource(ONBOARDING), outDir: dir });
+  const sync = new Syncer(ws, parseTarget('git', { auto: true }));
+  try {
+    await ws.run();
+    for (let i = 0; i < 100 && !sync.last; i++) await new Promise(r => setTimeout(r, 20));
+    while (sync.busy) await sync.busy.catch(() => {});
+    assert.equal(sync.last?.ok, true, JSON.stringify(sync.last));
+    assert.match(g('log', '-1', '--format=%s'), /^docs\(specs\): Ridgeline onboarding: first version/);
+  } finally { sync.close(); }
+});
+
+test('MCP weshcraft_sync configures and runs a sync', async () => {
+  const { dir } = gitRepo();
+  const ws = new Workspace({ source: new FileSource(ONBOARDING), outDir: dir });
+  const sync = new Syncer(ws);
+  const mcp = new WeshCraftMcp({ workspace: ws, autoRun: false, syncer: sync });
+  try {
+    const r = await mcp.callTool('weshcraft_sync', { target: 'git', auto: false });
+    assert.equal(r.isError, false, r.content[0].text);
+    const out = JSON.parse(r.content[0].text);
+    assert.equal(out.result.changed, true);
+    assert.equal(out.status.target, 'git');
+  } finally { sync.close(); }
+});
+
+test('GitLab sync skips files the branch already has', async () => {
+  const same = Buffer.from('# same\n');
+  const calls = [];
+  const server = http.createServer((req, res) => {
+    calls.push(`${req.method} ${req.url.split('?')[0]}`);
+    const json = v => { res.writeHead(200, { 'Content-Type': 'application/json' }); res.end(JSON.stringify(v)); };
+    if (req.url === '/projects/g%2Fp') return json({ default_branch: 'main', web_url: 'https://gl/g/p' });
+    if (req.url.startsWith('/projects/g%2Fp/repository/branches/')) return json({});
+    if (req.url.startsWith('/projects/g%2Fp/repository/tree')) return json([{ type: 'blob', path: 'specs/a.md', id: gitBlobSha(same) }]);
+    res.writeHead(500); res.end('{}');
+  });
+  await new Promise(r => server.listen(0, '127.0.0.1', r));
+  try {
+    const r = await publishGitLab({ repo: 'g/p', token: 't', branch: 'weshcraft/specs', title: 't', body: 'b', files: [{ path: 'specs/a.md', data: same }], apiUrl: `http://127.0.0.1:${server.address().port}`, pr: false });
+    assert.equal(r.changed, false);
+    assert.ok(!calls.some(c => c.includes('/repository/commits')), 'no commit when nothing changed');
+  } finally { server.close(); }
+});
+
+test('init writes MCP config for Claude Code and OpenCode 1 and 2', () => {
+  const bin = path.join(here, '..', 'bin', 'weshcraft.mjs');
+  const dir = tmp();
+  execFileSync(process.execPath, [bin, 'init', '--client', 'both', '--attach', '7979', '--sync', 'git'], { cwd: dir });
+  const claude = JSON.parse(fs.readFileSync(path.join(dir, '.mcp.json'), 'utf8'));
+  assert.ok(claude.mcpServers.weshcraft.args.includes('--attach'));
+  assert.ok(claude.mcpServers.weshcraft.args.includes('git'));
+  const oc1 = JSON.parse(fs.readFileSync(path.join(dir, 'opencode.json'), 'utf8'));
+  assert.equal(oc1.mcp.weshcraft.type, 'local');
+  assert.equal(oc1.mcp.weshcraft.enabled, true);
+  const dir2 = tmp();
+  fs.writeFileSync(path.join(dir2, 'opencode.json'), JSON.stringify({ mcp: { servers: { other: {} } } }));
+  execFileSync(process.execPath, [bin, 'init', '--client', 'opencode'], { cwd: dir2 });
+  const oc2 = JSON.parse(fs.readFileSync(path.join(dir2, 'opencode.json'), 'utf8'));
+  assert.equal(oc2.mcp.servers.weshcraft.disabled, false);
+  assert.ok(oc2.mcp.servers.other, 'existing servers kept');
+});
+
+import { Simulator } from '../src/sim/mock.mjs';
+import { diffManifests, updateChangelog, summaryLine } from '../src/spec/diff.mjs';
+import { startServer } from '../src/web/server.mjs';
+
+test('simulation: mock API seeded from the prototype, validates writes, honours scenarios', async () => {
+  const m = buildManifest((await new FileSource(APP).load()).model);
+  const sim = new Simulator(() => m);
+  sim.configure({ latency: 0 });
+  const list = await sim.handle('GET', '/trails');
+  assert.equal(list.status, 200);
+  assert.ok(list.body.items.some(t => t.title === 'Lake Agnes Teahouse' && /7\.4 km/.test(t.details)), 'records come from the rows the prototype shows');
+  sim.configure({ scenario: 'empty' });
+  assert.deepEqual((await sim.handle('GET', '/trails')).body.items, []);
+  sim.configure({ scenario: 'errors' });
+  assert.equal((await sim.handle('GET', '/trails')).status, 500);
+  sim.configure({ scenario: 'offline' });
+  assert.equal((await sim.handle('GET', '/trails')).status, 503);
+  sim.configure({ scenario: 'normal' });
+  assert.equal((await sim.handle('GET', '/nope')).status, 404);
+
+  const acc = buildManifest((await new FileSource(ACCOUNT).load()).model);
+  const s2 = new Simulator(() => acc);
+  s2.configure({ latency: 0 });
+  const bad = await s2.handle('POST', '/users', { email_field: 'x', password_field: '1' });
+  assert.equal(bad.status, 400);
+  assert.deepEqual(Object.keys(bad.body.fields).sort(), ['email_field', 'password_field']);
+  const ok = await s2.handle('POST', '/users', { email_field: 'maya@example.com', password_field: 'long enough' });
+  assert.equal(ok.status, 201);
+  assert.equal(ok.body.email, 'maya@example.com');
+  assert.equal((await s2.handle('GET', '/users/me')).body.email, 'maya@example.com', 'the created user is who /users/me returns');
+});
+
+test('server: /sim serves the prototype with the runtime and a working mock API', async () => {
+  const out = tmp();
+  const ws = new Workspace({ source: new FileSource(ACCOUNT), outDir: out });
+  await ws.run();
+  const server = await startServer({ workspace: ws, mcp: new WeshCraftMcp({ workspace: ws, autoRun: false }), port: 0, watch: false });
+  try {
+    const base = `http://127.0.0.1:${server.address().port}`;
+    const html = await (await fetch(`${base}/sim/`)).text();
+    assert.match(html, /<base href="\/out\/prototype\/">/);
+    assert.match(html, /<script src="\/sim\/runtime\.js"><\/script>/);
+    assert.match(html, /id="weshcraft-sim"/);
+    assert.equal((await fetch(`${base}/sim/runtime.js`)).status, 200);
+    await fetch(`${base}/api/sim`, { method: 'POST', body: JSON.stringify({ latency: 0 }) });
+    const r = await fetch(`${base}/sim/api/users`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email_field: 'a@b.co', password_field: '12345678' }) });
+    assert.equal(r.status, 201);
+    const st = await (await fetch(`${base}/api/sim`)).json();
+    assert.equal(st.log.at(-1).status, 201);
+    assert.equal((await fetch(`${base}/out/design/x`)).status, 404, 'only prototype/ and specs/ are served');
+  } finally { server.close(); }
+});
+
+test('design changelog: copy, screens and operations, newest first', async () => {
+  const before = buildManifest((await new FileSource(ACCOUNT).load()).model);
+  const doc = JSON.parse(fs.readFileSync(ACCOUNT, 'utf8'));
+  for (const n of Object.values(doc.nodes)) if (n.characters === 'Create your account') n.characters = 'Join WeshTrails';
+  const file = path.join(tmp(), 'edited.figcraft.json');
+  fs.writeFileSync(file, JSON.stringify(doc));
+  const after = buildManifest((await new FileSource(file).load()).model);
+  const d = diffManifests(before, after);
+  assert.ok(d.items.some(i => i.area === 'copy' && /Create your account.*Join WeshTrails/.test(i.text)));
+  assert.equal(summaryLine(d), '1 copy');
+  const log1 = updateChangelog(null, d);
+  const log2 = updateChangelog(log1, diffManifests(after, before));
+  assert.ok(log2.indexOf(before.source.hash) < log2.lastIndexOf(after.source.hash), 'newest entry first');
+  assert.equal(diffManifests(after, after).items.length, 0);
+  // Workspace writes CHANGES.md when the design on disk changed.
+  const out = tmp();
+  const w1 = new Workspace({ source: new FileSource(ACCOUNT), outDir: out });
+  await w1.run();
+  const w2 = new Workspace({ source: new FileSource(file), outDir: out });
+  await w2.run();
+  assert.match(fs.readFileSync(path.join(out, 'specs/CHANGES.md'), 'utf8'), /Join WeshTrails/);
 });

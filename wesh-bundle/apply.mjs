@@ -22,16 +22,22 @@ const edit = (rel, fn) => {
 };
 
 for (const name of ['wesh-plan-view-mode', 'wesh-spec-front', 'wesh-spec-back']) {
-  const src = path.join(HERE, 'skills', name, 'SKILL.md');
-  const rel = `skills/${name}/SKILL.md`;
-  const dst = path.join(wesh, rel);
-  const text = fs.readFileSync(src, 'utf8');
-  if (!fs.existsSync(dst) || fs.readFileSync(dst, 'utf8') !== text) {
-    fs.mkdirSync(path.dirname(dst), { recursive: true });
-    fs.writeFileSync(dst, text);
-    changed.push(rel);
+  // Every file of the skill (SKILL.md, and FORMAT.md for the advanced spec format).
+  for (const file of fs.readdirSync(path.join(HERE, 'skills', name))) {
+    const text = fs.readFileSync(path.join(HERE, 'skills', name, file), 'utf8');
+    const rel = `skills/${name}/${file}`;
+    const dst = path.join(wesh, rel);
+    if (!fs.existsSync(dst) || fs.readFileSync(dst, 'utf8') !== text) {
+      fs.mkdirSync(path.dirname(dst), { recursive: true });
+      fs.writeFileSync(dst, text);
+      changed.push(rel);
+    }
   }
 }
+
+// wesh-plan and wesh-review recognise the advanced spec format.
+edit('skills/wesh-plan/SKILL.md', s => (s.includes('wesh-plan-view-mode') ? s : s.replace('## 3. Write the spec\n', '## 3. Write the spec\nUI work with a FigCraft prototype, or a repo that already holds `specs/manifest.json` (WeshCraft advanced spec): suggest `/wesh-plan-view-mode` instead; it writes design, prototype and contract-checked front/back specs and keeps them in git.\n')));
+edit('skills/wesh-review/SKILL.md', s => (s.includes('weshcraft') ? s : s.replace('None found: skip the spec axis.', 'None found: skip the spec axis. WeshCraft advanced spec (`specs/manifest.json`, schema `weshcraft/manifest@*`): run `weshcraft check` first (out of sync is a finding); the spec is each screen\'s §Acceptance criteria, `specs/back/api.md`, `specs/back/openapi.json` and `specs/LINKS.md`; cite layers as `#id`.')));
 
 const USER_ONLY_OLD = "'wesh-level', 'wesh-plan', 'wesh-handoff', 'wesh-slim', 'wesh-debt'";
 const USER_ONLY_NEW = "'wesh-level', 'wesh-plan', 'wesh-plan-view-mode', 'wesh-handoff', 'wesh-slim', 'wesh-debt'";
@@ -44,7 +50,7 @@ edit('README.md', s => {
   if (s.includes('wesh-plan-view-mode')) return s;
   const row = /^\| `\/` only \| `\/wesh-plan` \|.*$/m;
   s = s.replace(row, m => `${m}\n| \`/\` only | \`/wesh-plan-view-mode\` | WeshCraft | plan on a FigCraft prototype over MCP; parallel front/back specs that match it; live in the browser; PR/MR |\n| auto | \`wesh-spec-front\` | WeshCraft | enrich generated front specs: states, a11y, analytics, questions |\n| auto | \`wesh-spec-back\` | WeshCraft | enrich generated back specs: validation, authz, errors, data |`);
-  const section = `\n## View mode (WeshCraft)\n\n\`/wesh-plan-view-mode\` plans on a visual prototype instead of prose. It needs the WeshCraft MCP server, which wraps FigCraft's MCP:\n\n\`\`\`bash\nnpx weshcraft init            # writes .mcp.json: WeshCraft + live FigCraft (figcraft-cli on PATH)\n\`\`\`\n\nDecisions become FigCraft edits; WeshCraft regenerates front and back specs in parallel, checks them against the prototype (copy, interactions, components, tokens, entities, operations) and shows everything live at the URL it prints. \`weshcraft_publish\` opens a GitHub PR or GitLab MR with the prototype, the specs and a CI parity check.\n`;
+  const section = `\n## View mode (WeshCraft)\n\n\`/wesh-plan-view-mode\` plans on a visual prototype instead of prose and writes an **advanced spec** (format: \`skills/wesh-plan-view-mode/FORMAT.md\`): the FigCraft design, a clickable prototype, contract-checked front and back specs, front ⇄ back links and a design changelog, kept in git. Modes: \`new\`, \`update\` (what changed in the design since the committed spec), \`sync\` and \`push\` (\`git\`, \`github:owner/repo\` or \`gitlab:group/project\`). It needs the WeshCraft MCP server, which wraps FigCraft's MCP:\n\n\`\`\`bash\nnpx weshcraft init            # writes .mcp.json: WeshCraft + live FigCraft (figcraft-cli on PATH)\n\`\`\`\n\nDecisions become FigCraft edits; WeshCraft regenerates front and back specs in parallel, checks them against the prototype (copy, interactions, components, tokens, entities, operations) and shows everything live at the URL it prints. \`weshcraft_publish\` opens a GitHub PR or GitLab MR with the prototype, the specs and a CI parity check.\n`;
   return s.replace(/\n## Install\n/, `${section}\n## Install\n`);
 });
 

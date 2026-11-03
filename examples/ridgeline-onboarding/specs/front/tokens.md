@@ -11,7 +11,7 @@ _No notes yet. Agent or human additions go here; WeshCraft keeps this block when
 <!-- weshcraft:contract
 {
  "kind": "front-tokens",
- "sourceHash": "5f1f0908a35a991d",
+ "sourceHash": "4eb686542c05a6f7",
  "tokens": []
 }
 -->

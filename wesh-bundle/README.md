@@ -4,11 +4,11 @@ Adds to [wesh](https://github.com/leanxt-team/wesh):
 
 | | Name | Purpose |
 |---|---|---|
-| `/` only | `/wesh-plan-view-mode` | `/wesh-plan` on a FigCraft prototype: decisions become design edits over MCP, specs are generated in parallel and gated on parity, live in the browser, published as a PR/MR |
+| `/` only | `/wesh-plan-view-mode` | `/wesh-plan` on a FigCraft prototype, producing an **advanced spec** (design + prototype + contract-checked front/back specs + links + changelog, in git; format in `FORMAT.md`). Modes: `new`, `update` (what changed in the design since the committed spec), `sync` / `push` to `git`, `github:owner/repo` or `gitlab:group/project`. Includes trying the flows in Simulate. |
 | auto | `wesh-spec-front` | enrich generated front specs (states, interaction details, a11y, responsive, analytics, questions) |
 | auto | `wesh-spec-back` | enrich generated back specs (validation, authz, errors, data, consistency, mapping to code, questions) |
 
-It also registers `/wesh-plan-view-mode` as slash-only in `install.mjs` (and in its tests), adds one routing clause to `core/CORE.md`, and documents view mode in `README.md`. No new agents, hooks or dependencies.
+It also registers `/wesh-plan-view-mode` as slash-only in `install.mjs` (and in its tests), adds one routing clause to `core/CORE.md`, teaches `wesh-plan` to suggest view mode for UI work and `wesh-review` to review code against an advanced spec (running `weshcraft check` first), and documents view mode in `README.md`. No new agents, hooks or dependencies.
 
 ## Apply
 
@@ -34,6 +34,6 @@ Checked: wesh's own suite passes with the update (124/124, `cd bench && npm test
 
 ## Use
 
-1. In the project: `node /path/to/weshcraft/bin/weshcraft.mjs init --attach 7979 --figcraft-cli /path/to/figcraft-cli` (or `--mcp` for headless FigCraft).
+1. In the project: `node /path/to/weshcraft/bin/weshcraft.mjs init --client both --attach 7979 --figcraft-cli /path/to/figcraft-cli` (or `--mcp` for headless FigCraft). `--client claude` or `--client opencode` for one agent; add `--sync git` (or `--sync github:owner/repo`) to keep a repo in step automatically.
 2. Start FigCraft with `figcraft --control 7979`, open your `.figcraft`.
-3. Restart Claude Code, run `/wesh-plan-view-mode`. Open the URL it gives you.
+3. Restart Claude Code or OpenCode, run `/wesh-plan-view-mode`. Open the URL it gives you.

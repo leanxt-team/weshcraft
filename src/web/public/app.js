@@ -15,7 +15,7 @@ function inline(s) {
     .replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, (m, t, h) => `<a href="${/^(https?:|#)/.test(h) ? h : '#'}" data-href="${h}">${t}</a>`);
 }
 function markdown(md) {
-  md = md.replace(/<!-- weshcraft:contract[\s\S]*?-->/g, '').replace(/<!-- weshcraft:notes:(start|end) -->/g, '').replace(/<a id="[^"]*"><\/a>/g, '');
+  md = md.replace(/<!-- weshcraft:contract[\s\S]*?-->/g, '').replace(/<!-- weshcraft:notes:(start|end) -->/g, '').replace(/<a id="([\w-]+)"><\/a>/g, '@@anchor:$1@@');
   const lines = md.split('\n');
   const out = [];
   let i = 0;
@@ -30,6 +30,8 @@ function markdown(md) {
       out.push(`<pre data-lang="${esc(lang)}"><code>${esc(buf.join('\n'))}</code></pre>`);
       continue;
     }
+    const anchor = /^@@anchor:([\w-]+)@@$/.exec(l);
+    if (anchor) { out.push(`<span class="anchor" id="${anchor[1]}"></span>`); i++; continue; }
     const h = /^(#{1,4})\s+(.*)$/.exec(l);
     if (h) { out.push(`<h${h[1].length}>${inline(h[2])}</h${h[1].length}>`); i++; continue; }
     if (/^\|/.test(l)) {
@@ -38,7 +40,8 @@ function markdown(md) {
       const cells = r => r.replace(/^\||\|$/g, '').split(/(?<!\\)\|/).map(c => c.trim().replace(/\\\|/g, '|'));
       const head = cells(rows[0]);
       const body = rows.slice(2).map(cells);
-      out.push(`<table><thead><tr>${head.map(c => `<th>${inline(c)}</th>`).join('')}</tr></thead><tbody>${body.map(r => `<tr>${r.map(c => `<td>${inline(c)}</td>`).join('')}</tr>`).join('')}</tbody></table>`);
+      const thead = head.some(Boolean) ? `<thead><tr>${head.map(c => `<th>${inline(c)}</th>`).join('')}</tr></thead>` : '';
+      out.push(`<table class="${thead ? '' : 'kv'}">${thead}<tbody>${body.map(r => `<tr>${r.map(c => `<td>${inline(c)}</td>`).join('')}</tr>`).join('')}</tbody></table>`);
       continue;
     }
     if (/^\s*([-*]|\d+\.)\s/.test(l)) {
@@ -63,6 +66,7 @@ function markdown(md) {
 const GROUPS = [
   ['front', 'Front end', j => j.group === 'front'],
   ['back', 'Back end', j => j.group === 'back'],
+  ['links', 'Front ⇄ back', j => j.group === 'links'],
 ];
 function since(j) {
   if (j.status === 'queued') return 'queued';
@@ -98,7 +102,16 @@ function renderParity() {
 }
 
 // ---- reader ----------------------------------------------------------------------------------
-async function openJob(id) {
+function scrollToAnchor(anchor) {
+  if (!anchor) return;
+  const el = document.getElementById(anchor);
+  if (!el) return;
+  const target = el.nextElementSibling ?? el;
+  target.scrollIntoView({ block: 'start', behavior: 'smooth' });
+  target.classList.add('flash');
+  setTimeout(() => target.classList.remove('flash'), 1600);
+}
+async function openJob(id, anchor) {
   const j = state.jobs.get(id);
   if (!j) return;
   state.current = id;
@@ -112,6 +125,7 @@ async function openJob(id) {
     md = res.ok ? await res.text() : null;
   }
   showDoc(md, j.file);
+  scrollToAnchor(anchor);
   const s = state.streams.get(id);
   $('#stream').hidden = !(j.status === 'agent');
   $('#streamText').textContent = s ?? '';
@@ -125,27 +139,156 @@ function showDoc(md, file) {
 }
 function setView(v) {
   state.view = v;
-  document.querySelectorAll('.segbtn').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.view === v)));
+  document.querySelectorAll('.reader .segbtn').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.view === v)));
   $('#doc').hidden = v !== 'read';
   $('#raw').hidden = v !== 'raw';
 }
-function openFile(file) {
+function openFile(target) {
+  const [file, anchor] = target.split('#');
   const j = [...state.jobs.values()].find(x => x.file === file);
-  if (j) return openJob(j.id);
-  fetch(`/out/${file}`).then(r => (r.ok ? r.text() : null)).then(md => { state.current = null; renderJobs(); $('#specTitle').textContent = file; showDoc(md, file); });
+  if (j) return openJob(j.id, anchor);
+  fetch(`/out/${file}`).then(r => (r.ok ? r.text() : null)).then(md => { state.current = null; renderJobs(); $('#specTitle').textContent = file; showDoc(md, file); scrollToAnchor(anchor); });
 }
+
+// ---- front ⇄ back link map ------------------------------------------------------------------
+const REL_ICON = { triggers: '▶', submits: '⇢', lists: '☰', displays: '◉' };
+function linkGraph(m) {
+  const ops = new Map(m.domain.operations.map(o => [o.key, o]));
+  const edges = [];
+  for (const e of m.links.edges) {
+    if (e.op) edges.push({ a: `n:${e.node}`, b: `o:${e.op}`, rel: e.rel });
+    else {
+      edges.push({ a: `n:${e.node}`, b: `f:${e.field}`, rel: 'displays' });
+      if (e.via) edges.push({ a: `o:${e.via}`, b: `f:${e.field}`, rel: 'returns' });
+    }
+  }
+  const uniq = [...new Map(edges.map(x => [`${x.a}|${x.b}|${x.rel}`, x])).values()];
+  const adj = new Map();
+  for (const x of uniq) { for (const [p, q] of [[x.a, x.b], [x.b, x.a]]) adj.set(p, [...(adj.get(p) ?? []), q]); }
+  return { ops, edges: uniq, adj };
+}
+function renderLinkMap() {
+  const m = state.manifest;
+  const box = $('#linkmap');
+  if (!m?.links) return;
+  const { edges, gaps } = m.links;
+  $('#linksBadge').textContent = edges.length ? String(edges.length) + (gaps.length ? ` · ${gaps.length}⚠` : '') : '';
+  if (!edges.length) { box.innerHTML = '<p class="empty">No front ⇄ back links yet. In FigCraft, bind text to data (<code>{{trail.name}}</code>) or annotate a button with <code>POST /trails</code>; WeshCraft also infers lists and actions.</p>'; return; }
+  state.graph = linkGraph(m);
+  const screens = m.screens.filter(s => edges.some(e => e.screen === s.key));
+  const nodeRow = (screen) => {
+    const seen = new Map();
+    for (const e of edges.filter(x => x.screen === screen.key)) seen.set(e.node, [...(seen.get(e.node) ?? []), e]);
+    return [...seen].map(([node, es]) => `<button type="button" class="lrow ${es.some(x => x.op) ? 'is-op' : 'is-field'}" data-k="n:${node}" data-screen="${esc(screen.key)}"><span class="ic">${[...new Set(es.map(x => REL_ICON[x.rel]))].join('')}</span><span class="lt">${esc(es[0].label)}</span><code>#${node}</code></button>`).join('');
+  };
+  const opRow = o => `<button type="button" class="lrow is-op" data-k="o:${esc(o.key)}"><span class="verb v-${esc(o.method.toLowerCase())}">${esc(o.method)}</span><span class="lt">${esc(o.path)}</span><span class="conf ${o.confidence}">${o.confidence === 'explicit' ? '' : 'inferred'}</span></button><div class="lsub">${esc(m.screens.find(s => s.key === o.screen)?.name ?? '')}</div>`;
+  const ent = e => `<div class="lent"><div class="lhead">${esc(e.name)}</div>${e.fields.map(f => `<button type="button" class="lrow is-field" data-k="f:${esc(`${e.name}.${f.name}`)}"><span class="ic">◉</span><span class="lt">${esc(f.name)}</span><span class="conf ${f.confidence}">${esc(f.type)}</span></button>`).join('')}</div>`;
+  box.innerHTML = `
+    ${gaps.length ? `<div class="gaps">${gaps.map(g => `<button type="button" class="gap" data-k="${g.node != null ? `n:${g.node}` : `o:${esc(g.op)}`}">⚠ ${esc(g.message)}</button>`).join('')}</div>` : ''}
+    <div class="lcols">
+      <div class="lcol"><h4>Front end <span>layers</span></h4>${screens.map(s => `<div class="lscreen"><div class="lhead">${esc(s.name)}</div>${nodeRow(s)}</div>`).join('')}</div>
+      <div class="lcol"><h4>API <span>operations</span></h4>${m.domain.operations.map(opRow).join('') || '<p class="empty">none</p>'}</div>
+      <div class="lcol"><h4>Domain <span>entity fields</span></h4>${m.domain.entities.map(ent).join('') || '<p class="empty">none</p>'}</div>
+      <svg class="lwires" aria-hidden="true"></svg>
+    </div>
+    <p class="legend"><span><span class="sw op"></span>calls an operation</span><span><span class="sw field"></span>shows data</span><span><span class="sw ret"></span>returned by</span><span class="hint">Click any item to trace it; the prototype highlights its layers.</span></p>`;
+  requestAnimationFrame(drawWires);
+}
+function drawWires() {
+  const wrap = $('#linkmap .lcols');
+  if (!wrap || !state.graph || wrap.offsetParent === null) return;
+  const svg = wrap.querySelector('.lwires');
+  const base = wrap.getBoundingClientRect();
+  svg.setAttribute('width', wrap.scrollWidth);
+  svg.setAttribute('height', wrap.scrollHeight);
+  const pos = k => { const el = wrap.querySelector(`[data-k="${CSS.escape(k)}"]`); if (!el) return null; const r = el.getBoundingClientRect(); return { l: r.left - base.left, r: r.right - base.left, y: r.top - base.top + r.height / 2 }; };
+  const sel = state.linkSel;
+  svg.innerHTML = state.graph.edges.map(x => {
+    const a = pos(x.a), b = pos(x.b);
+    if (!a || !b) return '';
+    const [p, q] = a.l < b.l ? [a, b] : [b, a];
+    const x1 = p.r, x2 = q.l, mid = (x2 - x1) / 2;
+    const cls = x.rel === 'returns' ? 'ret' : x.rel === 'displays' ? 'field' : 'op';
+    const on = sel && sel.has(x.a) && sel.has(x.b);
+    return `<path class="w ${cls}${sel ? (on ? ' on' : ' off') : ''}" d="M${x1} ${p.y} C${x1 + mid} ${p.y} ${x2 - mid} ${q.y} ${x2} ${q.y}"/>`;
+  }).join('');
+}
+function selectLink(k, { open = true } = {}) {
+  const g = state.graph;
+  if (!g) return;
+  if (state.linkKey === k) { state.linkKey = null; state.linkSel = null; }
+  else {
+    // The item and what it is actually linked to: a layer → its operations, fields and the
+    // operation that loads each field on its screen; an operation → its layers, and the layers
+    // showing the data it loads (its own screen only); a field → layers showing it and loaders.
+    const L = state.manifest.links.edges;
+    const sel = new Set([k]);
+    if (k.startsWith('n:')) {
+      for (const e of L.filter(x => `n:${x.node}` === k)) {
+        if (e.op) sel.add(`o:${e.op}`);
+        if (e.field) { sel.add(`f:${e.field}`); if (e.via) sel.add(`o:${e.via}`); }
+      }
+    } else if (k.startsWith('o:')) {
+      const op = k.slice(2);
+      for (const e of L) {
+        if (e.op === op) sel.add(`n:${e.node}`);
+        if (e.via === op) { sel.add(`n:${e.node}`); sel.add(`f:${e.field}`); }
+      }
+    } else if (k.startsWith('f:')) {
+      for (const e of L.filter(x => x.field === k.slice(2))) { sel.add(`n:${e.node}`); if (e.via) sel.add(`o:${e.via}`); }
+    }
+    state.linkKey = k;
+    state.linkSel = sel;
+  }
+  document.querySelectorAll('#linkmap .lrow, #linkmap .gap').forEach(el => {
+    el.classList.toggle('sel', el.dataset.k === state.linkKey);
+    el.classList.toggle('dim', !!state.linkSel && !state.linkSel.has(el.dataset.k));
+  });
+  drawWires();
+  const sel = state.linkSel ?? new Set();
+  const items = [...sel].filter(x => x.startsWith('n:')).map(x => {
+    const node = Number(x.slice(2));
+    return { node, kind: (g.adj.get(x) ?? []).some(y => y.startsWith('o:')) ? 'op' : 'field' };
+  });
+  protoPost({ weshcraft: 'highlightMany', items });
+  if (!state.linkKey || !open) return;
+  const m = state.manifest;
+  if (k.startsWith('o:')) openFile(`specs/back/api.md#${k.slice(2)}`);
+  else if (k.startsWith('f:')) openFile(`specs/back/domain.md#entity-${k.slice(2).split('.')[0].toLowerCase()}`);
+  else {
+    const e = m.links.edges.find(x => `n:${x.node}` === k);
+    if (e) openFile(`specs/front/screens/${e.screen}.md`);
+  }
+}
+$('#linkmap').addEventListener('click', e => { const b = e.target.closest('[data-k]'); if (b) selectLink(b.dataset.k); });
+new ResizeObserver(() => drawWires()).observe($('#linkmap'));
+$('#overlay').addEventListener('change', e => protoPost({ weshcraft: 'overlay', on: e.target.checked }));
 
 // ---- prototype iframe ------------------------------------------------------------------------
 const protoPost = msg => $('#proto').contentWindow?.postMessage(msg, '*');
 function reloadProto(hash) {
   if (state.protoHash === hash) return;
   state.protoHash = hash;
-  const cur = $('#proto').contentWindow?.location?.hash || '';
-  $('#proto').src = `/out/prototype/index.html?v=${hash}${cur}`;
+  // No #fragment in the src: fragment navigation inside an iframe scrolls the parent page too.
+  $('#proto').src = `/out/prototype/index.html?v=${hash}`;
+  $('#proto').onload = () => {
+    if (state.protoScreen) protoPost({ weshcraft: 'show', key: state.protoScreen });
+    if ($('#overlay').checked) protoPost({ weshcraft: 'overlay', on: true });
+  };
 }
 window.addEventListener('message', e => {
   if (e.source !== $('#proto').contentWindow) return;
   const m = e.data || {};
+  if (m.weshcraft === 'link') {
+    // A layer clicked in the prototype's data overlay: jump to its back-end spec and trace it.
+    const op = m.op?.split(' ')[0];
+    const field = m.field?.split(' ')[0];
+    if (state.graph) { state.linkKey = null; selectLink(`n:${m.node}`, { open: false }); }
+    if (op) openFile(`specs/back/api.md#${op}`);
+    else if (field) openFile(`specs/back/domain.md#entity-${field.split('.')[0].toLowerCase()}`);
+    return;
+  }
+  if (m.weshcraft === 'screen') state.protoScreen = m.key;
   if (m.weshcraft === 'screen' && $('#follow').checked) {
     const j = state.jobs.get(`front:screen:${m.key}`);
     if (j && state.current !== j.id) openJob(j.id);
@@ -162,7 +305,10 @@ function applySummary(s) {
   state.summary = s;
   $('#hash').textContent = s.hash;
   $('#manifest').textContent = 'Loading…';
-  fetch('/out/specs/manifest.json').then(r => r.text()).then(t => { $('#manifest').textContent = t; });
+  fetch('/out/specs/manifest.json').then(r => r.text()).then(t => {
+    $('#manifest').textContent = t;
+    try { state.manifest = JSON.parse(t); state.linkKey = null; state.linkSel = null; renderLinkMap(); } catch { /* partial write */ }
+  });
 }
 function connect() {
   const es = new EventSource('/api/events');
@@ -186,6 +332,7 @@ function connect() {
   es.addEventListener('prototype', e => reloadProto(JSON.parse(e.data).hash));
   es.addEventListener('parity', e => { state.report = JSON.parse(e.data).report; renderParity(); });
   es.addEventListener('log', e => log(JSON.parse(e.data)));
+  es.addEventListener('sync', e => renderSync(JSON.parse(e.data).status));
   es.addEventListener('published', e => { const r = JSON.parse(e.data).result; log({ level: 'info', at: Date.now(), message: `Published: ${r.url}` }); });
   es.onerror = () => log({ level: 'warn', at: Date.now(), message: 'Connection lost, retrying…' });
 }
@@ -202,6 +349,7 @@ async function init() {
   renderParity();
   (st.log || []).slice(-1).forEach(log);
   state.tokens = st.tokens;
+  renderSync(st.sync);
   connect();
   if (!st.summary && !st.running) run(false);
 }
@@ -231,11 +379,13 @@ $('#doc').addEventListener('click', e => {
     openFile(parts.join('/'));
   }
 });
-document.querySelectorAll('.segbtn').forEach(b => b.addEventListener('click', () => setView(b.dataset.view)));
+document.querySelectorAll('.reader .segbtn').forEach(b => b.addEventListener('click', () => setView(b.dataset.view)));
 function selectTab(t) {
   document.querySelectorAll('.tab').forEach(b => b.setAttribute('aria-selected', String(b.dataset.tab === t)));
   document.querySelectorAll('.tabpanel').forEach(p => { p.hidden = p.dataset.panel !== t; });
   if (t === 'design' && $('#design').src === 'about:blank') $('#design').src = $('#design').dataset.src;
+  if (t === 'links') requestAnimationFrame(drawWires);
+  if (t === 'sim') loadSim();
 }
 document.querySelectorAll('.tab').forEach(b => b.addEventListener('click', () => selectTab(b.dataset.tab)));
 $('#run').addEventListener('click', () => run(false));
@@ -274,24 +424,59 @@ $('#notesForm').addEventListener('submit', async e => {
 const dlg = $('#publishDlg');
 const syncTokenRow = () => {
   const p = new FormData($('#publishForm')).get('provider');
-  $('#tokenRow').hidden = !!state.tokens?.[p];
+  $('#tokenRow').hidden = p === 'git' || !!state.tokens?.[p];
+  document.querySelectorAll('#publishForm .remote').forEach(el => { el.hidden = p === 'git'; });
+  document.querySelectorAll('#publishForm .local').forEach(el => { el.hidden = p !== 'git'; });
+  $('#publishForm [name=repo]').required = p !== 'git';
+  $('#publishForm [name=branch]').placeholder = p === 'git' ? 'current branch (never switched)' : 'weshcraft/specs';
+  $('#publishGo').textContent = $('#publishForm [name=keep]').checked ? 'Sync now & keep in sync' : p === 'git' ? 'Commit now' : 'Publish';
+  $('#syncOff').hidden = !state.sync?.target;
 };
+function renderSync(st) {
+  if (!st) return;
+  state.sync = st;
+  const pill = $('#syncPill');
+  pill.className = `syncpill${st.target ? ' on' : ''}${st.busy ? ' busy' : ''}${st.last && !st.last.ok ? ' err' : ''}`;
+  const when = st.last?.at ? new Date(st.last.at).toLocaleTimeString() : null;
+  pill.textContent = st.target ? `Sync: ${st.target}${st.auto ? ' · auto' : ''}${when ? ` · ${st.last.ok ? (st.last.changed ? '✓' : '=') : '✕'} ${when}` : ''}` : 'Sync: off';
+  pill.title = st.last?.error ?? (st.last?.url ? st.last.url : st.target ? 'Click to sync now' : 'Set up git sync');
+}
+$('#syncPill').addEventListener('click', async () => {
+  if (!state.sync?.target) { $('#publish').click(); return; }
+  const r = await fetch('/api/sync', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+  const j = await r.json();
+  if (!r.ok) log({ level: 'error', at: Date.now(), message: j.error });
+});
 $('#publish').addEventListener('click', () => { $('#publishResult').textContent = ''; syncTokenRow(); dlg.showModal(); });
 $('#publishForm').addEventListener('change', syncTokenRow);
 $('#publishForm').addEventListener('submit', async e => {
+  if (e.submitter?.value === 'off') {
+    e.preventDefault();
+    const r = await fetch('/api/sync', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ off: true }) });
+    renderSync((await r.json()).status);
+    $('#publishResult').textContent = 'Sync stopped.';
+    return;
+  }
   if (e.submitter?.value !== 'go') return;
   e.preventDefault();
-  const body = Object.fromEntries([...new FormData(e.target)].filter(([, v]) => v));
+  const fd = new FormData(e.target);
+  const body = Object.fromEntries([...fd].filter(([k, v]) => v && !['keep', 'pr', 'push'].includes(k)));
+  const keep = fd.get('keep') === 'on';
+  const syncing = keep || body.provider === 'git';
   const out = $('#publishResult');
   out.className = 'result';
   out.textContent = 'Publishing…';
   $('#publishGo').disabled = true;
   try {
-    const r = await fetch('/api/publish', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-    const j = await r.json();
+    const r = syncing
+      ? await fetch('/api/sync', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...body, auto: keep, pr: fd.get('pr') === 'on', push: fd.get('push') === 'on' }) })
+      : await fetch('/api/publish', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    let j = await r.json();
     if (!r.ok) throw new Error(j.error);
+    if (syncing) { renderSync(j.status); j = j.result; }
     out.className = 'result ok';
-    out.innerHTML = j.changed === false ? `Nothing changed on <code>${esc(j.branch)}</code>.` : `Done: <a href="${esc(j.url)}" target="_blank" rel="noopener">${esc(j.url)}</a>`;
+    const where = j.url ? `<a href="${esc(j.url)}" target="_blank" rel="noopener">${esc(j.url)}</a>` : `commit <code>${esc(j.commit)}</code> on <code>${esc(j.branch)}</code>${j.pushed ? ' (pushed)' : ''}`;
+    out.innerHTML = j.changed === false ? `Already up to date on <code>${esc(j.branch)}</code>.${keep ? ' Keeping it in sync.' : ''}` : `Done: ${where}${keep ? ' · keeping it in sync' : ''}`;
   } catch (err) {
     out.className = 'result err';
     out.textContent = err.message;
@@ -299,3 +484,111 @@ $('#publishForm').addEventListener('submit', async e => {
 });
 
 init();
+
+
+// ---- phone: one view at a time, iOS-style tab bar ---------------------------------------------
+const phone = window.matchMedia('(max-width: 720px)');
+function setPhoneView(v) {
+  document.body.dataset.view = v;
+  document.querySelectorAll('.phonebar [data-view]').forEach(b => b.setAttribute('aria-current', String(b.dataset.view === v)));
+  if (v === 'proto' || v === 'links' || v === 'manifest' || v === 'sim') selectTab(v);
+  if (v === 'links') requestAnimationFrame(drawWires);
+  window.scrollTo(0, 0);
+}
+setPhoneView(document.body.dataset.view || 'proto');
+document.querySelector('.phonebar').addEventListener('click', e => { const b = e.target.closest('[data-view]'); if (b) setPhoneView(b.dataset.view); });
+$('#backToList').addEventListener('click', () => setPhoneView('specs'));
+// Explicit picks on a phone take you to what you picked.
+$('#groups').addEventListener('click', e => { if (phone.matches && e.target.closest('.job')) setPhoneView('read'); });
+$('#issues').addEventListener('click', e => { if (phone.matches && e.target.closest('li[data-file]')) setPhoneView('read'); });
+$('#doc').addEventListener('click', e => { if (phone.matches && e.target.closest('.nodechip')) setPhoneView('proto'); });
+window.addEventListener('message', e => { if (phone.matches && e.source === $('#proto').contentWindow && e.data?.weshcraft === 'link') setPhoneView('read'); });
+// In the links view a tapped item shows a "View spec" button for the spec it opened.
+$('#linkmap').addEventListener('click', () => { $('#openSpec').hidden = !state.linkKey; });
+$('#openSpec').addEventListener('click', () => setPhoneView('read'));
+
+const moreDlg = $('#moreDlg');
+$('#more').addEventListener('click', () => {
+  $('#mSource').textContent = $('#source').textContent;
+  $('#mHash').textContent = $('#hash').textContent;
+  $('#mSync').hidden = !state.sync?.target;
+  moreDlg.showModal();
+});
+moreDlg.addEventListener('click', e => {
+  if (e.target === moreDlg) return moreDlg.close();
+  const b = e.target.closest('[data-act]');
+  if (!b) return;
+  moreDlg.close();
+  const act = b.dataset.act;
+  if (act === 'run') $('#run').click();
+  else if (act === 'force') $('#force').click();
+  else if (act === 'upload') $('#upload').click();
+  else if (act === 'publish') $('#publish').click();
+  else if (act === 'sync') $('#syncPill').click();
+  else if (act === 'zip') $('#zip').click();
+  else if (act === 'manifest') setPhoneView('manifest');
+  else if (act === 'openproto') window.open('/out/prototype/index.html', '_blank', 'noopener');
+});
+// Tab-bar badges: build progress and link gaps.
+new MutationObserver(() => {
+  const jobs = [...state.jobs.values()];
+  const busy = jobs.some(j => j.status === 'queued' || j.status === 'writing' || j.status === 'agent');
+  $('#pbSpecs').textContent = busy ? '•' : (state.report && !state.report.ok ? String(state.report.errors) : '');
+  $('#pbSpecs').className = `pb-badge${busy ? ' busy' : state.report && !state.report.ok ? ' err' : ''}`;
+  const gaps = state.manifest?.links?.gaps?.length ?? 0;
+  $('#pbLinks').textContent = gaps ? String(gaps) : '';
+}).observe($('#groups'), { childList: true, subtree: true, characterData: true });
+
+
+// ---- simulate: use the app the specs describe, against a mock API --------------------------
+state.sim = { calls: [], scenario: 'normal', loaded: null };
+function loadSim(force) {
+  const hash = state.summary?.hash;
+  if (!hash || (!force && state.sim.loaded === hash)) return;
+  state.sim.loaded = hash;
+  $('#simFrame').src = `/sim/?v=${hash}`;
+}
+function renderSimCalls() {
+  const ops = new Map((state.manifest?.domain?.operations ?? []).map(o => [o.key, o]));
+  $('#simCount').textContent = state.sim.calls.length ? String(state.sim.calls.length) : '';
+  $('#simCalls').innerHTML = state.sim.calls.slice().reverse().map(c => {
+    const ok = c.status >= 200 && c.status < 300;
+    const o = ops.get(c.op);
+    return `<li class="${ok ? 'ok' : 'bad'}"><details><summary><span class="verb v-${esc(c.method.toLowerCase())}">${esc(c.method)}</span><span class="p">${esc(c.path)}</span><span class="st">${c.status || '—'}</span><span class="ms">${c.ms} ms</span></summary>
+      <div class="cd">${o ? `<button type="button" class="lnk" data-op="${esc(o.key)}">${esc(o.name)} · spec ↗</button>` : '<span class="muted">not in the API spec</span>'}${c.trigger != null ? ` <code class="nodechip" data-node="${c.trigger}">#${c.trigger}</code>` : ''}
+      ${c.request ? `<pre>${esc(JSON.stringify(c.request, null, 1))}</pre>` : ''}<pre>${esc(JSON.stringify(c.response, null, 1) ?? '')}</pre></div></details></li>`;
+  }).join('') || '<li class="muted empty-log">Use the app above: every API call shows up here.</li>';
+}
+$('#simScenario').addEventListener('click', async e => {
+  const b = e.target.closest('[data-s]');
+  if (!b) return;
+  await fetch('/api/sim', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ scenario: b.dataset.s }) });
+  document.querySelectorAll('#simScenario [data-s]').forEach(x => x.setAttribute('aria-pressed', String(x === b)));
+  $('#simFrame').contentWindow?.postMessage({ weshcraft: 'simReload' }, '*');
+});
+$('#simReset').addEventListener('click', async () => {
+  await fetch('/api/sim', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ reset: true }) });
+  loadSim(true);
+});
+$('#simLogToggle').addEventListener('click', () => {
+  const open = $('#simLog').hidden;
+  $('#simLog').hidden = !open;
+  $('#simLogToggle').setAttribute('aria-expanded', String(open));
+});
+$('#simClear').addEventListener('click', () => { state.sim.calls = []; renderSimCalls(); });
+$('#simCalls').addEventListener('click', e => {
+  const l = e.target.closest('.lnk[data-op]');
+  if (l) { openFile(`specs/back/api.md#${l.dataset.op}`); if (phone.matches) setPhoneView('read'); return; }
+  const chip = e.target.closest('.nodechip');
+  if (chip) { const f = $('#simFrame').contentDocument?.querySelector(`[data-node="${chip.dataset.node}"]`); if (f) { f.scrollIntoView({ block: 'center', behavior: 'smooth' }); f.animate([{ outline: '3px solid #007aff', outlineOffset: '2px' }, { outline: '3px solid transparent', outlineOffset: '2px' }], { duration: 1400 }); } }
+});
+{
+  const es = new EventSource('/api/events');
+  es.addEventListener('sim', e => {
+    const ev = JSON.parse(e.data).event;
+    if (ev.type === 'call') { state.sim.calls.push(ev.entry); if (state.sim.calls.length > 200) state.sim.calls.shift(); renderSimCalls(); }
+    if (ev.type === 'reset') { state.sim.calls = []; renderSimCalls(); }
+  });
+  es.addEventListener('prototype', () => { if (!$('[data-panel=sim]').hidden) setTimeout(() => loadSim(), 300); else state.sim.loaded = null; });
+}
+renderSimCalls();

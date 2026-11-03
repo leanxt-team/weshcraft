@@ -6,3 +6,4 @@ test:
   script:
     - npm test
     - node bin/weshcraft.mjs check --file examples/ridgeline-onboarding/design/ridgeline-onboarding.figcraft --out examples/ridgeline-onboarding
+    - node bin/weshcraft.mjs check --file examples/account/design/account.figcraft.json --out examples/account

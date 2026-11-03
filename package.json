@@ -11,5 +11,5 @@
     "test": "node --test \"test/**/*.test.mjs\"",
     "demo": "node bin/weshcraft.mjs serve --file test/fixtures/ridgeline-app.figcraft --out .weshcraft-demo"
   },
-  "files": ["bin", "src", "wesh-bundle", "README.md", "LICENSE", "NOTICE"]
+  "files": ["bin", "src", "docs", "wesh-bundle", "README.md", "LICENSE", "NOTICE"]
 }

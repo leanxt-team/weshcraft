@@ -98,9 +98,13 @@ No component instances.
 
 No input fields detected.
 
-## Data and back-end calls
+## Front ⇄ back links
 
-- `POST /location/allow` — Allow location (action, inferred), triggered by `#125`. See [API](../back/api.md#op-allow-location-125).
+Where this screen meets the back end (full map: [LINKS.md](../../LINKS.md)). ▶ triggers · ⇢ submits · ☰ filled by · ◉ shows.
+
+| Layer | Element | Link | Back end | |
+|---|---|---|---|---|
+| `#125` | Allow location | ▶ triggers | [`POST /location/allow`](../../back/api.md#op-allow-location-125) |  |
 
 ## Design tokens used
 
@@ -168,6 +172,13 @@ _No notes yet. Agent or human additions go here; WeshCraft keeps this block when
  "instances": [],
  "key": "scr-3-location",
  "kind": "front-screen",
+ "links": [
+  {
+   "node": 125,
+   "op": "op-allow-location-125",
+   "rel": "triggers"
+  }
+ ],
  "node": 89,
  "operations": [
   "op-allow-location-125"
@@ -176,6 +187,6 @@ _No notes yet. Agent or human additions go here; WeshCraft keeps this block when
   393,
   852
  ],
- "sourceHash": "5f1f0908a35a991d"
+ "sourceHash": "4eb686542c05a6f7"
 }
 -->

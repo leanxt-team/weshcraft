@@ -4,6 +4,7 @@ import { mdEscape, round } from '../util/common.mjs';
 import { descendants } from '../model/normalize.mjs';
 import { nodeCss, fontWeight } from '../proto/html.mjs';
 import { embedContract, notesBlock } from './contract.mjs';
+import { screenLinkRows, linkContract } from './links.mjs';
 
 const NOTES_PLACEHOLDER = '_No notes yet. Agent or human additions go here; WeshCraft keeps this block when it regenerates the file._';
 
@@ -125,7 +126,7 @@ export function screenSpec(model, manifest, screen, { notes, ops = [], code = nu
     for (const i of screen.instances) {
       const owner = manifest.components.find(c => c.id === i.component || c.variants.some(v => v.id === i.component));
       const variant = model.nodes.get(i.component)?.name;
-      L.push(`| ${ref(i.id)} | ${mdEscape(i.name)} | ${owner ? `[${mdEscape(owner.name)}](../front/components/${owner.key}.md)` : mdEscape(variant ?? String(i.component))}${owner?.kind === 'set' && variant ? ` · ${mdEscape(variant)}` : ''} | ${mdEscape(JSON.stringify(i.props))} |`);
+      L.push(`| ${ref(i.id)} | ${mdEscape(i.name)} | ${owner ? `[${mdEscape(owner.name)}](../components/${owner.key}.md)` : mdEscape(variant ?? String(i.component))}${owner?.kind === 'set' && variant ? ` · ${mdEscape(variant)}` : ''} | ${mdEscape(JSON.stringify(i.props))} |`);
     }
   } else L.push('No component instances.');
   L.push('');
@@ -147,12 +148,17 @@ export function screenSpec(model, manifest, screen, { notes, ops = [], code = nu
     for (const i of screen.inputs) L.push(`| ${ref(i.id)} | ${mdEscape(i.name)} | ${i.kind} | ${mdEscape(i.placeholder)} | ${i.kind === 'email' ? 'RFC 5322 address, required' : i.kind === 'password' ? 'required, min 8 chars (confirm)' : 'confirm with product'} |`);
   } else L.push('No input fields detected.');
   L.push('');
-  L.push('## Data and back-end calls');
+  L.push('## Front ⇄ back links');
   L.push('');
-  if (opsHere.length || screen.bindings.length) {
-    for (const o of opsHere) L.push(`- \`${o.method} ${o.path}\` — ${mdEscape(o.name)} (${o.kind}, ${o.confidence})${o.trigger ? `, triggered by ${ref(o.trigger)}` : ''}. See [API](../back/api.md#${o.key}).`);
-    for (const b of screen.bindings) L.push(`- ${ref(b.id)} shows \`${b.entity}.${b.field}\` (${b.type}).`);
-  } else L.push('This screen calls no back-end operation (static content or navigation only).');
+  const linkRows = screenLinkRows(manifest, screen.key);
+  if (linkRows.length) {
+    L.push('Where this screen meets the back end (full map: [LINKS.md](../../LINKS.md)). ▶ triggers · ⇢ submits · ☰ filled by · ◉ shows.');
+    L.push('');
+    L.push('| Layer | Element | Link | Back end | |');
+    L.push('|---|---|---|---|---|');
+    for (const { e, target, extra } of linkRows) L.push(`| ${ref(e.node)} | ${mdEscape(e.label)} | ${{ triggers: '▶ triggers', submits: '⇢ submits to', lists: '☰ filled by', displays: '◉ shows' }[e.rel]} | ${target} | ${extra} |`);
+    for (const g of manifest.links.gaps.filter(x => x.screen === screen.key)) { L.push(''); L.push(`⚠️ Gap: ${mdEscape(g.message)}.`); }
+  } else L.push('This screen has no back-end link (static content or navigation only).');
   L.push('');
   L.push('## Design tokens used');
   L.push('');
@@ -197,6 +203,7 @@ export function screenSpec(model, manifest, screen, { notes, ops = [], code = nu
     instances: screen.instances.map(i => ({ node: i.id, component: i.component })),
     inputs: screen.inputs.map(i => i.id),
     operations: opsHere.map(o => o.key),
+    links: linkContract({ edges: manifest.links.edges.filter(e => e.screen === screen.key) }),
     components: [...comps.keys()].sort(),
   }));
   L.push('');

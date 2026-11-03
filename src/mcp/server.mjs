@@ -7,6 +7,7 @@ import path from 'node:path';
 import readline from 'node:readline';
 import { readNotes } from '../spec/contract.mjs';
 import { collectFiles, prBody, publish } from '../publish/git.mjs';
+import { parseTarget } from '../publish/sync.mjs';
 
 const READ_ONLY = new Set(['list_commands', 'inspect_document', 'get_node', 'export', 'screenshot', 'inspect_ui', 'wait_for_changes', 'list_documents']);
 const PROTOCOL = '2025-06-18';
@@ -18,8 +19,10 @@ const SPEC_TOOLS = [
   { name: 'weshcraft_generate', description: 'Snapshot the FigCraft prototype, rebuild the front prototype and regenerate every front/back spec in parallel, then check parity. Unchanged specs are skipped unless force is true.', inputSchema: { type: 'object', properties: { force: { type: 'boolean' } } } },
   { name: 'weshcraft_check', description: 'Check that specs and prototype match the current FigCraft design exactly. Returns issues with file, node and fix hint.', inputSchema: { type: 'object', properties: {} } },
   { name: 'weshcraft_manifest', description: 'The proto manifest (screens, texts, interactions, components, tokens, flows, domain, operations), or one screen of it.', inputSchema: { type: 'object', properties: { screen: { type: 'string', description: 'screen key, e.g. scr-home' } } } },
+  { name: 'weshcraft_links', description: 'Front ⇄ back links: which layers trigger or submit to which operation, which layers show which entity field and which operation loads it, plus gaps. Filter by screen key, operation key or Entity.field.', inputSchema: { type: 'object', properties: { screen: { type: 'string' }, op: { type: 'string' }, field: { type: 'string' } } } },
   { name: 'weshcraft_read_spec', description: 'Read a generated file, e.g. specs/front/screens/scr-home.md or specs/back/api.md.', inputSchema: { type: 'object', properties: { path: { type: 'string' } }, required: ['path'] } },
   { name: 'weshcraft_write_notes', description: 'Replace the Notes block of one spec (states, edge cases, a11y, analytics, open questions). Generated sections are not editable: change the design in FigCraft instead. Cite layers as `#id`.', inputSchema: { type: 'object', properties: { path: { type: 'string' }, notes: { type: 'string' } }, required: ['path', 'notes'] } },
+  { name: 'weshcraft_sync', description: 'Sync prototype + specs to git now, and optionally set the target: github:owner/repo[@branch] or gitlab:group/project[@branch] (API commit to a branch, PR/MR opened once then updated), or git[@branch] (commit in the local repository holding the output folder; push optional). auto: also sync after every in-sync regeneration.', inputSchema: { type: 'object', properties: { target: { type: 'string' }, auto: { type: 'boolean' }, pr: { type: 'boolean' }, push: { type: 'boolean' }, base: { type: 'string' }, apiUrl: { type: 'string' } } } },
   { name: 'weshcraft_publish', description: 'Commit prototype + specs (+ CI parity check and the .figcraft source) to a branch and open or update a GitHub PR / GitLab MR. Token from GITHUB_TOKEN / GITLAB_TOKEN.', inputSchema: { type: 'object', properties: { provider: { type: 'string', enum: ['github', 'gitlab'] }, repo: { type: 'string', description: 'owner/name (GitHub) or group/project (GitLab)' }, branch: { type: 'string' }, base: { type: 'string' }, title: { type: 'string' }, apiUrl: { type: 'string' } }, required: ['provider', 'repo'] } },
 ];
 
@@ -32,6 +35,7 @@ export class WeshCraftMcp {
     this.webUrl = o.webUrl ?? null;
     this.timer = null;
     this.figcraftTools = null;
+    this.syncer = o.syncer ?? null;
   }
 
   async tools() {
@@ -68,7 +72,7 @@ export class WeshCraftMcp {
         return r;
       }
       switch (name) {
-        case 'weshcraft_status': return text({ ...this.ws.state(), log: undefined, jobs: this.ws.state().jobs.map(({ preview, ...j }) => j), web: this.webUrl });
+        case 'weshcraft_status': return text({ ...this.ws.state(), log: undefined, jobs: this.ws.state().jobs.map(({ preview, ...j }) => j), web: this.webUrl, sync: this.syncer?.status() ?? null });
         case 'weshcraft_generate': {
           const r = await this.ws.run({ force: !!args.force });
           return text({ ms: r.ms, parity: { ok: r.report.ok, score: r.report.score, errors: r.report.errors, issues: r.report.issues.slice(0, 30) }, jobs: r.jobs.map(j => `${j.status} ${j.file}`), web: this.webUrl });
@@ -87,6 +91,13 @@ export class WeshCraftMcp {
           }
           return text(m);
         }
+        case 'weshcraft_links': {
+          if (!this.ws.manifest) await this.ws.snapshot();
+          const { edges, gaps } = this.ws.manifest.links;
+          const pick = e => (!args.screen || e.screen === args.screen) && (!args.op || e.op === args.op || e.via === args.op) && (!args.field || e.field === args.field);
+          const ops = this.ws.manifest.domain.operations.filter(o => !args.op || o.key === args.op).map(o => ({ key: o.key, method: o.method, path: o.path, screen: o.screen, entity: o.entity, confidence: o.confidence }));
+          return text({ edges: edges.filter(pick), operations: ops, gaps: gaps.filter(g => (!args.screen || g.screen === args.screen) && (!args.field || g.field === args.field) && (!args.op || g.op === args.op)) });
+        }
         case 'weshcraft_read_spec': {
           const abs = this.safePath(args.path);
           return fs.existsSync(abs) ? text(fs.readFileSync(abs, 'utf8')) : text(`not found: ${args.path}`, true);
@@ -102,6 +113,13 @@ export class WeshCraftMcp {
           if (job) this.ws.setJob(job, { status: 'done', preview: next, finishedAt: Date.now() });
           const r = this.ws.manifest ? this.ws.check() : null;
           return text({ written: args.path, parity: r && { ok: r.ok, score: r.score, issues: r.issues.filter(i => i.file === args.path) } });
+        }
+        case 'weshcraft_sync': {
+          if (!this.syncer) return text('sync is not available in this server', true);
+          if (args.target) this.syncer.configure(parseTarget(args.target, { auto: args.auto ?? true, pr: args.pr, push: args.push, base: args.base, apiUrl: args.apiUrl }));
+          else if (this.syncer.target) Object.assign(this.syncer.target, Object.fromEntries(Object.entries({ auto: args.auto, pr: args.pr, push: args.push }).filter(([, v]) => v !== undefined)));
+          const result = await this.syncer.sync();
+          return text({ result, status: this.syncer.status() });
         }
         case 'weshcraft_publish': return text(await this.publish(args));
         default: return text(`unknown tool ${name}`, true);
@@ -142,7 +160,7 @@ export class WeshCraftMcp {
           instructions: [
             'WeshCraft keeps front-end and back-end specs in lockstep with a FigCraft prototype.',
             this.ws.source.kind === 'mcp' ? 'Design with the figcraft_* tools (the full FigCraft MCP); after edits, specs regenerate automatically.' : 'Source is a .figcraft file (read-only here); edit it in FigCraft and WeshCraft regenerates on save.',
-            'Use weshcraft_status / weshcraft_check to see parity, weshcraft_write_notes to add states, edge cases and questions, weshcraft_publish to open a PR/MR.',
+            'Use weshcraft_status / weshcraft_check to see parity, weshcraft_links for front ⇄ back links, weshcraft_write_notes to add states, edge cases and questions, weshcraft_publish to open a PR/MR, weshcraft_sync to keep a GitHub/GitLab branch or the local git repository in step.',
             'Facts in specs (copy, sizes, colours, interactions, operations) come from the design only: to change them, change the design.',
             this.webUrl ? `Live view: ${this.webUrl}` : '',
           ].filter(Boolean).join('\n'),

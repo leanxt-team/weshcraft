@@ -1,9 +1,9 @@
 {
- "schema": "weshcraft/manifest@1",
+ "schema": "weshcraft/manifest@2",
  "source": {
   "name": "Ridgeline onboarding",
   "truncated": false,
-  "hash": "5f1f0908a35a991d"
+  "hash": "4eb686542c05a6f7"
  },
  "screens": [
   {
@@ -611,5 +611,24 @@
     "fields": []
    }
   ]
+ },
+ "links": {
+  "edges": [
+   {
+    "rel": "triggers",
+    "node": 87,
+    "screen": "scr-2-interests",
+    "label": "Continue",
+    "op": "op-continue-87"
+   },
+   {
+    "rel": "triggers",
+    "node": 125,
+    "screen": "scr-3-location",
+    "label": "Allow location",
+    "op": "op-allow-location-125"
+   }
+  ],
+  "gaps": []
  }
 }

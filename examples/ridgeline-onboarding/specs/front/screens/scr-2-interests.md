@@ -127,9 +127,13 @@ No component instances.
 
 No input fields detected.
 
-## Data and back-end calls
+## Front ⇄ back links
 
-- `POST /interests/continue` — Continue (action, inferred), triggered by `#87`. See [API](../back/api.md#op-continue-87).
+Where this screen meets the back end (full map: [LINKS.md](../../LINKS.md)). ▶ triggers · ⇢ submits · ☰ filled by · ◉ shows.
+
+| Layer | Element | Link | Back end | |
+|---|---|---|---|---|
+| `#87` | Continue | ▶ triggers | [`POST /interests/continue`](../../back/api.md#op-continue-87) |  |
 
 ## Design tokens used
 
@@ -212,6 +216,13 @@ _No notes yet. Agent or human additions go here; WeshCraft keeps this block when
  "instances": [],
  "key": "scr-2-interests",
  "kind": "front-screen",
+ "links": [
+  {
+   "node": 87,
+   "op": "op-continue-87",
+   "rel": "triggers"
+  }
+ ],
  "node": 24,
  "operations": [
   "op-continue-87"
@@ -220,6 +231,6 @@ _No notes yet. Agent or human additions go here; WeshCraft keeps this block when
   393,
   852
  ],
- "sourceHash": "5f1f0908a35a991d"
+ "sourceHash": "4eb686542c05a6f7"
 }
 -->

@@ -1,0 +1,17 @@
+{
+ "ok": true,
+ "score": 100,
+ "checks": 113,
+ "errors": 0,
+ "warnings": 1,
+ "issues": [
+  {
+   "level": "warning",
+   "code": "gap-unloaded-data",
+   "file": "specs/LINKS.md",
+   "message": "Subscription.plan is shown on scr-profile but no operation on that screen loads Subscription",
+   "node": 14
+  }
+ ],
+ "sourceHash": "5a5d8a8b3efe1d09"
+}

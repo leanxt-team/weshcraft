@@ -74,6 +74,9 @@ export function checkParity(manifest, outDir) {
     const wantOps = manifest.domain.operations.filter(o => o.screen === s.key).map(o => o.key);
     checks++;
     if (!setEq(wantOps, c.operations || [])) err('operations-differ', f, `back-end operations for this screen differ (expected ${wantOps.join(', ') || 'none'})`);
+    const wantL = manifest.links.edges.filter(e => e.screen === s.key).map(e => key({ rel: e.rel, node: e.node, ...(e.op ? { op: e.op } : { field: e.field }) }));
+    checks++;
+    if (!setEq(wantL, (c.links || []).map(key))) err('links-differ', f, 'front ⇄ back links of this screen differ from the prototype');
     checks++;
     if (c.size?.[0] !== s.width || c.size?.[1] !== s.height) err('size-differs', f, `frame size ${c.size?.join('×')} ≠ ${s.width}×${s.height}`, s.id);
   }
@@ -125,6 +128,15 @@ export function checkParity(manifest, outDir) {
     for (const k of have) { checks++; if (!opKeys.has(k)) err('operation-extra', 'specs/back/api.md', `operation ${k} is not backed by the prototype`); }
   }
   loadSpec(path.join(outDir, 'specs/back/conventions.md'), 'back-conventions');
+
+  const links = loadSpec(path.join(outDir, 'specs/LINKS.md'), 'links');
+  if (links) {
+    const want = manifest.links.edges.map(e => key({ rel: e.rel, node: e.node, ...(e.op ? { op: e.op } : { field: e.field }) }));
+    checks++;
+    if (!setEq(want, (links.c.edges || []).map(key))) err('links-differ', 'specs/LINKS.md', 'front ⇄ back links differ from the prototype');
+  }
+  // Gaps are design questions, not drift: a field shown that nothing loads, an operation nothing reaches.
+  for (const g of manifest.links.gaps) warn(`gap-${g.kind}`, 'specs/LINKS.md', g.message, g.node);
 
   checks++;
   const oa = read(path.join(outDir, 'specs/back/openapi.json'));

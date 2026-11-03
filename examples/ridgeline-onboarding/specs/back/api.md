@@ -9,6 +9,7 @@ Every operation a screen needs, grouped by screen. Conventions (auth, errors, pa
 
 - Screen: [2 Interests](../front/screens/scr-2-interests.md), triggered by `#87`
 - Kind: action · confidence: inferred
+- Front end: ▶ `#87` Continue
 - Errors: 400 validation (field errors shown next to the inputs), 401 unauthenticated, 409 conflict, 5xx shown as a retryable banner.
 
 ## 3 Location
@@ -18,6 +19,7 @@ Every operation a screen needs, grouped by screen. Conventions (auth, errors, pa
 
 - Screen: [3 Location](../front/screens/scr-3-location.md), triggered by `#125`
 - Kind: action · confidence: inferred
+- Front end: ▶ `#125` Allow location
 - Errors: 400 validation (field errors shown next to the inputs), 401 unauthenticated, 409 conflict, 5xx shown as a retryable banner.
 
 ## Open questions
@@ -50,6 +52,6 @@ _No notes yet. Agent or human additions go here; WeshCraft keeps this block when
    "trigger": 125
   }
  ],
- "sourceHash": "5f1f0908a35a991d"
+ "sourceHash": "4eb686542c05a6f7"
 }
 -->

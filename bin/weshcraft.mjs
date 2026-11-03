@@ -12,6 +12,7 @@ import { checkParity, parityMarkdown } from '../src/parity/check.mjs';
 import { buildManifest } from '../src/model/manifest.mjs';
 import { collectFiles } from '../src/publish/git.mjs';
 import { writeZip } from '../src/util/zip.mjs';
+import { Syncer, parseTarget } from '../src/publish/sync.mjs';
 
 const HELP = `weshcraft — FigCraft prototype in, front/back specs that match it out.
 
@@ -23,15 +24,26 @@ Usage
       MCP server on stdio: the FigCraft tools (as figcraft_*) plus weshcraft_* tools.
   weshcraft generate [source] [--out DIR] [--force] [--agent [CMD]]
   weshcraft check    --file F [--out DIR] [--format text|markdown|json]    exit 1 when out of sync
+  weshcraft diff     --file F [--out DIR] [--against GIT_REF] [--format markdown|json]
+      What changed in the design since the specs on disk (or committed at GIT_REF).
   weshcraft publish  [source] --provider github|gitlab --repo OWNER/NAME [--branch B] [--base B] [--api-url URL]
   weshcraft zip      [source] [--out DIR] [--zip FILE] [--provider github|gitlab]
-  weshcraft init     [--figcraft-cli PATH] [--attach PORT]    write .mcp.json for Claude Code
+  weshcraft init     [--client claude|opencode|both] [--figcraft-cli PATH] [--attach PORT] [--sync TARGET]
+      Write the MCP config for Claude Code (.mcp.json) and/or OpenCode (opencode.json).
 
 Source (one of)
   --file design.figcraft     read the file (offline, CI); serve re-runs when it is saved
   --mcp [--file F]           spawn \`figcraft-cli mcp\` (headless), optionally opening F
   --attach PORT              drive the running FigCraft app (start it with \`figcraft --control PORT\`)
   --figcraft-cli PATH        figcraft-cli binary (default: $FIGCRAFT_CLI or figcraft-cli on PATH)
+
+Sync (serve, mcp, generate)
+  --sync github:OWNER/REPO[@BRANCH]   commit to a branch via the GitHub API after every in-sync run;
+                                      the PR is opened once and updated (--no-sync-pr: branch only)
+  --sync gitlab:GROUP/PROJECT[@BRANCH] the same on GitLab (MR); --api-url for self-managed
+  --sync git[@BRANCH]                 commit in the local repository around --out (Claude Code and
+                                      OpenCode see it); --sync-push pushes with your git credentials
+  --sync-manual                       only when asked (browser button, weshcraft_sync tool)
 
 Agent pass
   --agent                    enrich each spec's Notes with \`claude -p\` and the wesh-spec-* skills
@@ -50,8 +62,10 @@ function opts(argv) {
       out: { type: 'string', short: 'o' }, port: { type: 'string' }, host: { type: 'string' }, token: { type: 'string' },
       agent: { type: 'string' }, 'figcraft-web': { type: 'string' }, 'no-watch': { type: 'boolean' }, concurrency: { type: 'string' },
       web: { type: 'boolean' }, 'no-auto': { type: 'boolean' }, force: { type: 'boolean' }, format: { type: 'string' },
-      provider: { type: 'string' }, repo: { type: 'string' }, branch: { type: 'string' }, base: { type: 'string' }, 'api-url': { type: 'string' },
+      provider: { type: 'string' }, against: { type: 'string' }, repo: { type: 'string' }, branch: { type: 'string' }, base: { type: 'string' }, 'api-url': { type: 'string' },
       zip: { type: 'string' }, title: { type: 'string' }, prefix: { type: 'string' }, help: { type: 'boolean', short: 'h' },
+      sync: { type: 'string' }, 'sync-push': { type: 'boolean' }, 'no-sync-pr': { type: 'boolean' }, 'sync-manual': { type: 'boolean' },
+      client: { type: 'string' }, 'opencode-version': { type: 'string' },
     },
   });
   return { ...values, positionals };
@@ -62,6 +76,11 @@ function normalizeAgent(argv) {
   const i = argv.indexOf('--agent');
   if (i >= 0 && (i === argv.length - 1 || argv[i + 1].startsWith('--'))) argv.splice(i + 1, 0, 'default');
   return argv;
+}
+
+function syncer(ws, o) {
+  if (!o.sync) return new Syncer(ws);
+  return new Syncer(ws, parseTarget(o.sync, { auto: !o['sync-manual'], pr: !o['no-sync-pr'], push: !!o['sync-push'], base: o.base, apiUrl: o['api-url'] }));
 }
 
 function workspace(o) {
@@ -82,10 +101,11 @@ async function main() {
   switch (cmd) {
     case 'serve': {
       const ws = workspace(o);
-      const mcp = new WeshCraftMcp({ workspace: ws });
-      const server = await startServer({ workspace: ws, mcp, port: o.port ? Number(o.port) : 4600, host: o.host, token: o.token || process.env.WESHCRAFT_TOKEN, figcraftWebUrl: o['figcraft-web'], watch: !o['no-watch'] });
+      const sync = syncer(ws, o);
+      const mcp = new WeshCraftMcp({ workspace: ws, syncer: sync });
+      const server = await startServer({ workspace: ws, mcp, syncer: sync, port: o.port ? Number(o.port) : 4600, host: o.host, token: o.token || process.env.WESHCRAFT_TOKEN, figcraftWebUrl: o['figcraft-web'], watch: !o['no-watch'] });
       mcp.webUrl = server.url;
-      process.stderr.write(`WeshCraft: ${server.url}\n  source:  ${ws.source.describe()}\n  output:  ${ws.outDir}\n  MCP:     ${server.url.replace(/\/(\?.*)?$/, '/mcp')}\n`);
+      process.stderr.write(`WeshCraft: ${server.url}\n  source:  ${ws.source.describe()}\n  output:  ${ws.outDir}\n  MCP:     ${server.url.replace(/\/(\?.*)?$/, '/mcp')}\n  sync:    ${sync.status().target ?? 'off'}${sync.status().auto ? ' (after every in-sync run)' : ''}\n`);
       ws.run().catch(e => process.stderr.write(`first run failed: ${e.message}\n`));
       const stop = () => { ws.source.close(); server.close(); process.exit(0); };
       process.on('SIGINT', stop);
@@ -94,9 +114,10 @@ async function main() {
     }
     case 'mcp': {
       const ws = workspace(o);
-      const mcp = new WeshCraftMcp({ workspace: ws, autoRun: !o['no-auto'] });
+      const sync = syncer(ws, o);
+      const mcp = new WeshCraftMcp({ workspace: ws, autoRun: !o['no-auto'], syncer: sync });
       if (o.web) {
-        const server = await startServer({ workspace: ws, mcp, port: o.port ? Number(o.port) : 4600, host: o.host, token: o.token || process.env.WESHCRAFT_TOKEN, figcraftWebUrl: o['figcraft-web'], watch: !o['no-watch'] });
+        const server = await startServer({ workspace: ws, mcp, syncer: sync, port: o.port ? Number(o.port) : 4600, host: o.host, token: o.token || process.env.WESHCRAFT_TOKEN, figcraftWebUrl: o['figcraft-web'], watch: !o['no-watch'] });
         mcp.webUrl = server.url;
         process.stderr.write(`WeshCraft web: ${server.url}\n`);
       }
@@ -106,7 +127,10 @@ async function main() {
     case 'generate': {
       const ws = workspace(o);
       try {
+        const sync = o.sync ? syncer(ws, { ...o, 'sync-manual': true }) : null;
         const r = await ws.run({ force: !!o.force });
+        if (sync && r.report.ok) { const s = await sync.sync(); process.stdout.write(`sync: ${s.changed ? `committed ${s.commit ?? ''} ${s.url ?? ''}` : 'up to date'}\n`); }
+        sync?.close();
         for (const j of r.jobs) process.stdout.write(`${j.status.padEnd(9)} ${j.file}\n`);
         process.stdout.write(`\n${r.report.ok ? 'in sync' : 'OUT OF SYNC'}: ${r.report.checks} checks, ${r.report.errors} errors, ${r.ms} ms → ${ws.outDir}\n`);
         process.exitCode = r.report.ok ? 0 : 1;
@@ -126,6 +150,26 @@ async function main() {
           process.stdout.write(`${report.ok ? 'in sync' : 'OUT OF SYNC'}: ${report.checks} checks, ${report.errors} errors, ${report.warnings} warnings (score ${report.score}%)\n`);
         }
         process.exitCode = report.ok ? 0 : 1;
+      } finally { ws.source.close(); }
+      return;
+    }
+    case 'diff': {
+      // Design changes between the manifest committed at --against (default HEAD) or on disk, and now.
+      const ws = workspace(o);
+      try {
+        const out = ws.outDir;
+        let prev = null;
+        if (o.against) {
+          const { execFileSync } = await import('node:child_process');
+          const top = execFileSync('git', ['rev-parse', '--show-toplevel'], { cwd: out, encoding: 'utf8' }).trim();
+          const rel = path.relative(top, path.join(out, 'specs', 'manifest.json')).split(path.sep).join('/');
+          try { prev = JSON.parse(execFileSync('git', ['show', `${o.against}:${rel}`], { cwd: top, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] })); } catch { prev = null; }
+        } else if (fs.existsSync(path.join(out, 'specs', 'manifest.json'))) prev = JSON.parse(fs.readFileSync(path.join(out, 'specs', 'manifest.json'), 'utf8'));
+        const { model } = await ws.source.load();
+        const { diffManifests, changesMarkdown, summaryLine } = await import('../src/spec/diff.mjs');
+        const d = diffManifests(prev, buildManifest(model));
+        if (o.format === 'json') process.stdout.write(`${JSON.stringify(d, null, 1)}\n`);
+        else process.stdout.write(d.items.length ? `${changesMarkdown(d, { title: summaryLine(d) })}\n` : 'no design change\n');
       } finally { ws.source.close(); }
       return;
     }
@@ -153,17 +197,31 @@ async function main() {
       return;
     }
     case 'init': {
-      const file = path.resolve('.mcp.json');
-      const cfg = fs.existsSync(file) ? JSON.parse(fs.readFileSync(file, 'utf8')) : {};
-      cfg.mcpServers ??= {};
+      // MCP config for Claude Code (.mcp.json) and/or OpenCode (opencode.json), in this folder.
       const cli = o['figcraft-cli'] || 'figcraft-cli';
-      const serverArgs = ['mcp', ...(o.attach ? ['--attach', o.attach] : ['--mcp']), '--figcraft-cli', cli, '--out', '.', '--web'];
+      const serverArgs = ['mcp', ...(o.attach ? ['--attach', o.attach] : ['--mcp']), '--figcraft-cli', cli, '--out', '.', '--web', ...(o.sync ? ['--sync', o.sync] : []), ...(o['sync-push'] ? ['--sync-push'] : [])];
       // From a checkout: run this very file. With WESHCRAFT_PACKAGE (e.g. github:you/weshcraft): npx it.
-      cfg.mcpServers.weshcraft = process.env.WESHCRAFT_PACKAGE
-        ? { command: 'npx', args: ['--yes', process.env.WESHCRAFT_PACKAGE, ...serverArgs] }
-        : { command: 'node', args: [fileURLToPath(import.meta.url), ...serverArgs] };
-      fs.writeFileSync(file, `${JSON.stringify(cfg, null, 2)}\n`);
-      process.stdout.write(`wrote ${file} (server "weshcraft"). Restart Claude Code, then run /wesh-plan-view-mode.\n`);
+      const command = process.env.WESHCRAFT_PACKAGE ? ['npx', '--yes', process.env.WESHCRAFT_PACKAGE, ...serverArgs] : ['node', fileURLToPath(import.meta.url), ...serverArgs];
+      const clients = (o.client || (fs.existsSync('opencode.json') || fs.existsSync('.opencode') ? 'both' : 'claude')).split(',').flatMap(c => (c === 'both' ? ['claude', 'opencode'] : [c]));
+      const readJson = f => (fs.existsSync(f) ? JSON.parse(fs.readFileSync(f, 'utf8')) : {});
+      if (clients.includes('claude')) {
+        const cfg = readJson('.mcp.json');
+        (cfg.mcpServers ??= {}).weshcraft = { command: command[0], args: command.slice(1) };
+        fs.writeFileSync('.mcp.json', `${JSON.stringify(cfg, null, 2)}\n`);
+        process.stdout.write(`wrote .mcp.json (Claude Code server "weshcraft")\n`);
+      }
+      if (clients.includes('opencode')) {
+        const cfg = readJson('opencode.json');
+        cfg.$schema ??= 'https://opencode.ai/config.json';
+        // OpenCode 2 lists MCP servers under mcp.servers, OpenCode 1 under mcp (same rule as wesh's installer).
+        const v2 = o['opencode-version'] ? o['opencode-version'] === '2' : cfg.mcp?.servers && typeof cfg.mcp.servers === 'object';
+        cfg.mcp ??= {};
+        if (v2) (cfg.mcp.servers ??= {}).weshcraft = { type: 'local', command, disabled: false };
+        else cfg.mcp.weshcraft = { type: 'local', command, enabled: true };
+        fs.writeFileSync('opencode.json', `${JSON.stringify(cfg, null, 2)}\n`);
+        process.stdout.write(`wrote opencode.json (OpenCode ${v2 ? 2 : 1} server "weshcraft")\n`);
+      }
+      process.stdout.write('Restart your agent, then run /wesh-plan-view-mode.\n');
       return;
     }
     default:

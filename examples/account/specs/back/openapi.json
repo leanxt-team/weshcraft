@@ -1,0 +1,244 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Account API",
+    "version": "0.1.0",
+    "x-weshcraft-source-hash": "5a5d8a8b3efe1d09"
+  },
+  "paths": {
+    "/users": {
+      "post": {
+        "operationId": "createAccount10",
+        "summary": "Create account",
+        "tags": [
+          "Sign up"
+        ],
+        "responses": {
+          "201": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/User"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "email_field": {
+                    "type": "string",
+                    "x-weshcraft-node": 6
+                  },
+                  "password_field": {
+                    "type": "string",
+                    "x-weshcraft-node": 8
+                  }
+                }
+              }
+            }
+          }
+        },
+        "x-weshcraft": {
+          "keys": [
+            "op-create-account-10"
+          ],
+          "screens": [
+            "scr-sign-up"
+          ],
+          "trigger": 10,
+          "confidence": "explicit",
+          "sources": [
+            10
+          ]
+        }
+      }
+    },
+    "/users/me": {
+      "get": {
+        "operationId": "getUsersMe3",
+        "summary": "GET /users/me → User",
+        "tags": [
+          "Profile"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/User"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated"
+          }
+        },
+        "x-weshcraft": {
+          "keys": [
+            "op-get-users-me-3"
+          ],
+          "screens": [
+            "scr-profile"
+          ],
+          "trigger": null,
+          "confidence": "explicit",
+          "sources": [
+            3
+          ]
+        }
+      },
+      "patch": {
+        "operationId": "patchUsersMe15",
+        "summary": "PATCH /users/me",
+        "tags": [
+          "Profile"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "400": {
+            "description": "Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated"
+          }
+        },
+        "x-weshcraft": {
+          "keys": [
+            "op-patch-users-me-15"
+          ],
+          "screens": [
+            "scr-profile"
+          ],
+          "trigger": 15,
+          "confidence": "explicit",
+          "sources": [
+            15
+          ]
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Subscription": {
+        "type": "object",
+        "required": [
+          "id"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "plan": {
+            "type": "string",
+            "x-weshcraft-nodes": [
+              14
+            ],
+            "x-weshcraft-confidence": "explicit"
+          }
+        }
+      },
+      "User": {
+        "type": "object",
+        "required": [
+          "id"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string",
+            "x-weshcraft-nodes": [
+              12
+            ],
+            "x-weshcraft-confidence": "explicit"
+          },
+          "email": {
+            "type": "string",
+            "format": "email",
+            "x-weshcraft-nodes": [
+              13
+            ],
+            "x-weshcraft-confidence": "explicit"
+          }
+        }
+      },
+      "Error": {
+        "type": "object",
+        "required": [
+          "code",
+          "message"
+        ],
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "fields": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "securitySchemes": {
+      "bearer": {
+        "type": "http",
+        "scheme": "bearer"
+      }
+    }
+  },
+  "security": [
+    {
+      "bearer": []
+    }
+  ]
+}

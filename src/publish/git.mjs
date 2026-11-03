@@ -2,6 +2,7 @@
 // their REST APIs: one commit on a branch, then a PR/MR whose description carries the parity
 // summary. Nothing is force-pushed; an existing branch gets a new commit on top.
 import fs from 'node:fs';
+import crypto from 'node:crypto';
 import path from 'node:path';
 import { ciFiles } from './ci.mjs';
 
@@ -25,6 +26,9 @@ export function collectFiles(outDir, { designFile, prefix = '', ci = true, provi
 }
 
 const isText = p => TEXT.has(path.extname(p).toLowerCase());
+
+/** Git's blob id for some bytes: lets a sync skip files the remote already has. */
+export const gitBlobSha = data => crypto.createHash('sha1').update(`blob ${data.length}\0`).update(data).digest('hex');
 
 export function prBody(report, manifest, extra = '') {
   const lines = [
@@ -100,6 +104,7 @@ export async function publishGitHub(o) {
   if (newTree.sha === parent.tree.sha) return { provider: 'github', changed: false, branch: o.branch, url: `${info.html_url}/tree/${o.branch}` };
   const commit = await call('POST', `${R}/git/commits`, { message: o.message || o.title, tree: newTree.sha, parents: [parentSha] });
   await call('PATCH', `${R}/git/refs/heads/${encodeURIComponent(o.branch)}`, { sha: commit.sha, force: false });
+  if (o.pr === false) return { provider: 'github', changed: true, commit: commit.sha, branch: o.branch, url: `${info.html_url}/tree/${o.branch}` };
   const open = await call('GET', `${R}/pulls?state=open&head=${encodeURIComponent(`${owner}:${o.branch}`)}`);
   let pr = open[0];
   if (pr) pr = await call('PATCH', `${R}/pulls/${pr.number}`, { body: o.body });
@@ -121,19 +126,23 @@ export async function publishGitLab(o) {
   try { await call('GET', `${P}/repository/branches/${encodeURIComponent(o.branch)}`); }
   catch (e) { if (e.status !== 404) throw e; branchExists = false; }
   const ref = branchExists ? o.branch : baseBranch;
-  const existing = new Set();
+  const existing = new Map();
   for (let page = 1; page < 200; page++) {
     const items = await call('GET', `${P}/repository/tree?recursive=true&per_page=100&page=${page}&ref=${encodeURIComponent(ref)}`).catch(e => (e.status === 404 ? [] : Promise.reject(e)));
-    for (const it of items) if (it.type === 'blob') existing.add(it.path);
+    for (const it of items) if (it.type === 'blob') existing.set(it.path, it.id);
     if (items.length < 100) break;
   }
-  const actions = o.files.map(f => ({
+  // Only files whose content differs from the branch: an unchanged sync makes no commit.
+  const actions = o.files.filter(f => existing.get(f.path) !== gitBlobSha(f.data)).map(f => ({
     action: existing.has(f.path) ? 'update' : 'create', file_path: f.path,
     ...(isText(f.path) ? { content: f.data.toString('utf8') } : { content: f.data.toString('base64'), encoding: 'base64' }),
   }));
+  if (!actions.length && !branchExists) await call('POST', `${P}/repository/branches?branch=${encodeURIComponent(o.branch)}&ref=${encodeURIComponent(baseBranch)}`);
+  if (!actions.length) return { provider: 'gitlab', changed: false, branch: o.branch, url: `${project.web_url}/-/tree/${encodeURIComponent(o.branch)}` };
   const commit = await call('POST', `${P}/repository/commits`, {
     branch: o.branch, ...(branchExists ? {} : { start_branch: baseBranch }), commit_message: o.message || o.title, actions,
   });
+  if (o.pr === false) return { provider: 'gitlab', changed: true, commit: commit.id, branch: o.branch, url: `${project.web_url}/-/tree/${encodeURIComponent(o.branch)}` };
   const open = await call('GET', `${P}/merge_requests?state=opened&source_branch=${encodeURIComponent(o.branch)}`);
   let mr = open[0];
   if (mr) mr = await call('PUT', `${P}/merge_requests/${mr.iid}`, { description: o.body });

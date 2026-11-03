@@ -2,24 +2,28 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#eef1f6" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0b0c10" media="(prefers-color-scheme: dark)">
 <title>WeshCraft</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%2314a085'/%3E%3Cpath d='M9 11h14M9 16h10M9 21h12' stroke='white' stroke-width='2.5' stroke-linecap='round'/%3E%3C/svg%3E">
 <link rel="stylesheet" href="/app/app.css">
 </head>
-<body>
+<body data-view="proto">
 <header class="top">
   <div class="brand"><span class="logo" aria-hidden="true"></span>WeshCraft</div>
   <div class="source" id="source" title="Prototype source">—</div>
   <div class="hash" id="hash"></div>
   <div class="parity" id="parity" role="status" aria-live="polite">No run yet</div>
+  <button type="button" class="syncpill" id="syncPill" title="Git sync">Sync: off</button>
   <div class="spacer"></div>
+  <button type="button" class="more" id="more" aria-label="Actions" aria-haspopup="dialog"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg></button>
   <div class="actions">
     <label class="btn ghost" title="Open a .figcraft file">Open .figcraft<input type="file" id="upload" accept=".figcraft,.json" hidden></label>
     <button class="btn" id="run" type="button">Regenerate</button>
     <button class="btn ghost" id="force" type="button" title="Rewrite every spec, including unchanged ones">Force</button>
     <a class="btn ghost" id="zip" href="/api/download.zip" download>Download zip</a>
-    <button class="btn primary" id="publish" type="button">Publish to git</button>
+    <button class="btn primary" id="publish" type="button">Publish &amp; sync</button>
   </div>
 </header>
 
@@ -39,18 +43,42 @@
     <div class="tabs" role="tablist">
       <button role="tab" class="tab" aria-selected="true" data-tab="proto">Prototype</button>
       <button role="tab" class="tab" aria-selected="false" data-tab="design" id="designTab" hidden>Design (FigCraft)</button>
+      <button role="tab" class="tab" aria-selected="false" data-tab="links">Front ⇄ back <span class="badge" id="linksBadge"></span></button>
+      <button role="tab" class="tab" aria-selected="false" data-tab="sim">Simulate</button>
       <button role="tab" class="tab" aria-selected="false" data-tab="manifest">Manifest</button>
       <div class="spacer"></div>
-      <label class="toggle"><input type="checkbox" id="follow" checked> Follow prototype</label>
-      <a class="link" id="openProto" href="/out/prototype/index.html" target="_blank" rel="noopener">Open ↗</a>
+      <label class="toggle" title="Outline layers that call the back end (blue) or show its data (green). Click one to open its back-end spec."><input type="checkbox" id="overlay"> Data links</label>
+      <label class="toggle" title="Open the spec of the screen shown in the prototype"><input type="checkbox" id="follow" checked> Follow</label>
+      <a class="link" id="openProto" href="/out/prototype/index.html" target="_blank" rel="noopener" title="Open the prototype in a new tab">↗</a>
     </div>
     <div class="tabpanel" data-panel="proto"><iframe id="proto" title="Clickable prototype" src="about:blank"></iframe></div>
     <div class="tabpanel" data-panel="design" hidden><iframe id="design" title="FigCraft" src="about:blank" allow="clipboard-read; clipboard-write; local-fonts"></iframe></div>
+    <div class="tabpanel scroll" data-panel="links" hidden><div id="linkmap" class="linkmap"><p class="empty">No run yet.</p></div></div>
+    <div class="tabpanel sim" data-panel="sim" hidden>
+      <div class="simbar">
+        <div class="seg" id="simScenario" role="radiogroup" aria-label="Scenario">
+          <button type="button" class="segbtn" data-s="normal" aria-pressed="true">Normal</button>
+          <button type="button" class="segbtn" data-s="slow" aria-pressed="false">Slow</button>
+          <button type="button" class="segbtn" data-s="errors" aria-pressed="false">Errors</button>
+          <button type="button" class="segbtn" data-s="empty" aria-pressed="false">Empty</button>
+          <button type="button" class="segbtn" data-s="offline" aria-pressed="false">Offline</button>
+        </div>
+        <span class="spacer"></span>
+        <button type="button" class="btn ghost small" id="simReset" title="Reseed the mock data from the prototype">Reset data</button>
+        <button type="button" class="btn ghost small" id="simLogToggle" aria-expanded="false">Network <span class="badge" id="simCount"></span></button>
+      </div>
+      <iframe id="simFrame" title="Simulated app" src="about:blank"></iframe>
+      <div class="simlog" id="simLog" hidden>
+        <div class="simlog-head"><strong>Network</strong><span class="muted">mock API from specs/back/openapi.json</span><span class="spacer"></span><button type="button" class="btn ghost small" id="simClear">Clear</button></div>
+        <ol id="simCalls"></ol>
+      </div>
+    </div>
     <div class="tabpanel scroll" data-panel="manifest" hidden><pre id="manifest" class="mono"></pre></div>
   </section>
 
   <section class="reader" aria-label="Spec">
     <div class="pane-head">
+      <button type="button" class="back" id="backToList" aria-label="Back to specs"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></button>
       <h2 id="specTitle">Spec</h2>
       <div class="spacer"></div>
       <div class="seg" role="tablist">
@@ -72,23 +100,60 @@
 
 <footer class="log" id="log" aria-live="polite"></footer>
 
+<button type="button" class="fab" id="openSpec" hidden>View spec <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></button>
+<nav class="phonebar" aria-label="Views">
+  <button type="button" data-view="specs" aria-label="Specs"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6h12M8 12h12M8 18h12"/><circle cx="4" cy="6" r="1"/><circle cx="4" cy="12" r="1"/><circle cx="4" cy="18" r="1"/></svg><span>Specs</span><i class="pb-badge" id="pbSpecs"></i></button>
+  <button type="button" data-view="proto" aria-label="Prototype"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="2.5" width="12" height="19" rx="3"/><path d="M10.5 18.5h3"/></svg><span>Prototype</span></button>
+  <button type="button" data-view="links" aria-label="Front and back links"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="6" r="2"/><circle cx="5" cy="18" r="2"/><circle cx="19" cy="12" r="2"/><path d="M7 6c6 0 6 6 10 6M7 18c6 0 6-6 10-6"/></svg><span>Links</span><i class="pb-badge warn" id="pbLinks"></i></button>
+  <button type="button" data-view="sim" aria-label="Simulate the app"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5v13l10.5-6.5z"/></svg><span>Try</span></button>
+  <button type="button" data-view="read" aria-label="Spec reader"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h9l4 4v14H6z"/><path d="M14 3v5h5M9 13h7M9 17h5"/></svg><span>Spec</span></button>
+</nav>
+
+<dialog id="moreDlg" class="sheet">
+  <form method="dialog">
+    <div class="grabber" aria-hidden="true"></div>
+    <div class="sheet-status"><span id="mSource"></span><span id="mHash" class="hash"></span></div>
+    <div class="sheet-group">
+      <button type="button" data-act="run">Regenerate</button>
+      <button type="button" data-act="force">Regenerate all (force)</button>
+      <button type="button" data-act="upload">Open .figcraft…</button>
+    </div>
+    <div class="sheet-group">
+      <button type="button" data-act="publish">Publish &amp; sync…</button>
+      <button type="button" data-act="sync" id="mSync">Sync now</button>
+      <button type="button" data-act="zip">Download zip</button>
+    </div>
+    <div class="sheet-group">
+      <button type="button" data-act="openproto">Open prototype in new tab</button>
+      <button type="button" data-act="manifest">Manifest</button>
+    </div>
+    <button class="sheet-cancel" value="cancel">Cancel</button>
+  </form>
+</dialog>
+
 <dialog id="publishDlg">
   <form method="dialog" id="publishForm">
-    <h2>Publish to git</h2>
-    <p class="muted">Commits <code>prototype/</code>, <code>specs/</code>, the <code>.figcraft</code> source and a CI parity check to a branch, then opens or updates a pull/merge request.</p>
-    <fieldset class="seg wide">
+    <h2>Publish &amp; sync to git</h2>
+    <p class="muted">Commits <code>prototype/</code>, <code>specs/</code>, the <code>.figcraft</code> source and a CI parity check. GitHub/GitLab: to a branch, with a pull/merge request. Local git: in the repository around the output folder, where Claude Code and OpenCode see it.</p>
+    <fieldset class="seg wide three">
       <label><input type="radio" name="provider" value="github" checked> GitHub</label>
       <label><input type="radio" name="provider" value="gitlab"> GitLab</label>
+      <label><input type="radio" name="provider" value="git"> Local git</label>
     </fieldset>
-    <label>Repository <input name="repo" required placeholder="owner/name or group/project" autocomplete="off"></label>
+    <label class="remote">Repository <input name="repo" placeholder="owner/name or group/project" autocomplete="off"></label>
     <div class="row2">
       <label>Branch <input name="branch" placeholder="weshcraft/&lt;hash&gt;"></label>
-      <label>Base <input name="base" placeholder="default branch"></label>
+      <label class="remote">Base <input name="base" placeholder="default branch"></label>
     </div>
-    <label>API URL <input name="apiUrl" placeholder="https://api.github.com · https://gitlab.example.com/api/v4"></label>
+    <label class="remote">API URL <input name="apiUrl" placeholder="https://api.github.com · https://gitlab.example.com/api/v4"></label>
+    <div class="checks">
+      <label><input type="checkbox" name="keep" checked> Keep in sync: commit after every regeneration that matches the prototype</label>
+      <label class="remote"><input type="checkbox" name="pr" checked> Open / update a pull or merge request</label>
+      <label class="local" hidden><input type="checkbox" name="push"> Push after committing (your git credentials)</label>
+    </div>
     <label id="tokenRow">Token <input name="token" type="password" autocomplete="off" placeholder="sent only to this local server, never stored"></label>
     <p class="result" id="publishResult" role="status"></p>
-    <div class="row"><button class="btn primary" value="go" id="publishGo">Publish</button><button class="btn ghost" value="cancel" formnovalidate>Close</button></div>
+    <div class="row"><button class="btn primary" value="go" id="publishGo">Publish</button><button class="btn ghost" value="off" id="syncOff" type="submit" formnovalidate>Stop syncing</button><button class="btn ghost" value="cancel" formnovalidate>Close</button></div>
   </form>
 </dialog>
 

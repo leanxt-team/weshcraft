@@ -78,9 +78,9 @@ No component instances.
 
 No input fields detected.
 
-## Data and back-end calls
+## Front ⇄ back links
 
-This screen calls no back-end operation (static content or navigation only).
+This screen has no back-end link (static content or navigation only).
 
 ## Design tokens used
 
@@ -135,12 +135,13 @@ _No notes yet. Agent or human additions go here; WeshCraft keeps this block when
  "instances": [],
  "key": "scr-1-welcome",
  "kind": "front-screen",
+ "links": [],
  "node": 2,
  "operations": [],
  "size": [
   393,
   852
  ],
- "sourceHash": "5f1f0908a35a991d"
+ "sourceHash": "4eb686542c05a6f7"
 }
 -->

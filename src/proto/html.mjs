@@ -228,6 +228,16 @@ function render(model, id, ctx) {
   const link = (n.interactions || []).flatMap(i => (i.actions || []).map(a => ({ trigger: i.trigger?.type, ...a })))
     .find(a => a.type === 'navigate' || a.type === 'back' || a.type === 'openUrl' || a.type === 'open_url');
   const attrs = [`data-node="${n.id}"`, `data-name="${escapeHtml(n.name)}"`];
+  const input = ctx.inputs?.get(n.id);
+  if (input) attrs.push(`data-input="${escapeHtml(input.kind)}"`, `data-input-name="${escapeHtml(input.name)}"`);
+  const lk = ctx.links?.get(n.id);
+  if (lk) {
+    attrs.push(`data-link="${lk.map(l => l.rel).join(' ')}"`, `data-link-label="${escapeHtml(lk.map(l => l.text).join(' · '))}"`);
+    const ops = lk.filter(l => l.op).map(l => l.op);
+    const fields = lk.filter(l => l.field).map(l => l.field);
+    if (ops.length) attrs.push(`data-op="${escapeHtml(ops.join(' '))}"`);
+    if (fields.length) attrs.push(`data-field="${escapeHtml(fields.join(' '))}"`);
+  }
   if (link) {
     if (link.type === 'navigate' && ctx.screenOf(link.dest)) attrs.push(`data-go="${ctx.screenOf(link.dest)}"`);
     if (link.type === 'back') attrs.push('data-go="back"');
@@ -242,8 +252,35 @@ function render(model, id, ctx) {
 }
 
 /** One screen as an HTML fragment (root element = the screen frame). */
-export function renderScreen(model, screenId, screenOf = () => null) {
-  return render(model, screenId, { root: screenId, screenOf });
+export function renderScreen(model, screenId, screenOf = () => null, links = null, inputs = null) {
+  return render(model, screenId, { root: screenId, screenOf, links, inputs });
+}
+
+/** What the simulation runtime needs: operations, their inputs, lists and bound fields. */
+export function simMetadata(manifest) {
+  const inputs = new Map(manifest.screens.flatMap(s => s.inputs.map(i => [i.id, i])));
+  return {
+    hash: manifest.source.hash,
+    ops: manifest.domain.operations.map(o => ({
+      key: o.key, name: o.name, method: o.method, path: o.path, screen: o.screen, entity: o.entity, kind: o.kind,
+      trigger: o.trigger, confidence: o.confidence,
+      fields: (o.fields || []).map(id => ({ node: id, name: (inputs.get(id)?.name ?? `field${id}`).toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, ''), kind: inputs.get(id)?.kind ?? 'input' })),
+      rows: o.kind === 'list' ? o.sources : [],
+    })),
+    displays: manifest.links.edges.filter(e => e.field).map(e => ({ node: e.node, field: e.field, via: e.via, screen: e.screen })),
+  };
+}
+
+/** node id -> [{rel, op|field, text}] for the data overlay. */
+function linkIndex(manifest) {
+  const ops = new Map(manifest.domain.operations.map(o => [o.key, o]));
+  const idx = new Map();
+  for (const e of manifest.links?.edges ?? []) {
+    const o = e.op && ops.get(e.op);
+    const text = o ? `${{ triggers: '▶', submits: '⇢', lists: '☰' }[e.rel]} ${o.method} ${o.path}` : `◉ ${e.field}`;
+    idx.set(e.node, [...(idx.get(e.node) ?? []), { rel: e.rel, op: e.op, field: e.field, text }]);
+  }
+  return idx;
 }
 
 /** The clickable prototype: every screen, FigCraft prototype links wired, fonts from Google Fonts. */
@@ -260,7 +297,10 @@ export function renderPrototype(model, manifest, { title = manifest.source.name 
     ? `<link rel="stylesheet" href="https://fonts.googleapis.com/css2?${[...fonts].sort().map(f => `family=${encodeURIComponent(f).replace(/%20/g, '+')}:ital,wght@0,100..900;1,100..900`).join('&')}&display=swap">`
     : '';
   const start = manifest.flows[0]?.start ?? manifest.screens[0]?.key;
-  const screens = manifest.screens.map(s => `<section class="sc-screen" id="${s.key}" data-screen="${s.key}" aria-label="${escapeHtml(s.name)}"${s.key === start ? '' : ' hidden'}>${renderScreen(model, s.id, screenOf)}</section>`).join('\n');
+  const links = linkIndex(manifest);
+  const inputs = new Map(manifest.screens.flatMap(s => s.inputs.map(i => [i.id, i])));
+  const screens = manifest.screens.map(s => `<section class="sc-screen" id="${s.key}" data-screen="${s.key}" aria-label="${escapeHtml(s.name)}"${s.key === start ? '' : ' hidden'}>${renderScreen(model, s.id, screenOf, links, inputs)}</section>`).join('\n');
+  const sim = JSON.stringify(simMetadata(manifest)).replace(/</g, '\\u003c');
   const tokens = manifest.tokens.variables.filter(v => v.type === 'color');
   const firstMode = v => Object.values(v.values)[0];
   const tokenCss = tokens.length ? `:root{${tokens.map(v => `${v.cssVar}:${firstMode(v)?.hex ?? 'initial'}`).join(';')}}` : '';
@@ -271,36 +311,85 @@ export function renderPrototype(model, manifest, { title = manifest.source.name 
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>${escapeHtml(title)} — prototype</title>
 <meta name="generator" content="weshcraft">
+<meta name="color-scheme" content="light dark">
 <meta name="weshcraft-source-hash" content="${manifest.source.hash}">
 ${fontLink}
 <style>
 ${tokenCss}
 html,body{margin:0;background:#1e1e1e;min-height:100%}
-body{display:flex;flex-direction:column;align-items:center;gap:16px;padding:24px 16px;font-family:system-ui,sans-serif}
-nav.sc-nav{display:flex;flex-wrap:wrap;gap:6px;justify-content:center}
-nav.sc-nav button{background:#2c2c2c;color:#e6e6e6;border:1px solid #444;border-radius:6px;padding:6px 10px;font:12px system-ui;cursor:pointer}
-nav.sc-nav button[aria-current="true"]{background:#0d99ff;border-color:#0d99ff;color:#fff}
-.sc-screen{max-width:100%;overflow:auto}
+html.sc-embed,html.sc-embed body{background:transparent}
+body{display:flex;flex-direction:column;align-items:center;gap:18px;padding:20px 16px 32px;font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text",Inter,system-ui,sans-serif}
+nav.sc-nav{display:flex;flex-wrap:nowrap;gap:2px;justify-content:flex-start;max-width:calc(100vw - 24px);overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch;padding:4px;border-radius:99px;background:rgba(255,255,255,.14);-webkit-backdrop-filter:blur(24px) saturate(180%);backdrop-filter:blur(24px) saturate(180%);box-shadow:inset 0 1px 0 rgba(255,255,255,.25),0 6px 20px rgba(0,0,0,.18)}
+nav.sc-nav::-webkit-scrollbar{display:none}
+nav.sc-nav button{flex:none;white-space:nowrap;background:none;color:rgba(255,255,255,.85);border:0;border-radius:99px;padding:6px 13px;font:500 12.5px -apple-system,BlinkMacSystemFont,Inter,system-ui,sans-serif;cursor:pointer}
+nav.sc-nav button[aria-current="true"]{background:rgba(255,255,255,.9);color:#1d1d1f;box-shadow:0 1px 4px rgba(0,0,0,.2)}
+html.sc-embed nav.sc-nav{background:rgba(255,255,255,.55);box-shadow:inset 0 1px 0 rgba(255,255,255,.8),0 6px 20px rgba(15,23,42,.1)}
+html.sc-embed nav.sc-nav button{color:rgba(60,60,67,.85)}
+html.sc-embed nav.sc-nav button[aria-current="true"]{background:#fff;color:#1d1d1f}
+@media (prefers-color-scheme:dark){html.sc-embed nav.sc-nav{background:rgba(44,46,54,.55);box-shadow:inset 0 1px 0 rgba(255,255,255,.12),0 6px 20px rgba(0,0,0,.3)}html.sc-embed nav.sc-nav button{color:rgba(235,235,245,.75)}html.sc-embed nav.sc-nav button[aria-current="true"]{background:rgba(255,255,255,.92);color:#1d1d1f}}
+.sc-screen{max-width:100%;overflow:visible;border-radius:4px}
+.sc-screen>[data-node]{box-shadow:0 1px 2px rgba(0,0,0,.12),0 24px 60px -12px rgba(15,23,42,.35)}
 .sc-screen [data-go]:focus-visible{outline:2px solid #0d99ff;outline-offset:2px}
 .sc-hl{outline:2px solid #ff3d7f!important;outline-offset:1px}
+.sc-hl-op{outline:2px solid #3b82f6!important;outline-offset:1px}
+.sc-hl-field{outline:2px solid #10b981!important;outline-offset:1px}
+body.sc-data [data-link]{outline:1.5px dashed #10b981;outline-offset:1px}
+body.sc-data [data-op]{outline:2px dashed #3b82f6}
+body.sc-data [data-link]::after{content:attr(data-link-label);position:absolute;z-index:50;left:0;top:-15px;font:600 9.5px/1.3 ui-monospace,Menlo,monospace;color:#fff;background:#0f766e;padding:1px 5px;border-radius:4px;white-space:nowrap;pointer-events:none;max-width:260px;overflow:hidden;text-overflow:ellipsis}
+body.sc-data [data-op]::after{background:#1d4ed8}
+body.sc-data [data-link]{position:relative}
+nav.sc-nav .sc-toggle{position:sticky;right:0;margin-left:4px;display:inline-flex;align-items:center;gap:6px;background:#2c2c2e!important;box-shadow:-14px 0 12px -4px #2c2c2e}
+nav.sc-nav .sc-toggle::before{content:'';width:8px;height:8px;border-radius:50%;box-shadow:inset 0 0 0 1.5px #00a88a}
+nav.sc-nav .sc-toggle[aria-pressed="true"]::before{background:#00a88a}
+html.sc-embed nav.sc-nav .sc-toggle{background:#f7f8fa!important;box-shadow:-14px 0 12px -4px #f7f8fa}
+@media (prefers-color-scheme:dark){html.sc-embed nav.sc-nav .sc-toggle{background:#2b2d34!important;box-shadow:-14px 0 12px -4px #2b2d34}}
+@media (max-width:480px){nav.sc-nav button{padding:6px 11px;font-size:12px}}
+nav.sc-nav .sc-toggle[aria-pressed="true"]{color:#00a88a!important}
 </style>
 </head>
 <body>
-<nav class="sc-nav" aria-label="Screens">${manifest.screens.map(s => `<button type="button" data-show="${s.key}">${escapeHtml(s.name)}</button>`).join('')}</nav>
+<nav class="sc-nav" aria-label="Screens">${manifest.screens.map(s => `<button type="button" data-show="${s.key}">${escapeHtml(s.name)}</button>`).join('')}${links.size ? '<button type="button" class="sc-toggle" data-overlay aria-pressed="false" title="Show which layers call the back end (▶ ⇢ ☰) or show its data (◉). Shortcut: D">Data links</button>' : ''}</nav>
 ${screens}
+<script type="application/json" id="weshcraft-sim">${sim}</script>
 <script>
 (() => {
+  if (parent !== window) document.documentElement.classList.add('sc-embed');
+  // Fit screens wider than the viewport (phones, narrow panes) without changing the design.
+  const fit = () => document.querySelectorAll('.sc-screen').forEach(s => {
+    const f = s.firstElementChild;
+    if (!f) return;
+    s.style.zoom = '';
+    const w = f.offsetWidth;
+    const room = document.documentElement.clientWidth - 32;
+    if (w > room && room > 0) s.style.zoom = String(Math.round((room / w) * 1000) / 1000);
+  });
+  window.addEventListener('resize', fit);
+  window.addEventListener('load', fit);
   const hist = [];
   const show = (key, push = true) => {
     const cur = document.querySelector('.sc-screen:not([hidden])');
     if (!document.getElementById(key)) return;
     if (cur && push && cur.id !== key) hist.push(cur.id);
     document.querySelectorAll('.sc-screen').forEach(s => { s.hidden = s.id !== key; });
+    fit();
     document.querySelectorAll('[data-show]').forEach(b => b.setAttribute('aria-current', String(b.dataset.show === key)));
-    if (location.hash.slice(1) !== key) history.replaceState(null, '', '#' + key);
+    if (parent === window && location.hash.slice(1) !== key) history.replaceState(null, '', '#' + key);
     parent !== window && parent.postMessage({ weshcraft: 'screen', key }, '*');
+    document.dispatchEvent(new CustomEvent('weshcraft:screen', { detail: { key } }));
   };
+  window.__weshShow = (key, push) => show(key, push);
+  window.__weshBack = () => { const k = hist.pop(); if (k) show(k, false); };
+  const overlay = on => {
+    document.body.classList.toggle('sc-data', on);
+    document.querySelectorAll('[data-overlay]').forEach(b => b.setAttribute('aria-pressed', String(on)));
+  };
+  document.addEventListener('keydown', e => { if ((e.key === 'd' || e.key === 'D') && !e.target.closest('input,textarea')) overlay(!document.body.classList.contains('sc-data')); });
   document.addEventListener('click', e => {
+    const t = e.target.closest('[data-overlay]'); if (t) return overlay(!document.body.classList.contains('sc-data'));
+    if (document.body.classList.contains('sc-data')) {
+      const l = e.target.closest('[data-link]');
+      if (l && parent !== window) { e.preventDefault(); return parent.postMessage({ weshcraft: 'link', node: Number(l.dataset.node), op: l.dataset.op || null, field: l.dataset.field || null }, '*'); }
+    }
     const b = e.target.closest('[data-show]'); if (b) return show(b.dataset.show);
     const g = e.target.closest('[data-go],[data-href]'); if (!g) return;
     if (g.dataset.href) return window.open(g.dataset.href, '_blank', 'noopener');
@@ -310,6 +399,19 @@ ${screens}
   window.addEventListener('message', e => {
     const m = e.data || {};
     if (m.weshcraft === 'show') show(m.key);
+    if (m.weshcraft === 'overlay') overlay(!!m.on);
+    if (m.weshcraft === 'highlightMany') {
+      document.querySelectorAll('.sc-hl,.sc-hl-op,.sc-hl-field').forEach(x => x.classList.remove('sc-hl', 'sc-hl-op', 'sc-hl-field'));
+      let first = null;
+      for (const h of m.items || []) {
+        const el = document.querySelector('[data-node="' + Number(h.node) + '"]');
+        if (!el) continue;
+        el.classList.add(h.kind === 'op' ? 'sc-hl-op' : h.kind === 'field' ? 'sc-hl-field' : 'sc-hl');
+        const s = el.closest('.sc-screen');
+        if (!first && s && (m.screen ? s.id === m.screen : true)) first = el;
+      }
+      if (first) { const s = first.closest('.sc-screen'); if (s.hidden) show(s.id); first.scrollIntoView({ block: 'center', behavior: 'smooth' }); }
+    }
     if (m.weshcraft === 'highlight') {
       document.querySelectorAll('.sc-hl').forEach(x => x.classList.remove('sc-hl'));
       const el = document.querySelector('[data-node="' + Number(m.node) + '"]');

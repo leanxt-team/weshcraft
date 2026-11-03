@@ -8,7 +8,9 @@ import { buildManifest } from '../model/manifest.mjs';
 import { renderPrototype } from '../proto/html.mjs';
 import { screenSpec, componentSpec, tokensSpec, tokensCss, flowsSpec } from './front.mjs';
 import { domainSpec, apiSpec, openapi, conventionsSpec } from './back.mjs';
+import { linksSpec } from './links.mjs';
 import { readNotes } from './contract.mjs';
+import { diffManifests, updateChangelog, summaryLine } from './diff.mjs';
 import { agentPrompt, runAgent, sanitizeNotes, DEFAULT_AGENT } from './agent.mjs';
 import { checkParity, parityMarkdown } from '../parity/check.mjs';
 
@@ -44,7 +46,21 @@ export class Workspace {
     this.model = model;
     this.manifest = buildManifest(model);
     this.thumbnail = thumbnail;
-    writeFileSafe(this.file('specs/manifest.json'), `${JSON.stringify(this.manifest, null, 1)}\n`);
+    // What changed since the manifest on disk (the last run, or what git checked out).
+    const prevFile = this.file('specs/manifest.json');
+    let prev = null;
+    try { prev = fs.existsSync(prevFile) ? JSON.parse(fs.readFileSync(prevFile, 'utf8')) : null; } catch { prev = null; }
+    if (prev?.source?.hash !== this.manifest.source.hash) {
+      this.changes = diffManifests(prev, this.manifest);
+      // Not on the very first run into an empty folder: nothing to compare with.
+      if (prev) {
+        const cf = this.file('specs/CHANGES.md');
+        const next = updateChangelog(fs.existsSync(cf) ? fs.readFileSync(cf, 'utf8') : null, this.changes);
+        if (next) writeFileSafe(cf, next);
+        this.emit('log', { level: 'info', message: `Design changed: ${summaryLine(this.changes)}` });
+      }
+    } else if (!this.changes) this.changes = { items: [], from: prev?.source?.hash ?? null, to: this.manifest.source.hash };
+    writeFileSafe(prevFile, `${JSON.stringify(this.manifest, null, 1)}\n`);
     this.emit('manifest', { summary: this.summary() });
     return this.manifest;
   }
@@ -56,7 +72,7 @@ export class Workspace {
       name: m.source.name, hash: m.source.hash,
       screens: m.screens.map(s => ({ key: s.key, name: s.name, id: s.id, width: s.width, height: s.height, devStatus: s.devStatus })),
       components: m.components.length, tokens: m.tokens.variables.length,
-      entities: m.domain.entities.length, operations: m.domain.operations.length,
+      entities: m.domain.entities.length, operations: m.domain.operations.length, links: m.links.edges.length, gaps: m.links.gaps.length,
     };
   }
 
@@ -70,6 +86,7 @@ export class Workspace {
     jobs.push({ id: 'front:flows', group: 'front', title: 'Navigation & flows', file: 'specs/front/flows.md', build: notes => flowsSpec(m, { notes }) });
     jobs.push({ id: 'back:domain', group: 'back', title: 'Domain model', file: 'specs/back/domain.md', build: notes => domainSpec(m, { notes }) });
     jobs.push({ id: 'back:api', group: 'back', title: 'API & OpenAPI', file: 'specs/back/api.md', build: notes => apiSpec(m, { notes }), extra: () => [['specs/back/openapi.json', `${JSON.stringify(openapi(m), null, 2)}\n`]] });
+    jobs.push({ id: 'links:map', group: 'links', title: 'Front ⇄ back map', file: 'specs/LINKS.md', build: notes => linksSpec(m, { notes }) });
     jobs.push({ id: 'back:conventions', group: 'back', title: 'Back-end conventions', file: 'specs/back/conventions.md', build: notes => conventionsSpec(m, { notes }) });
     return jobs;
   }
@@ -212,6 +229,11 @@ export class Workspace {
       L.push('');
     }
     L.push('Also: [design tokens](front/tokens.md) ([CSS](front/tokens.css)) · [navigation & flows](front/flows.md)');
+    L.push('');
+    const { edges, gaps } = m.links;
+    L.push(`## Front ⇄ back`);
+    L.push('');
+    L.push(`[LINKS.md](LINKS.md): ${edges.filter(e => e.op).length} operation links, ${edges.filter(e => e.field).length} data links, ${gaps.length} gap${gaps.length === 1 ? '' : 's'}.`);
     L.push('');
     L.push('## Back end');
     L.push('');
