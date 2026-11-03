@@ -343,6 +343,17 @@ test('init: MCP server for Claude Code (.mcp.json) and OpenCode (opencode.json)'
 });
 
 import { diffManifests, updateChangelog, summaryLine } from '../src/spec/diff.mjs';
+import { startServer } from '../src/web/server.mjs';
+import { WeshCraftMcp as McpServer } from '../src/mcp/server.mjs';
+
+test('serve: a LAN bind needs --token, unless --allow-lan', async () => {
+  const ws = new Workspace({ outDir: tmp(), source: new FileSource(ACCOUNT) });
+  const mcp = new McpServer({ workspace: ws });
+  assert.throws(() => startServer({ workspace: ws, mcp, host: '0.0.0.0' }), /without --token/);
+  const server = await startServer({ workspace: ws, mcp, host: '0.0.0.0', port: 0, allowLan: true });
+  assert.ok(server.url.startsWith('http://'), server.url);
+  server.close();
+});
 
 test('design changelog: copy, screens and operations, newest first', async () => {
   const before = buildManifest((await new FileSource(ACCOUNT).load()).model);

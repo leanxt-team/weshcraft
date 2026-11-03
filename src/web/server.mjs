@@ -41,14 +41,14 @@ function serveFile(res, root, rel) {
 }
 
 /**
- * @param {{workspace, mcp, host?: string, port?: number, token?: string, figcraftWebUrl?: string, uploadsDir?: string, watch?: boolean}} o
+ * @param {{workspace, mcp, host?: string, port?: number, token?: string, allowLan?: boolean, figcraftWebUrl?: string, uploadsDir?: string, watch?: boolean}} o
  */
 export function startServer(o) {
   const ws = o.workspace;
   const token = o.token || null;
   const host = o.host || '127.0.0.1';
-  if (!token && !['127.0.0.1', 'localhost', '::1'].includes(host)) {
-    throw new Error(`refusing to listen on ${host} without --token (anyone on the network could publish with your git token)`);
+  if (!token && !o.allowLan && !['127.0.0.1', 'localhost', '::1'].includes(host)) {
+    throw new Error(`refusing to listen on ${host} without --token (anyone on the network could publish with your git token); pass --allow-lan if this host holds no git token`);
   }
   const clients = new Set();
   const authorized = (req, url) => {

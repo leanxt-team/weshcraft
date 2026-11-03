@@ -18,9 +18,10 @@ import { SurfaceSource } from '../src/surface/load.mjs';
 const HELP = `weshcraft — FigCraft prototype in, front/back specs that match it out.
 
 Usage
-  weshcraft serve    [source] [--out DIR] [--port 4600] [--host 127.0.0.1] [--token T] [--agent [CMD]]
+  weshcraft serve    [source] [--out DIR] [--port 4600] [--host 127.0.0.1] [--token T] [--allow-lan] [--agent [CMD]]
                      [--figcraft-web URL] [--no-watch] [--concurrency N]
       Browser workspace: clickable prototype, live spec builder, parity, publish. MCP over HTTP at /mcp.
+      A non-loopback --host needs --token; --allow-lan serves it without one (no git token on the host).
   weshcraft mcp      [source] [--out DIR] [--web [--port 4600]] [--agent [CMD]] [--no-auto]
       MCP server on stdio: the FigCraft tools (as figcraft_*) plus weshcraft_* tools.
   weshcraft generate [source] [--out DIR] [--force] [--agent [CMD]]
@@ -67,6 +68,7 @@ function opts(argv) {
     options: {
       file: { type: 'string', short: 'f' }, mcp: { type: 'boolean' }, attach: { type: 'string' }, 'figcraft-cli': { type: 'string' },
       out: { type: 'string', short: 'o' }, port: { type: 'string' }, host: { type: 'string' }, token: { type: 'string' },
+      'allow-lan': { type: 'boolean' },
       agent: { type: 'string' }, 'figcraft-web': { type: 'string' }, 'no-watch': { type: 'boolean' }, concurrency: { type: 'string' },
       web: { type: 'boolean' }, 'no-auto': { type: 'boolean' }, force: { type: 'boolean' }, format: { type: 'string' },
       provider: { type: 'string' }, against: { type: 'string' }, repo: { type: 'string' }, branch: { type: 'string' }, base: { type: 'string' }, 'api-url': { type: 'string' },
@@ -113,7 +115,7 @@ async function main() {
       const ws = workspace(o);
       const sync = syncer(ws, o);
       const mcp = new WeshCraftMcp({ workspace: ws, syncer: sync });
-      const server = await startServer({ workspace: ws, mcp, syncer: sync, port: o.port ? Number(o.port) : 4600, host: o.host, token: o.token || process.env.WESHCRAFT_TOKEN, figcraftWebUrl: o['figcraft-web'], watch: !o['no-watch'] });
+      const server = await startServer({ workspace: ws, mcp, syncer: sync, port: o.port ? Number(o.port) : 4600, host: o.host, token: o.token || process.env.WESHCRAFT_TOKEN, allowLan: !!o['allow-lan'], figcraftWebUrl: o['figcraft-web'], watch: !o['no-watch'] });
       mcp.webUrl = server.url;
       process.stderr.write(`WeshCraft: ${server.url}\n  source:  ${ws.describe()}\n  output:  ${ws.outDir}\n  MCP:     ${server.url.replace(/\/(\?.*)?$/, '/mcp')}\n  sync:    ${sync.status().target ?? 'off'}${sync.status().auto ? ' (after every in-sync run)' : ''}\n`);
       ws.run().catch(e => process.stderr.write(`first run failed: ${e.message}\n`));
@@ -127,7 +129,7 @@ async function main() {
       const sync = syncer(ws, o);
       const mcp = new WeshCraftMcp({ workspace: ws, autoRun: !o['no-auto'], syncer: sync });
       if (o.web) {
-        const server = await startServer({ workspace: ws, mcp, syncer: sync, port: o.port ? Number(o.port) : 4600, host: o.host, token: o.token || process.env.WESHCRAFT_TOKEN, figcraftWebUrl: o['figcraft-web'], watch: !o['no-watch'] });
+        const server = await startServer({ workspace: ws, mcp, syncer: sync, port: o.port ? Number(o.port) : 4600, host: o.host, token: o.token || process.env.WESHCRAFT_TOKEN, allowLan: !!o['allow-lan'], figcraftWebUrl: o['figcraft-web'], watch: !o['no-watch'] });
         mcp.webUrl = server.url;
         process.stderr.write(`WeshCraft web: ${server.url}\n`);
       }
