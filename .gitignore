@@ -1,0 +1,5 @@
+node_modules/
+.weshcraft-demo/
+*.tmp
+*-specs.zip
+.DS_Store

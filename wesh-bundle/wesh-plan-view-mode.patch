@@ -1,0 +1,198 @@
+diff --git a/README.md b/README.md
+index 87f05b3..28e4a09 100644
+--- a/README.md
++++ b/README.md
+@@ -35,6 +35,9 @@ local code graph and an output squeezer, and drops everything that costs tokens
+ | auto | `wesh-commit` | caveman-commit | Conventional Commits message |
+ | `/` only | `/wesh-level` | ponytail levels | `lite` / `full` / `ultra` / `off` / `help` |
+ | `/` only | `/wesh-plan` | grilling + to-spec | questions with recommended answers, then a short spec |
++| `/` only | `/wesh-plan-view-mode` | WeshCraft | plan on a FigCraft prototype over MCP; parallel front/back specs that match it; live in the browser; PR/MR |
++| auto | `wesh-spec-front` | WeshCraft | enrich generated front specs: states, a11y, analytics, questions |
++| auto | `wesh-spec-back` | WeshCraft | enrich generated back specs: validation, authz, errors, data |
+ | `/` only | `/wesh-handoff` | handoff | compress a long session into a handoff file for a fresh one |
+ | `/` only | `/wesh-slim` | caveman-compress | shrink `CLAUDE.md` / `AGENTS.md`, every fact kept |
+ | `/` only | `/wesh-debt` | ponytail-debt | ledger of `shortcut:` comments |
+@@ -47,6 +50,16 @@ Left out on purpose (cost more than they save): caveman's cloud/proxy/MCP produc
+ dashboards, mattpocock's issue-tracker workflows, teaching and writing skills. Each extra listed skill costs tokens on
+ every request.
+ 
++## View mode (WeshCraft)
++
++`/wesh-plan-view-mode` plans on a visual prototype instead of prose. It needs the WeshCraft MCP server, which wraps FigCraft's MCP:
++
++```bash
++npx weshcraft init            # writes .mcp.json: WeshCraft + live FigCraft (figcraft-cli on PATH)
++```
++
++Decisions become FigCraft edits; WeshCraft regenerates front and back specs in parallel, checks them against the prototype (copy, interactions, components, tokens, entities, operations) and shows everything live at the URL it prints. `weshcraft_publish` opens a GitHub PR or GitLab MR with the prototype, the specs and a CI parity check.
++
+ ## Install
+ 
+ Needs Node.js 18+. From this folder:
+diff --git a/bench/reliability.test.mjs b/bench/reliability.test.mjs
+index 2aceebc..4bd811f 100644
+--- a/bench/reliability.test.mjs
++++ b/bench/reliability.test.mjs
+@@ -102,7 +102,7 @@ test('install both: files land, user content survives, OpenCode is not duplicate
+   const cfg = JSON.parse(read(path.join(oc, 'opencode.json')));
+   assert.equal(cfg.instructions.length, 1, 'core via instructions: OpenCode 2 has no CLAUDE.md fallback');
+   assert.match(read(cfg.instructions[0]), /Smallest complete change/);
+-  for (const n of ['wesh-level', 'wesh-plan', 'wesh-handoff', 'wesh-slim', 'wesh-debt']) assert.equal(cfg.permission.skill[n], 'deny', n);
++  for (const n of ['wesh-level', 'wesh-plan', 'wesh-plan-view-mode', 'wesh-handoff', 'wesh-slim', 'wesh-debt']) assert.equal(cfg.permission.skill[n], 'deny', n);
+   assert.equal(cfg.permission.skill['wesh-debug'], undefined);
+   const agent = read(path.join(oc, 'agents', 'wesh-scout.md'));
+   assert.match(agent, /mode: subagent/);
+@@ -150,7 +150,7 @@ test('an upgrade takes the skills wesh shipped under an old name away', () => {
+   const after = JSON.parse(read(cfgFile));
+   assert.equal(after.permission.skill.wesh, undefined, 'the deny rule wesh added is gone');
+   assert.equal(after.permission.skill['wesh-compress'], undefined, 'and the other one too');
+-  for (const n of ['wesh-level', 'wesh-plan', 'wesh-handoff', 'wesh-slim', 'wesh-debt']) assert.equal(after.permission.skill[n], 'deny', n);
++  for (const n of ['wesh-level', 'wesh-plan', 'wesh-plan-view-mode', 'wesh-handoff', 'wesh-slim', 'wesh-debt']) assert.equal(after.permission.skill[n], 'deny', n);
+   const st = JSON.parse(read(path.join(oc, 'wesh', 'state.json')));
+   assert.ok(!st.options.skills.includes('wesh') && !st.options.skills.includes('wesh-compress'), 'the old names are off the list');
+ });
+@@ -403,7 +403,7 @@ test('opencode-only: skills copied, core added via instructions, existing config
+   assert.match(read(path.join(oc, 'wesh', 'CORE.md')), /Smallest complete change/);
+   assert.doesNotMatch(read(path.join(oc, 'wesh', 'CORE.md')), /wesh:begin/);
+   for (const n of names) assert.equal(fs.existsSync(path.join(oc, 'skills', n, 'SKILL.md')),
+-    !['wesh-level', 'wesh-plan', 'wesh-handoff', 'wesh-slim', 'wesh-debt'].includes(n), `${n}: only model skills copied`);
++    !['wesh-level', 'wesh-plan', 'wesh-plan-view-mode', 'wesh-handoff', 'wesh-slim', 'wesh-debt'].includes(n), `${n}: only model skills copied`);
+   assert.ok(!fs.existsSync(path.join(home, '.claude')), 'claude untouched');
+ });
+ 
+diff --git a/core/CORE.md b/core/CORE.md
+index 969618f..c71ca80 100644
+--- a/core/CORE.md
++++ b/core/CORE.md
+@@ -15,7 +15,7 @@ You lazy senior dev, pay every token. Smallest complete change. Fewest turns. Sh
+ - Grep/Glob first, read only needed lines. No re-read after edit. Batch calls. Minimal edits.
+ - Run builds, tests, installs plain (`npm test`): output trimmed for you. Never pipe through `tail`, `head`, `grep`, `sed`: hides failures, PowerShell lacks them.
+ - After change: run covering tests once. Never re-run passing command. Works: stop. No polish.
+-- Hard bug: `wesh-debug`. Review: `wesh-review`. Risky restructure: `wesh-refactor`. Fuzzy ask: suggest `/wesh-plan`. Broad search: `wesh-scout` (absent: `explore` subagent).
++- Hard bug: `wesh-debug`. Review: `wesh-review`. Risky restructure: `wesh-refactor`. Fuzzy ask: suggest `/wesh-plan`; UI work or FigCraft prototype: `/wesh-plan-view-mode`. Broad search: `wesh-scout` (absent: `explore` subagent).
+ 
+ ## Voice: caveman (full)
+ Talk caveman: no articles, filler, pleasantries. Fragments. Answer first, no recap. Keep exact: not/never/only, numbers, code, paths, errors. Show changed lines only. Silent between tool calls. Explanation user asked: every fact, caveman words. `lite`: normal prose. `ultra`: even fewer words, challenge scope need not justify. Full sentences only for: security warnings, irreversible actions (confirm first), questions to user, anything persisted (comments, commits, docs). Host, harness, user report instructions beat this voice.
+diff --git a/install.mjs b/install.mjs
+index df06071..ef74e50 100644
+--- a/install.mjs
++++ b/install.mjs
+@@ -29,7 +29,7 @@ import { forbidden } from './hooks/autoindex.mjs';
+ const SRC = path.dirname(fileURLToPath(import.meta.url));
+ const BEGIN = '<!-- wesh:begin (managed by wesh/install.mjs; edit the level line only) -->';
+ const END = '<!-- wesh:end -->';
+-const USER_ONLY = ['wesh-level', 'wesh-plan', 'wesh-handoff', 'wesh-slim', 'wesh-debt'];
++const USER_ONLY = ['wesh-level', 'wesh-plan', 'wesh-plan-view-mode', 'wesh-handoff', 'wesh-slim', 'wesh-debt'];
+ // Skills wesh shipped under a name it no longer uses: the new install takes the old ones away.
+ const RETIRED = ['wesh', 'wesh-compress'];
+ // wesh's own files in a project: they are not the project's code, so the code graph must not index them.
+diff --git a/skills/wesh-plan-view-mode/SKILL.md b/skills/wesh-plan-view-mode/SKILL.md
+new file mode 100644
+index 0000000..59b4132
+--- /dev/null
++++ b/skills/wesh-plan-view-mode/SKILL.md
+@@ -0,0 +1,46 @@
++---
++name: wesh-plan-view-mode
++description: Plan in view mode. Iterate on a FigCraft prototype through WeshCraft MCP, generate front and back specs in parallel that match it exactly, review live in the browser, publish prototype + specs to GitHub or GitLab. Use for /wesh-plan-view-mode.
++disable-model-invocation: true
++argument-hint: "[design.figcraft | --attach <port>] [--repo owner/name] [--gitlab]"
++---
++
++`/wesh-plan`, but decisions land in the prototype, not in prose. Prototype is the source of truth; specs are generated from it and contract-checked against it. Building the wrong screen is the most expensive token spend.
++
++## 0. Setup (once)
++- `weshcraft_status` tool missing: tell user to run `npx weshcraft init` (writes `.mcp.json`: WeshCraft MCP + live FigCraft) or `claude mcp add weshcraft -- npx weshcraft mcp --mcp --web`, restart, rerun. Stop.
++- `sourceKind: mcp`: `figcraft_*` tools design live. `file`: read-only here; user edits in FigCraft, WeshCraft regenerates on save.
++- Give user the live view URL from `weshcraft_status` (`web`). Browser shows clickable prototype, spec builder filling in parallel, parity. They watch; you work.
++
++## 1. Facts first, yourself
++As `/wesh-plan`: repo entry points, existing API, models, components, `GLOSSARY.md`, ADRs (`codegraph_explore` or `wesh-scout`). Then `weshcraft_manifest`: screens, copy, interactions, components, tokens, inferred entities and operations. Never ask user what manifest or repo answers.
++
++## 2. Frontier rounds, answered in the design
++Same rounds as `/wesh-plan` (numbered, recommended answer, "yes" accepts). Route each settled answer:
++- Changes what user sees or does (screen, copy, state, flow, field, button) → edit FigCraft: `figcraft_batch` (one undo step), `figcraft_create_node`, `figcraft_set_properties`, `figcraft_run_command` (`proto.interaction.add`, `component.*`, `variable.*`). Reuse existing components and variables. Then `figcraft_screenshot` of the screen so user confirms.
++- Data a layer shows → bind it: text `{{trail.name}}` / `{{trail.distance:number}}`, or layer name `@trail.rating:number`. Becomes an explicit entity field.
++- Back-end call → Dev Mode annotation on the trigger layer: `POST /trails` (`figcraft_run_command annotation.add`). Becomes an explicit operation.
++- Not visual (rule, limit, perf, security, analytics) → `weshcraft_write_notes` on the owning spec.
++Edits through `figcraft_*` regenerate specs automatically (debounced). Never write a fact into notes that the design contradicts: change the design.
++
++## 3. Generate in parallel
++`weshcraft_generate`. Then fan out: one subagent per group, max 6 at once, each told to use `wesh-spec-front` (screens, components, tokens, flows) or `wesh-spec-back` (domain, API, conventions), read its specs with `weshcraft_read_spec`, write only Notes with `weshcraft_write_notes`. Headless alternative: `weshcraft serve --agent` does the same pass with `claude -p`.
++
++## 4. Parity gate
++`weshcraft_check` must be `ok`. Stale or missing → `weshcraft_generate`. Copy/interaction drift → the design changed: regenerate, never hand-edit generated sections. Inferred entities/operations still open → ask in the next round or annotate the design.
++
++## 5. Spec summary
++Reply in `/wesh-plan` shape, under ~60 lines, pointing at files instead of restating them:
++```
++# <feature>
++Problem / Solution: <user view, 1-3 lines each>
++Prototype: prototype/index.html (<n> screens) · parity <score>% · live: <url>
++Acceptance: specs/front/screens/*.md §Acceptance criteria (+ list the 3-5 that matter most)
++Decisions: entities, operations, components reused (link specs/back/domain.md, api.md)
++Test seams · Non-goals · Slices (vertical, each = screens + operations it needs)
++```
++
++## 6. Publish (outward, confirm first)
++On user yes: `weshcraft_publish {provider: github|gitlab, repo, branch?, base?}`. Commits `prototype/`, `specs/`, the `.figcraft` source and a CI parity check; opens or updates the PR/MR. Give the URL. Later code review: `wesh-review --spec specs/README.md`.
++
++Do not implement until user confirms the spec, unless they asked to go straight on.
+diff --git a/skills/wesh-spec-back/SKILL.md b/skills/wesh-spec-back/SKILL.md
+new file mode 100644
+index 0000000..b3bb97b
+--- /dev/null
++++ b/skills/wesh-spec-back/SKILL.md
+@@ -0,0 +1,24 @@
++---
++name: wesh-spec-back
++description: Enrich WeshCraft back specs (specs/back/*.md) from a FigCraft prototype: validation, authz, errors, data, open questions. Never invents endpoints. Use for "enrich/complete back spec".
++---
++
++Entities, fields and operations are derived from the prototype (explicit bindings and annotations, or inferred from repeated components and action labels) and contract-checked. Do not add, rename or drop them in prose. You write only the Notes block (`weshcraft_write_notes`).
++
++## Read first
++`specs/back/domain.md`, `api.md`, `openapi.json`, `conventions.md`; the screens each operation cites. Existing back-end code: models, routes, auth, validation library, error format, migrations. Reuse them; name the file you would extend.
++
++## Write, only what applies
++- `### Validation`: per request field (its input `#id`): required, type, length, format, server-side rule, error message the screen shows.
++- `### Auth and permissions`: who may call each operation; ownership checks (object-level authorization) for every id in a path.
++- `### Errors`: each failure the screen must handle mapped to status + `code` from conventions.
++- `### Data`: per entity: source of truth, uniqueness, indexes the lists need (sort/filter from the screen), retention, personal data and its basis, deletion.
++- `### Consistency`: idempotency for writes, concurrent edits, transactions spanning entities, events emitted.
++- `### Performance`: list sizes the screens imply, pagination, caching, N+1 risks.
++- `### Mapping to existing code`: `path:line` of models/routes to extend, or "new".
++- `### Open questions`: numbered, recommended answer each. Inferred (`confidence: inferred`) items always appear here until confirmed; recommend confirming them in the design (`{{entity.field}}` binding or a `METHOD /path` annotation), not in prose.
++
++## Rules
++- Never invent an endpoint or field. Needed and missing: open question + the design change that would add it.
++- Never-cut list applies: validation at the trust boundary, authz, error handling, migration safety.
++- Under 60 lines per spec. No preamble.
+diff --git a/skills/wesh-spec-front/SKILL.md b/skills/wesh-spec-front/SKILL.md
+new file mode 100644
+index 0000000..b9a7b5d
+--- /dev/null
++++ b/skills/wesh-spec-front/SKILL.md
+@@ -0,0 +1,22 @@
++---
++name: wesh-spec-front
++description: Enrich WeshCraft front specs (specs/front/*.md) from a FigCraft prototype: states, a11y, analytics, open questions. Never changes generated facts. Use for "enrich/complete front spec".
++---
++
++Spec facts (layout, copy, typography, colours, interactions, components, sizes) are generated from the prototype and contract-checked. Do not restate, reword or "fix" them. You write only the Notes block (`weshcraft_write_notes`, or between the `weshcraft:notes` markers when editing files).
++
++## Read first
++The spec (`weshcraft_read_spec`), the screens it links, `weshcraft_manifest {screen}` for ids. Existing code for the same screen or component, when the repo has it: match its patterns.
++
++## Write, only what applies, under these headings
++- `### States`: loading, empty, error, disabled, offline, permission denied, long content (copy 2× longer, 1 item, 0 items, 1 000 items). Say what the prototype shows; where it shows nothing, it is an open question, not your invention.
++- `### Interaction details`: focus order through the cited `#id`s, keyboard (Enter/Space on every clickable, Esc closes overlays, Back), pointer vs touch targets (≥ 44 px), double submit, transition from §Interactions honoured with `prefers-reduced-motion`.
++- `### Accessibility`: accessible name for each interactive `#id` (from its visible text), headings order, images: decorative or alt text, contrast rows flagged ⚠️ in §Copy.
++- `### Responsive`: behaviour outside the designed frame width, from auto layout sizing (fill/hug/fixed) in §Layout.
++- `### Analytics`: one event per user decision (`screen_viewed`, `<action>_clicked`), properties, no personal data.
++- `### Open questions`: numbered, each with a recommended answer; prefer "add a state/frame in FigCraft" over prose decisions.
++
++## Rules
++- Cite layers as `#id` in backticks, only ids present in the spec. No new copy, colours or sizes: those come from the design.
++- Under 60 lines per spec. No preamble, no summary of the tables.
++- Something wrong in the facts (a missing state, a bad contrast): say so in Open questions; the fix is a design edit, then regeneration.

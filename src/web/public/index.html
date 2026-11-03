@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>WeshCraft</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%2314a085'/%3E%3Cpath d='M9 11h14M9 16h10M9 21h12' stroke='white' stroke-width='2.5' stroke-linecap='round'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="/app/app.css">
+</head>
+<body>
+<header class="top">
+  <div class="brand"><span class="logo" aria-hidden="true"></span>WeshCraft</div>
+  <div class="source" id="source" title="Prototype source">—</div>
+  <div class="hash" id="hash"></div>
+  <div class="parity" id="parity" role="status" aria-live="polite">No run yet</div>
+  <div class="spacer"></div>
+  <div class="actions">
+    <label class="btn ghost" title="Open a .figcraft file">Open .figcraft<input type="file" id="upload" accept=".figcraft,.json" hidden></label>
+    <button class="btn" id="run" type="button">Regenerate</button>
+    <button class="btn ghost" id="force" type="button" title="Rewrite every spec, including unchanged ones">Force</button>
+    <a class="btn ghost" id="zip" href="/api/download.zip" download>Download zip</a>
+    <button class="btn primary" id="publish" type="button">Publish to git</button>
+  </div>
+</header>
+
+<main class="layout">
+  <aside class="builder" aria-label="Spec builder">
+    <div class="pane-head">
+      <h2>Spec builder</h2>
+      <span class="count" id="count"></span>
+    </div>
+    <div class="progress" aria-hidden="true"><div class="bar" id="bar"></div></div>
+    <div class="groups" id="groups"><p class="empty">Waiting for the first run…</p></div>
+    <div class="pane-head small"><h2>Parity</h2><span class="count" id="issuesCount"></span></div>
+    <ul class="issues" id="issues"></ul>
+  </aside>
+
+  <section class="stage" aria-label="Prototype">
+    <div class="tabs" role="tablist">
+      <button role="tab" class="tab" aria-selected="true" data-tab="proto">Prototype</button>
+      <button role="tab" class="tab" aria-selected="false" data-tab="design" id="designTab" hidden>Design (FigCraft)</button>
+      <button role="tab" class="tab" aria-selected="false" data-tab="manifest">Manifest</button>
+      <div class="spacer"></div>
+      <label class="toggle"><input type="checkbox" id="follow" checked> Follow prototype</label>
+      <a class="link" id="openProto" href="/out/prototype/index.html" target="_blank" rel="noopener">Open ↗</a>
+    </div>
+    <div class="tabpanel" data-panel="proto"><iframe id="proto" title="Clickable prototype" src="about:blank"></iframe></div>
+    <div class="tabpanel" data-panel="design" hidden><iframe id="design" title="FigCraft" src="about:blank" allow="clipboard-read; clipboard-write; local-fonts"></iframe></div>
+    <div class="tabpanel scroll" data-panel="manifest" hidden><pre id="manifest" class="mono"></pre></div>
+  </section>
+
+  <section class="reader" aria-label="Spec">
+    <div class="pane-head">
+      <h2 id="specTitle">Spec</h2>
+      <div class="spacer"></div>
+      <div class="seg" role="tablist">
+        <button type="button" class="segbtn" aria-pressed="true" data-view="read">Read</button>
+        <button type="button" class="segbtn" aria-pressed="false" data-view="raw">Markdown</button>
+      </div>
+      <button type="button" class="btn ghost small" id="editNotes" disabled>Edit notes</button>
+    </div>
+    <div class="stream" id="stream" hidden><div class="stream-head"><span class="pulse"></span>Agent writing notes…</div><pre id="streamText"></pre></div>
+    <article class="doc" id="doc"><p class="empty">Pick a spec on the left, or click a screen in the prototype.</p></article>
+    <pre class="doc raw mono" id="raw" hidden></pre>
+    <form class="notes" id="notesForm" hidden>
+      <label for="notesText">Notes (states, edge cases, a11y, analytics, questions). Cite layers as <code>`#id`</code>.</label>
+      <textarea id="notesText" rows="12"></textarea>
+      <div class="row"><button class="btn primary" type="submit">Save notes</button><button class="btn ghost" type="button" id="cancelNotes">Cancel</button></div>
+    </form>
+  </section>
+</main>
+
+<footer class="log" id="log" aria-live="polite"></footer>
+
+<dialog id="publishDlg">
+  <form method="dialog" id="publishForm">
+    <h2>Publish to git</h2>
+    <p class="muted">Commits <code>prototype/</code>, <code>specs/</code>, the <code>.figcraft</code> source and a CI parity check to a branch, then opens or updates a pull/merge request.</p>
+    <fieldset class="seg wide">
+      <label><input type="radio" name="provider" value="github" checked> GitHub</label>
+      <label><input type="radio" name="provider" value="gitlab"> GitLab</label>
+    </fieldset>
+    <label>Repository <input name="repo" required placeholder="owner/name or group/project" autocomplete="off"></label>
+    <div class="row2">
+      <label>Branch <input name="branch" placeholder="weshcraft/&lt;hash&gt;"></label>
+      <label>Base <input name="base" placeholder="default branch"></label>
+    </div>
+    <label>API URL <input name="apiUrl" placeholder="https://api.github.com · https://gitlab.example.com/api/v4"></label>
+    <label id="tokenRow">Token <input name="token" type="password" autocomplete="off" placeholder="sent only to this local server, never stored"></label>
+    <p class="result" id="publishResult" role="status"></p>
+    <div class="row"><button class="btn primary" value="go" id="publishGo">Publish</button><button class="btn ghost" value="cancel" formnovalidate>Close</button></div>
+  </form>
+</dialog>
+
+<script type="module" src="/app/app.js"></script>
+</body>
+</html>

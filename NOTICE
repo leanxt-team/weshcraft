@@ -1,0 +1,12 @@
+WeshCraft
+Copyright (c) 2026 WeshCraft contributors. Licensed under the MIT licence (LICENSE).
+
+Third-party material
+- test/fixtures/ridgeline-app.figcraft, test/fixtures/ridgeline-onboarding.figcraft and
+  examples/ridgeline-onboarding/design/ridgeline-onboarding.figcraft are example files from
+  FigCraft (https://github.com/storytold/figcraft), licensed MIT OR Apache-2.0,
+  (c) FigCraft contributors. The generated files under examples/ are derived from them.
+- WeshCraft speaks FigCraft's MCP protocol as documented in FigCraft's docs/mcp.md; it contains
+  no FigCraft code.
+- wesh-bundle/ extends wesh (https://github.com/leanxt-team/wesh); see that project's licence for
+  the files the patch modifies.
