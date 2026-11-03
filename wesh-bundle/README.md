@@ -34,6 +34,6 @@ Checked: wesh's own suite passes with the update (124/124, `cd bench && npm test
 
 ## Use
 
-1. In the project: `node /path/to/weshcraft/bin/weshcraft.mjs init --client both --attach 7979 --figcraft-cli /path/to/figcraft-cli` (or `--mcp` for headless FigCraft). `--client claude` or `--client opencode` for one agent; add `--sync git` (or `--sync github:owner/repo`) to keep a repo in step automatically.
+1. Claude Code, in the project: `node /path/to/weshcraft/bin/weshcraft.mjs init --client claude --attach 7979 --figcraft-cli /path/to/figcraft-cli` (or `--surface openapi.yaml` for an API/MCP service). OpenCode 2 / OpenChamber: `node /path/to/weshcraft/bin/weshcraft.mjs init --client opencode --global` installs the native plugin; in OpenChamber also add the WeshCraft folder in Settings → Extensions for the WeshCraft panel. Add `--sync git` (or `--sync github:owner/repo`) to keep a repo in step automatically.
 2. Start FigCraft with `figcraft --control 7979`, open your `.figcraft`.
-3. Restart Claude Code or OpenCode, run `/wesh-plan-view-mode`. Open the URL it gives you.
+3. Restart Claude Code, OpenCode or OpenChamber, run `/wesh-plan-view-mode`. Open the URL it gives you.

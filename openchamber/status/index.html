@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>WeshCraft</title>
+<style>
+  html, body { margin: 0; overflow: hidden; }
+  body { background: transparent; color: var(--oc-fg); font: 12px/1.4 var(--oc-font, system-ui, sans-serif); -webkit-font-smoothing: antialiased; }
+  #root { padding: 4px 8px; }
+  .st-row { all: unset; box-sizing: border-box; width: 100%; display: flex; align-items: center; gap: 8px; padding: 4px 6px; border-radius: calc(var(--oc-radius, 8px) - 2px); cursor: pointer; }
+  .st-row:hover:not(:disabled) { background: var(--oc-hover); }
+  .st-row:focus-visible { outline: 2px solid var(--oc-focus); outline-offset: 1px; }
+  .st-row:disabled { cursor: default; }
+  .st-dot { flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--oc-muted); }
+  .st-dot[data-tone="success"] { background: var(--oc-success); }
+  .st-dot[data-tone="error"] { background: var(--oc-error); }
+  .st-dot[data-tone="info"] { background: var(--oc-info); animation: pulse 1.2s ease-in-out infinite; }
+  @keyframes pulse { 50% { opacity: .35; } }
+  .st-label { font-weight: 600; white-space: nowrap; }
+  .st-meta { flex: 1; min-width: 0; color: var(--oc-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-variant-numeric: tabular-nums; }
+  .st-go { color: var(--oc-primary-text, var(--oc-primary)); font-weight: 500; }
+  .st-go[hidden] { display: none; }
+  .st-sub { padding: 0 6px 0 22px; color: var(--oc-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script src="main.js"></script>
+</body>
+</html>

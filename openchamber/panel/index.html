@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>WeshCraft</title>
+<style>
+  html, body { margin: 0; height: 100%; }
+  body { background: var(--oc-bg); color: var(--oc-fg); font: 13px/1.45 var(--oc-font, system-ui, sans-serif); -webkit-font-smoothing: antialiased; }
+  #root { height: 100%; }
+  .wc { box-sizing: border-box; height: 100%; display: flex; flex-direction: column; gap: 10px; padding: 12px; }
+  .wc-head { display: flex; align-items: center; gap: 10px; min-width: 0; }
+  .wc-mark { flex: none; width: 28px; height: 28px; border-radius: calc(var(--oc-radius, 8px) - 1px); display: grid; place-items: center; font-weight: 700; font-size: 14px; letter-spacing: -.02em;
+    color: var(--oc-primary-fg); background: linear-gradient(135deg, var(--oc-primary), color-mix(in srgb, var(--oc-primary) 55%, var(--oc-info, #3b82f6))); }
+  .wc-titles { flex: 1; min-width: 0; }
+  .wc-title { margin: 0; font-size: 14px; font-weight: 600; line-height: 1.2; }
+  .wc-sub { color: var(--oc-muted); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .wc-badge { flex: none; }
+  .wc-notice:empty, .wc-empty:empty { display: none; }
+  .wc-empty { flex: 1; display: grid; place-items: center; }
+  .wc-body { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 10px; }
+  .wc-body[hidden], .wc-empty[hidden] { display: none; }
+  .wc-card { border: 1px solid var(--oc-border); background: var(--oc-muted-surface); border-radius: var(--oc-radius, 8px); padding: 12px; display: flex; flex-direction: column; gap: 10px; }
+  .wc-stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+  .wc-stat { border-radius: calc(var(--oc-radius, 8px) - 2px); background: var(--oc-bg); border: 1px solid var(--oc-border); padding: 6px 8px; min-width: 0; }
+  .wc-stat-value { font-size: 16px; font-weight: 600; line-height: 1.2; font-variant-numeric: tabular-nums; }
+  .wc-stat-label { color: var(--oc-muted); font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .wc-stat[data-tone="warning"] .wc-stat-value { color: var(--oc-warning-text, var(--oc-warning)); }
+  .wc-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+  .wc-list { flex: 1; min-height: 0; overflow: auto; margin: 0 -4px; padding: 0 4px; scrollbar-width: thin; scrollbar-color: color-mix(in srgb, var(--oc-fg) 22%, transparent) transparent; }
+  .wc-foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; color: var(--oc-muted); font-size: 12px; border-top: 1px solid var(--oc-border); padding-top: 8px; }
+  .wc-foot-actions { display: flex; gap: 2px; flex: none; }
+  .wc-foot-actions > span[hidden] { display: none; }
+  .wc-sync { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  [data-surface="page"] .wc-stats { grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); }
+  [data-surface="page"] .wc { max-width: 880px; margin: 0 auto; padding: 24px; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script src="main.js"></script>
+</body>
+</html>

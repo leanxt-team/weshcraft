@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 // WeshCraft CLI. See `weshcraft help`.
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { parseArgs } from 'node:util';
 import { fileURLToPath } from 'node:url';
@@ -31,7 +32,8 @@ Usage
   weshcraft zip      [source] [--out DIR] [--zip FILE] [--provider github|gitlab]
   weshcraft init     [--client claude|opencode|both] [--figcraft-cli PATH] [--attach PORT | --file F]
                      [--surface FILE] [--mcp-server CMD] [--sync TARGET]
-      Write the MCP config for Claude Code (.mcp.json) and/or OpenCode (opencode.json).
+      Claude Code: MCP server in .mcp.json. OpenCode 2 / OpenChamber: native plugin in .opencode/plugins
+      (--global: ~/.config/opencode/plugins, shared with OpenChamber; --no-plugin: MCP server in opencode.json).
 
 Non-visual fronts (with or without a design)
   --surface FILE             an OpenAPI document (JSON/YAML), an MCP tools/list dump, or a
@@ -70,9 +72,9 @@ function opts(argv) {
       agent: { type: 'string' }, 'figcraft-web': { type: 'string' }, 'no-watch': { type: 'boolean' }, concurrency: { type: 'string' },
       web: { type: 'boolean' }, 'no-auto': { type: 'boolean' }, force: { type: 'boolean' }, format: { type: 'string' },
       provider: { type: 'string' }, against: { type: 'string' }, repo: { type: 'string' }, branch: { type: 'string' }, base: { type: 'string' }, 'api-url': { type: 'string' },
-      zip: { type: 'string' }, title: { type: 'string' }, prefix: { type: 'string' }, help: { type: 'boolean', short: 'h' },
+      zip: { type: 'string' }, 'no-plugin': { type: 'boolean' }, global: { type: 'boolean' }, title: { type: 'string' }, prefix: { type: 'string' }, help: { type: 'boolean', short: 'h' },
       sync: { type: 'string' }, 'sync-push': { type: 'boolean' }, 'no-sync-pr': { type: 'boolean' }, 'sync-manual': { type: 'boolean' },
-      client: { type: 'string' }, surface: { type: 'string', multiple: true }, 'mcp-server': { type: 'string', multiple: true }, 'opencode-version': { type: 'string' },
+      client: { type: 'string' }, surface: { type: 'string', multiple: true }, 'mcp-server': { type: 'string', multiple: true },
     },
   });
   return { ...values, positionals };
@@ -223,16 +225,29 @@ async function main() {
         fs.writeFileSync('.mcp.json', `${JSON.stringify(cfg, null, 2)}\n`);
         process.stdout.write(`wrote .mcp.json (Claude Code server "weshcraft")\n`);
       }
-      if (clients.includes('opencode')) {
+      if (clients.includes('opencode') && !o['no-plugin']) {
+        // Native OpenCode 2 plugin (also OpenChamber): a one-line shim re-exporting the plugin from this
+        // checkout, plus .opencode/weshcraft.json when options were given (the plugin detects the rest).
+        const base = o.global ? path.join(process.env.XDG_CONFIG_HOME || path.join(os.homedir(), '.config'), 'opencode') : '.opencode';
+        const plugin = path.join(base, 'plugins', 'weshcraft.js');
+        fs.mkdirSync(path.dirname(plugin), { recursive: true });
+        const target = new URL('../opencode/plugin.mjs', import.meta.url).href;
+        fs.writeFileSync(plugin, `// WeshCraft for OpenCode (written by \`weshcraft init\`). Re-exports the plugin from the WeshCraft checkout.\nexport { default } from ${JSON.stringify(target)};\n`);
+        const cfg = {
+          ...(o.file ? { file: o.file } : {}), ...(o.attach ? { attach: Number(o.attach) || o.attach } : {}),
+          ...(o.surface?.length ? { surface: o.surface } : {}), ...(o['mcp-server']?.length ? { mcpServer: o['mcp-server'] } : {}),
+          ...(o.sync ? { sync: o.sync } : {}), ...(o['figcraft-cli'] ? { figcraftCli: o['figcraft-cli'] } : {}),
+        };
+        if (Object.keys(cfg).length && !o.global) fs.writeFileSync(path.join(base, 'weshcraft.json'), `${JSON.stringify(cfg, null, 2)}\n`);
+        process.stdout.write(`wrote ${plugin}${Object.keys(cfg).length && !o.global ? `, ${path.join(base, 'weshcraft.json')}` : ''} (OpenCode 2 / OpenChamber plugin: tools + /weshcraft)\n`);
+      } else if (clients.includes('opencode')) {
         const cfg = readJson('opencode.json');
         cfg.$schema ??= 'https://opencode.ai/config.json';
-        // OpenCode 2 lists MCP servers under mcp.servers, OpenCode 1 under mcp (same rule as wesh's installer).
-        const v2 = o['opencode-version'] ? o['opencode-version'] === '2' : cfg.mcp?.servers && typeof cfg.mcp.servers === 'object';
+        // OpenCode 2 lists MCP servers under mcp.servers.
         cfg.mcp ??= {};
-        if (v2) (cfg.mcp.servers ??= {}).weshcraft = { type: 'local', command, disabled: false };
-        else cfg.mcp.weshcraft = { type: 'local', command, enabled: true };
+        (cfg.mcp.servers ??= {}).weshcraft = { type: 'local', command, disabled: false };
         fs.writeFileSync('opencode.json', `${JSON.stringify(cfg, null, 2)}\n`);
-        process.stdout.write(`wrote opencode.json (OpenCode ${v2 ? 2 : 1} server "weshcraft")\n`);
+        process.stdout.write(`wrote opencode.json (OpenCode 2 MCP server "weshcraft")\n`);
       }
       process.stdout.write('Restart your agent, then run /wesh-plan-view-mode.\n');
       return;
