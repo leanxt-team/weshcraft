@@ -1,16 +1,22 @@
 {
  "ok": true,
  "score": 100,
- "checks": 88,
+ "checks": 101,
  "errors": 0,
- "warnings": 1,
+ "warnings": 2,
  "issues": [
   {
    "level": "warning",
    "code": "functions-suggested",
    "file": "specs/FUNCTIONS.md",
    "message": "the 3 functions are suggested from the prototype: name them and give each a purpose (design_functions or the Functions view)"
+  },
+  {
+   "level": "warning",
+   "code": "logic-open-transition",
+   "file": "specs/LOGIC.md",
+   "message": "POST /invoices/{id}/send changes Invoice but no status says to what: declare the transition (design_logic)"
   }
  ],
- "sourceHash": "53efee9c860fc944"
+ "sourceHash": "06ae1ccbb7dfb23a"
 }

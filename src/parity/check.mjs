@@ -3,9 +3,10 @@
 // file, so CI can block a merge when design and spec drift apart.
 import fs from 'node:fs';
 import path from 'node:path';
-import { readContract, visibleText, citedNodes } from '../spec/contract.mjs';
+import { readContract, visibleText, citedNodes, readNotes } from '../spec/contract.mjs';
 import { stableStringify } from '../util/common.mjs';
 import { functionsContract } from '../spec/functions.mjs';
+import { logicContract, dataContract, apiOverviewContract, architectureContract } from '../spec/aspects.mjs';
 import { scanTags, traceOf, graphModule, recordedGraphPath } from '../spec/trace.mjs';
 
 const read = f => (fs.existsSync(f) ? fs.readFileSync(f, 'utf8') : null);
@@ -33,9 +34,13 @@ export function checkParity(manifest, outDir, { graphFile } = {}) {
     if (!c || c.kind !== kind) { err('no-contract', rel(file), `no ${kind} contract block; regenerate with \`weshcraft generate\``); return null; }
     checks++;
     if (c.sourceHash !== manifest.source.hash) warn('source-changed', rel(file), `written for prototype ${c.sourceHash}, prototype is now ${manifest.source.hash}`);
+    const notes = readNotes(md) ?? '';
     for (const id of citedNodes(md)) {
       checks++;
-      if (!allNodes.has(id)) err('dangling-ref', rel(file), `cites \`#${id}\`, which is not in the prototype`, id);
+      if (allNodes.has(id)) continue;
+      // Notes survive regeneration: a layer deleted later leaves them pointing at nothing.
+      if (notes.includes(`\`#${id}\``)) err('dangling-ref', rel(file), `its Notes cite \`#${id}\`, a layer no longer in the design: update the Notes (Edit notes, or weshcraft_write_notes), or undo the deletion`, id);
+      else err('dangling-ref', rel(file), `cites \`#${id}\`, which is not in the prototype`, id);
     }
     return { md, c, visible: visibleText(md) };
   };
@@ -105,6 +110,24 @@ export function checkParity(manifest, outDir, { graphFile } = {}) {
     for (const x of fns.missing) { checks++; warn('function-unknown-ref', 'specs/FUNCTIONS.md', `function ${fns.items.find(i => i.key === x.function)?.name ?? x.function} lists ${x.kind} ${x.ref}, which is not in the prototype`); }
     for (const x of fns.items) if (!x.screens.length && !x.operations.length && !x.tools.length) { checks++; warn('empty-function', 'specs/FUNCTIONS.md', `function ${x.name} has no screen, operation or tool`); }
   }
+
+  // Logic, data, API overview, architecture: each overview matches the product; declared refs exist.
+  for (const [file, kind, contract, what] of [
+    ['specs/LOGIC.md', 'logic', manifest.logic && logicContract, 'rules or lifecycles'],
+    ['specs/DATA.md', 'data', manifest.data && dataContract, 'entities, relations or their use'],
+    ['specs/API.md', 'api-overview', manifest.data && apiOverviewContract, 'operations, endpoints or tools'],
+    ['specs/ARCHITECTURE.md', 'architecture', manifest.architecture && architectureContract, 'components or links'],
+  ]) {
+    if (!contract) continue;
+    const spec = loadSpec(path.join(outDir, file), kind);
+    if (!spec) continue;
+    checks++;
+    const { kind: _k, sourceHash: _h, ...have } = spec.c;
+    if (key(have) !== key(contract(manifest))) err(`${kind}-differs`, file, `the ${what} differ from the product: regenerate`);
+  }
+  for (const x of manifest.logic?.missing ?? []) { checks++; warn('logic-unknown-ref', 'specs/LOGIC.md', `${x.owner} refers to ${x.ref}, which is not in the product`); }
+  for (const x of manifest.architecture?.missing ?? []) { checks++; warn('architecture-unknown-ref', 'specs/ARCHITECTURE.md', `${x.owner} refers to ${x.ref}, which is not in the product`); }
+  for (const x of manifest.logic?.machines ?? []) for (const u of x.unresolved ?? []) { checks++; warn('logic-open-transition', 'specs/LOGIC.md', `${u.via} changes ${x.entity} but no ${x.field} says to what: declare the transition (design_logic)`); }
 
   // Spec ⇄ code: tags that point at nothing, and a product graph that no longer matches design and code.
   if (manifest.screens.length || manifest.domain.operations.length || manifest.surface?.mcp?.tools?.length) {
@@ -239,7 +262,7 @@ export function checkParity(manifest, outDir, { graphFile } = {}) {
   }
 
   const errors = issues.filter(i => i.level === 'error').length;
-  return { ok: errors === 0, score: checks ? Math.round(((checks - errors) / checks) * 1000) / 10 : 100, checks, errors, warnings: issues.length - errors, issues, sourceHash: manifest.source.hash };
+  return { ok: errors === 0, score: checks ? (errors ? Math.min(99.9, Math.floor(((checks - errors) / checks) * 1000) / 10) : 100) : 100, checks, errors, warnings: issues.length - errors, issues, sourceHash: manifest.source.hash };
 }
 
 export function parityMarkdown(report, manifest) {

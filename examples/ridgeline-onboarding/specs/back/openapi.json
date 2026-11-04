@@ -3,7 +3,7 @@
   "info": {
     "title": "Ridgeline onboarding API",
     "version": "0.1.0",
-    "x-weshcraft-source-hash": "47f927c9841b420d"
+    "x-weshcraft-source-hash": "b85bb69c1a0acf67"
   },
   "paths": {
     "/interests/continue": {

@@ -2,6 +2,7 @@
 // prototype layers, parity list, notes editing and publishing.
 import { createEditor } from '/app/editor.js';
 import { createFunctionsView } from '/app/functions.js';
+import { createLogicView, createDataView, createApiView, createArchitectureView } from '/app/aspects.js';
 
 const $ = s => document.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -102,11 +103,17 @@ function renderParity() {
   if (!r) return;
   el.className = `parity ${r.ok ? 'ok' : 'bad'}`;
   el.textContent = r.ok ? `In sync · ${r.checks} checks` : `${r.errors} parity error${r.errors === 1 ? '' : 's'} · ${r.score}%`;
+  // What is wrong, without opening anything; a click opens the first error's spec.
+  const errs = r.issues.filter(i => i.level === 'error');
+  el.title = errs.length ? `${errs.slice(0, 5).map(i => `${i.file}: ${i.message}`).join('\n')}${errs.length > 5 ? `\n… ${errs.length - 5} more (Parity, in the spec list)` : ''}\nClick to open it.` : `${r.warnings} warning${r.warnings === 1 ? '' : 's'}`;
+  el.style.cursor = errs.length ? 'pointer' : '';
   $('#issuesCount').textContent = `${r.issues.length} issue${r.issues.length === 1 ? '' : 's'}`;
   $('#issues').innerHTML = r.issues.length
     ? r.issues.slice(0, 200).map(i => `<li class="${i.level}" data-file="${esc(i.file)}" data-node="${i.node ?? ''}"><span class="lvl">${i.level === 'error' ? '✕' : '!'}</span>${esc(i.message)}<span class="file">${esc(i.file)}</span></li>`).join('')
     : `<li class="ok">Every screen, text, interaction, component, token and operation matches the prototype.</li>`;
 }
+
+$('#parity').addEventListener('click', () => { const li = document.querySelector('#issues li.error'); if (li) li.click(); });
 
 // ---- reader ----------------------------------------------------------------------------------
 function scrollToAnchor(anchor) {
@@ -285,9 +292,21 @@ document.addEventListener('weshcraft:screen', e => {
 });
 
 // ---- product functions -----------------------------------------------------------------------
+// Logic, Data, API & MCP, Architecture: the product's other aspects.
+const aspectOpts = { getManifest: () => state.manifest, getTrace: () => state.trace, isEditable: () => !!state.editable, openFile: f => { openFile(f); if (phone.matches) setPhoneView('read'); }, log };
+const aspects = {
+  logic: createLogicView({ ...aspectOpts, root: $('#logicview') }),
+  data: createDataView({ ...aspectOpts, root: $('#dataview') }),
+  api: createApiView({ ...aspectOpts, root: $('#apiview') }),
+  architecture: createArchitectureView({ ...aspectOpts, root: $('#archview') }),
+};
+const refreshAspects = () => { for (const v of Object.values(aspects)) v.refresh(); };
+// The product strip (phones): Functions · Logic · Data · API & MCP · Architecture
+document.addEventListener('click', e => { const b = e.target.closest('[data-pnav]'); if (!b) return; if (phone.matches) setPhoneView(b.dataset.pnav); else selectTab(b.dataset.pnav); });
+
 // Spec ⇄ code (specs/trace.json): which code implements each element, from `@weshcraft` tags.
 function loadTrace() {
-  fetch('/out/specs/trace.json').then(r => (r.ok ? r.json() : null)).then(j => { state.trace = j; fnView.refresh(); }).catch(() => {});
+  fetch('/out/specs/trace.json').then(r => (r.ok ? r.json() : null)).then(j => { state.trace = j; fnView.refresh(); aspects.architecture.refresh(); }).catch(() => {});
 }
 const fnView = createFunctionsView({
   root: $('#fnview'),
@@ -483,7 +502,7 @@ function applySummary(s) {
       .replace(/(&quot;[^&]*?&quot;)(\s*:)/g, '<span class="jk">$1</span>$2')
       .replace(/:\s(&quot;.*?&quot;)/g, ': <span class="js">$1</span>')
       .replace(/:\s(-?\d[\d.e+-]*|true|false|null)/g, ': <span class="jn">$1</span>');
-    try { state.manifest = JSON.parse(t); state.linkKey = null; state.linkSel = null; renderLinkMap(); fnView.refresh(); } catch { /* partial write */ }
+    try { state.manifest = JSON.parse(t); state.linkKey = null; state.linkSel = null; renderLinkMap(); fnView.refresh(); refreshAspects(); } catch { /* partial write */ }
   });
   loadTrace();
 }
@@ -540,6 +559,7 @@ async function init() {
   await editor.init(editable => {
     state.editable = !!editable;
     fnView.refresh();
+    refreshAspects();
     $('#designTab').hidden = false;
     $('#pbDesign').hidden = false;
     if (editable || st.source === 'nothing') { if (phone.matches) setPhoneView('design'); else selectTab('design'); }
@@ -587,6 +607,7 @@ function selectTab(t) {
   if (t === 'design') editor?.shown();
   if (t === 'links') requestAnimationFrame(drawWires);
   if (t === 'functions') requestAnimationFrame(fnView.draw);
+  if (aspects[t]) requestAnimationFrame(aspects[t].draw);
 }
 document.querySelectorAll('.tab').forEach(b => b.addEventListener('click', () => selectTab(b.dataset.tab)));
 $('#run').addEventListener('click', () => run(false));
@@ -693,8 +714,9 @@ init();
 const phone = window.matchMedia('(max-width: 720px)');
 function setPhoneView(v) {
   document.body.dataset.view = v;
-  document.querySelectorAll('.phonebar [data-view]').forEach(b => b.setAttribute('aria-current', String(b.dataset.view === v)));
-  if (v === 'proto' || v === 'links' || v === 'manifest' || v === 'design' || v === 'functions') selectTab(v);
+  const product = ['functions', 'logic', 'data', 'api', 'architecture'].includes(v);
+  document.querySelectorAll('.phonebar [data-view]').forEach(b => b.setAttribute('aria-current', String(b.dataset.view === v || (product && b.dataset.view === 'functions'))));
+  if (['proto', 'links', 'manifest', 'design', 'functions', 'logic', 'data', 'api', 'architecture'].includes(v)) selectTab(v);
   if (v === 'links') requestAnimationFrame(drawWires);
   window.scrollTo(0, 0);
 }

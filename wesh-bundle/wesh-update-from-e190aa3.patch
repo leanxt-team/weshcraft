@@ -1,0 +1,81 @@
+diff --git a/skills/wesh-plan-view-mode/FORMAT.md b/skills/wesh-plan-view-mode/FORMAT.md
+index 6606c07..bc06bcc 100644
+--- a/skills/wesh-plan-view-mode/FORMAT.md
++++ b/skills/wesh-plan-view-mode/FORMAT.md
+@@ -20,6 +20,10 @@ specs/README.md                   index + traceability
+ specs/PARITY.md, parity.json      last parity result
+ specs/CHANGES.md                  design changelog, newest first
+ specs/FUNCTIONS.md                how the product works: functions → screens, operations, data, journey
++specs/LOGIC.md                    rules and lifecycles
++specs/DATA.md                     entities, relations, use
++specs/API.md                      operations, endpoints, MCP tools by function
++specs/ARCHITECTURE.md             components, technologies, links
+ specs/LINKS.md                    front ⇄ back map
+ specs/TRACE.md, trace.json        spec ⇄ code: element → code tagged `@weshcraft <ref>`
+ design/weshcraft.graph.mjs        product graph for code graphs (codegraph): functions → screens → operations → entities → code
+@@ -96,3 +100,14 @@ From the tags, every run (and `weshcraft trace`, `weshcraft_trace`) writes:
+ - `specs/TRACE.md` and `specs/trace.json`: per function, each element with its tag and code locations; what has no code yet; tags that name nothing.
+ 
+ Parity (warnings): `trace-unknown` (a tag that names nothing in the design), `trace-stale` / `trace-missing` (the product graph does not match the design and the tagged code: `weshcraft generate` or `weshcraft trace`).
++
++## Logic, data, API & MCP, architecture
++
++Four overview specs complete `FUNCTIONS.md`, each with a contract (kinds `logic`, `data`, `api-overview`, `architecture`) and a Notes block.
++
++- `LOGIC.md`: rules `{name, kind: validation|permission|calculation|policy|event, text, applies}` and lifecycles `{entity, field, states, initial, transitions: [{from (state or *), to, via}]}`. Declared in the design (`pluginData.weshcraft.logic`, edited with `design_logic` or the Logic view) or in `weshcraft.surface.json` (`"logic"`); otherwise inferred and marked so: a validation rule per operation with required request fields (or submitted inputs), a permission rule for the public API's auth, a lifecycle per `status`/`state`/`stage` enum, with the create operation and the operations whose last path segment matches a state (`/void` → `void`); an operation that changes the entity without a matching state is an open transition (warning `logic-open-transition`).
++- `DATA.md`: per entity its fields, relations (a field typed as another entity, or named `<entity>Id`), the functions that write and read it, the screens that show it, its operations and lifecycle; an `erDiagram`.
++- `API.md`: operations by function with where they are called from and what they return, the MCP tools with their behaviour and operation, the API's auth.
++- `ARCHITECTURE.md`: components `{name, kind: client|frontend|interface|service|queue|store|external, tech, description, implements, code}` and links `{from, to, label}`. Declared (`pluginData.weshcraft.architecture`, `design_architecture`, the Architecture view, or `"architecture"` in the surface file) or suggested from the design and the surface (people → front end → back end → database; agents → MCP server; integrations → API).
++
++Parity: `<kind>-differs` (error) when a spec no longer matches; `logic-unknown-ref`, `architecture-unknown-ref` (a reference to nothing) and `logic-open-transition` (warnings).
+diff --git a/skills/wesh-plan-view-mode/SKILL.md b/skills/wesh-plan-view-mode/SKILL.md
+index e6faac7..3bf0cf4 100644
+--- a/skills/wesh-plan-view-mode/SKILL.md
++++ b/skills/wesh-plan-view-mode/SKILL.md
+@@ -28,6 +28,13 @@ As `/wesh-plan`: repo entry points, existing API, models, components, `GLOSSARY.
+ ## 1b. How the product works
+ `design_functions`: the product's functions (suggested from the prototype until declared). Settle them in the first round: a handful (not one per screen), each a verb phrase the user would say ("Find a trail", "Pay"), a one-line purpose, its screens; API-only operations and MCP tools that no screen reaches go to the function they serve. Declare with `design_functions {functions:[…]}` (or `set` for one). Every later round says which function it changes; a new screen goes into a function in the same batch. `specs/FUNCTIONS.md` is the first thing a reader opens: keep it true.
+ 
++## 1c. Every aspect
++After the functions, settle what the design cannot show, one round each, only where it matters for the feature:
++- Logic: `design_logic` lists inferred rules and lifecycles. Declare the real ones: rules with their kind and what they apply to (`rule:{name, kind, text, applies}`), lifecycles of data that changes state (`states:{entity, states, transitions:[{from, to, via}]}`); resolve every open transition. `specs/LOGIC.md`.
++- Data: bind layers to data in the design (`bind`), API schemas for services; check `specs/DATA.md` relations and who writes what.
++- API & MCP: operations come from the design (`api` ops) or the surface; `specs/API.md` shows each by function, where it is called from and what it returns.
++- Architecture: `design_architecture` shows the suggestion; declare the real components with technologies and links (`keep:true`, then `component` / `link`), and the code folders they live in. `specs/ARCHITECTURE.md`.
++
+ ## 2. Frontier rounds, answered in the design
+ Same rounds as `/wesh-plan` (numbered, recommended answer, "yes" accepts). Route each settled answer:
+ - Changes what user sees or does (screen, copy, state, flow, field, button) → one `design_edit` per settled round: all its ops in one batch (one undo step for user), `ref` to wire new layers (`{op:"screen",ref:"s"}`, `{op:"create",parent:"s",…}`, `{op:"link",id:…,to:"s"}`). Reuse components (`instance`) and tokens (`useToken`); auto layout (`layout`, `sizing`) over x/y. `design_text` for copy-only rounds. `design_screenshot` (if available) or the live URL so user confirms. Live FigCraft instead: `figcraft_batch`, `figcraft_set_properties`, `figcraft_run_command`.
+@@ -65,6 +72,8 @@ Changed: <weshcraft diff summary, update mode only>
+ Acceptance: specs/front/screens/*.md §Acceptance criteria (+ the 3-5 that matter most)
+ Decisions: entities, operations, components reused (specs/back/domain.md, api.md)
+ Functions: specs/FUNCTIONS.md — <name: purpose> per function, nothing outside a function
++Logic: specs/LOGIC.md — <n> rules, lifecycles: <entity: states>, open transitions: <none | list>
++Architecture: specs/ARCHITECTURE.md — <components with tech>
+ Code: specs/TRACE.md — <traced>/<total> elements have code; untraced: <list or none>
+ Links: specs/LINKS.md — <n> operation links, <n> data links, gaps: <none | list>
+ Test seams · Non-goals · Slices (vertical, each = screens + operations it needs)
+diff --git a/skills/wesh-spec-back/SKILL.md b/skills/wesh-spec-back/SKILL.md
+index e9e3ae1..c958708 100644
+--- a/skills/wesh-spec-back/SKILL.md
++++ b/skills/wesh-spec-back/SKILL.md
+@@ -7,6 +7,7 @@ Entities, fields and operations are derived from the prototype (explicit binding
+ 
+ 
+ Read `specs/FUNCTIONS.md` first: an operation's function (and the data it reads and writes) frames its validation, authorization and errors.
++Rules (`specs/LOGIC.md`), entities and relations (`specs/DATA.md`) and components (`specs/ARCHITECTURE.md`) frame validation, transitions, authorization and where the code goes.
+ Existing code for an operation or entity: `weshcraft_trace` (or `specs/TRACE.md`) lists what is tagged `@weshcraft METHOD /path` or `@weshcraft Entity`; `codegraph_explore "<METHOD /path> handler"` shows it with callers. Name the file you would extend.
+ 
+ ## Read first
+diff --git a/skills/wesh-spec-front/SKILL.md b/skills/wesh-spec-front/SKILL.md
+index a8123c4..37e38df 100644
+--- a/skills/wesh-spec-front/SKILL.md
++++ b/skills/wesh-spec-front/SKILL.md
+@@ -7,6 +7,7 @@ Spec facts (layout, copy, typography, colours, interactions, components, sizes)
+ 
+ 
+ Read the screen's function in `specs/FUNCTIONS.md` first: its purpose frames the screen's states, empty cases and acceptance criteria.
++Rules and lifecycles that touch the screen are in `specs/LOGIC.md` (what it applies to): states and errors follow them.
+ Existing code for the screen: `weshcraft_trace` (or `specs/TRACE.md`) lists what is tagged `@weshcraft <key>`; `codegraph_explore "<screen name> screen"` shows it with its calls. Notes that name code cite `file:symbol`.
+ 
+ ## Read first

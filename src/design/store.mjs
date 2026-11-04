@@ -493,16 +493,72 @@ export class DesignStore extends EventEmitter {
         clean.push({ name, ...(String(f.summary ?? '').trim() ? { summary: String(f.summary).trim().slice(0, 400) } : {}), screens, ...(strs(f.operations).length ? { operations: strs(f.operations) } : {}), ...(strs(f.tools).length ? { tools: strs(f.tools) } : {}) });
       }
     }
+    this.setAspect('functions', clean);
+    return clean;
+  }
+
+  /** One WeshCraft aspect stored with the design (first page's pluginData.weshcraft[key]); null clears it. */
+  getAspect(key) {
+    const pid = this.doc.pages?.[0];
+    const pd = pid != null ? this.doc.nodes[String(pid)]?.pluginData?.weshcraft : null;
+    if (!pd) return null;
+    try { const j = typeof pd === 'string' ? JSON.parse(pd) : pd; return j?.[key] ?? null; } catch { return null; }
+  }
+
+  setAspect(key, value) {
+    const pid = this.doc.pages?.[0];
+    if (pid == null) throw new Error('the design has no page');
     this.touch(pid);
     const raw = clone(this.node(pid));
     const pd = { ...(raw.pluginData ?? {}) };
     let cur = {};
     try { cur = pd.weshcraft ? (typeof pd.weshcraft === 'string' ? JSON.parse(pd.weshcraft) : pd.weshcraft) : {}; } catch { cur = {}; }
-    if (clean) cur.functions = clean; else delete cur.functions;
+    if (value == null) delete cur[key]; else cur[key] = value;
     if (Object.keys(cur).length) pd.weshcraft = JSON.stringify(cur); else delete pd.weshcraft;
     raw.pluginData = pd;
     this.doc.nodes[String(pid)] = raw;
-    return clean;
+  }
+
+  /** Business logic: {rules: [{name, kind, text, applies}], states: [{entity, field, states, initial, transitions: [{from, to, via}]}]}. */
+  setLogic(logic) {
+    if (logic == null) return this.setAspect('logic', null);
+    const str = x => String(x ?? '').trim();
+    const rules = (logic.rules ?? []).map(r => {
+      if (!str(r?.name)) throw new Error('every rule needs a name');
+      return { name: str(r.name).slice(0, 160), kind: str(r.kind) || 'policy', ...(str(r.text) ? { text: str(r.text).slice(0, 2000) } : {}), ...((r.applies ?? []).length ? { applies: r.applies.map(str).filter(Boolean) } : {}) };
+    });
+    const states = (logic.states ?? []).map(m => {
+      if (!str(m?.entity)) throw new Error('a state machine needs an entity');
+      const list = [...new Set((m.states ?? []).map(str).filter(Boolean))];
+      if (list.length < 2) throw new Error(`${m.entity}: a state machine needs at least two states`);
+      for (const t of m.transitions ?? []) if ((t.from !== '*' && !list.includes(str(t.from))) || !list.includes(str(t.to))) throw new Error(`${m.entity}: transition ${t.from} → ${t.to} uses an unknown state`);
+      return { entity: str(m.entity), field: str(m.field) || 'status', states: list, initial: list.includes(str(m.initial)) ? str(m.initial) : list[0], transitions: (m.transitions ?? []).map(t => ({ from: str(t.from), to: str(t.to), ...(str(t.via) ? { via: str(t.via) } : {}) })) };
+    });
+    const names = new Set();
+    for (const r of rules) { if (names.has(r.name.toLowerCase())) throw new Error(`two rules are called ${r.name}`); names.add(r.name.toLowerCase()); }
+    const value = { rules, states };
+    this.setAspect('logic', rules.length || states.length ? value : null);
+    return value;
+  }
+
+  /** Architecture: {components: [{name, kind, tech, description, implements, code}], links: [{from, to, label}]}. */
+  setArchitecture(arch) {
+    if (arch == null) return this.setAspect('architecture', null);
+    const str = x => String(x ?? '').trim();
+    const names = new Set();
+    const components = (arch.components ?? []).map(c => {
+      if (!str(c?.name)) throw new Error('every component needs a name');
+      if (names.has(str(c.name).toLowerCase())) throw new Error(`two components are called ${c.name}`);
+      names.add(str(c.name).toLowerCase());
+      return { name: str(c.name).slice(0, 80), kind: str(c.kind) || 'service', ...(str(c.tech) ? { tech: str(c.tech).slice(0, 120) } : {}), ...(str(c.description) ? { description: str(c.description).slice(0, 400) } : {}), ...((c.implements ?? []).length ? { implements: c.implements.map(str).filter(Boolean) } : {}), ...((c.code ?? []).length ? { code: c.code.map(str).filter(Boolean) } : {}) };
+    });
+    const links = (arch.links ?? []).map(l => {
+      if (!names.has(str(l?.from).toLowerCase()) || !names.has(str(l?.to).toLowerCase())) throw new Error(`link ${l?.from} → ${l?.to}: both ends must be components`);
+      return { from: str(l.from), to: str(l.to), ...(str(l.label) ? { label: str(l.label).slice(0, 80) } : {}) };
+    });
+    const value = { components, links };
+    this.setAspect('architecture', components.length ? value : null);
+    return value;
   }
 
   /**
@@ -535,6 +591,8 @@ export class DesignStore extends EventEmitter {
             case 'useToken': out = this.useToken(r(o.id), o.token); break;
             case 'rename': this.rename(o.name); out = o.name; break;
             case 'functions': out = this.setFunctions(o.functions ?? null); break;
+            case 'logic': out = this.setLogic(o.logic ?? null); break;
+            case 'architecture': out = this.setArchitecture(o.architecture ?? null); break;
             default: throw new Error(`unknown op "${o.op}" (create, screen, set, text, delete, move, duplicate, instance, link, bind, api, note, token, useToken, rename)`);
           }
           if (o.ref) refs[o.ref] = out;
@@ -551,7 +609,7 @@ export class DesignStore extends EventEmitter {
 function describeOps(ops) {
   if (ops.length === 1) {
     const o = ops[0];
-    return { create: `Create ${o.type ?? 'frame'}`, screen: `Add screen ${o.name ?? ''}`.trim(), set: 'Change layer', text: 'Edit text', delete: 'Delete', move: 'Move', duplicate: 'Duplicate', instance: 'Insert instance', link: 'Prototype link', bind: 'Bind data', api: 'Annotate API', note: 'Add note', token: `Token ${o.name}`, useToken: 'Apply token', rename: 'Rename design', functions: 'Product functions' }[o.op] ?? o.op;
+    return { create: `Create ${o.type ?? 'frame'}`, screen: `Add screen ${o.name ?? ''}`.trim(), set: 'Change layer', text: 'Edit text', delete: 'Delete', move: 'Move', duplicate: 'Duplicate', instance: 'Insert instance', link: 'Prototype link', bind: 'Bind data', api: 'Annotate API', note: 'Add note', token: `Token ${o.name}`, useToken: 'Apply token', rename: 'Rename design', functions: 'Product functions', logic: 'Logic', architecture: 'Architecture' }[o.op] ?? o.op;
   }
   return `${ops.length} changes`;
 }

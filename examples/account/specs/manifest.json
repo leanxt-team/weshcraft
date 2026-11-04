@@ -3,7 +3,7 @@
  "source": {
   "name": "Account",
   "truncated": false,
-  "hash": "0086e994860a8aee"
+  "hash": "67b6d208abc608b7"
  },
  "screens": [
   {
@@ -443,6 +443,150 @@
    "operations": [],
    "tools": []
   },
+  "missing": []
+ },
+ "logic": {
+  "declared": false,
+  "rules": [
+   {
+    "key": "rule-post-users-inputs",
+    "name": "POST /users submits Email field, Password field",
+    "kind": "validation",
+    "text": "Validate each input before the call (format, required, length); the design does not say which constraints apply yet.",
+    "applies": [
+     "op-create-account-10",
+     "scr-sign-up"
+    ],
+    "source": "inferred"
+   }
+  ],
+  "machines": [],
+  "missing": []
+ },
+ "data": {
+  "entities": [
+   {
+    "name": "Subscription",
+    "fields": [
+     {
+      "name": "plan",
+      "type": "string",
+      "required": false
+     }
+    ],
+    "relations": [],
+    "readBy": [
+     "fn-sign-up"
+    ],
+    "writtenBy": [],
+    "shownOn": [
+     "scr-profile"
+    ],
+    "operations": []
+   },
+   {
+    "name": "User",
+    "fields": [
+     {
+      "name": "name",
+      "type": "string",
+      "required": false
+     },
+     {
+      "name": "email",
+      "type": "email",
+      "required": false
+     }
+    ],
+    "relations": [],
+    "readBy": [
+     "fn-sign-up"
+    ],
+    "writtenBy": [
+     "fn-sign-up"
+    ],
+    "shownOn": [
+     "scr-profile"
+    ],
+    "operations": [
+     "op-create-account-10",
+     "op-get-users-me-3",
+     "op-patch-users-me-15"
+    ]
+   }
+  ]
+ },
+ "architecture": {
+  "declared": false,
+  "components": [
+   {
+    "key": "arc-people",
+    "name": "People",
+    "kind": "client",
+    "tech": "",
+    "description": "Use the app",
+    "implements": [],
+    "code": [],
+    "source": "suggested"
+   },
+   {
+    "key": "arc-front-end",
+    "name": "Front end",
+    "kind": "frontend",
+    "tech": "",
+    "description": "The app people use",
+    "implements": [
+     "scr-sign-up",
+     "scr-profile"
+    ],
+    "code": [],
+    "source": "suggested"
+   },
+   {
+    "key": "arc-back-end",
+    "name": "Back end",
+    "kind": "service",
+    "tech": "",
+    "description": "Runs the operations and the rules",
+    "implements": [
+     "op-create-account-10",
+     "op-get-users-me-3",
+     "op-patch-users-me-15"
+    ],
+    "code": [],
+    "source": "suggested"
+   },
+   {
+    "key": "arc-database",
+    "name": "Database",
+    "kind": "store",
+    "tech": "",
+    "description": "Holds the data",
+    "implements": [
+     "entity:Subscription",
+     "entity:User"
+    ],
+    "code": [],
+    "source": "suggested"
+   }
+  ],
+  "links": [
+   {
+    "from": "arc-people",
+    "to": "arc-front-end",
+    "label": "uses"
+   },
+   {
+    "from": "arc-front-end",
+    "to": "arc-back-end",
+    "label": "3 calls"
+   },
+   {
+    "from": "arc-back-end",
+    "to": "arc-database",
+    "label": "reads, writes"
+   }
+  ],
   "missing": []
  }
 }

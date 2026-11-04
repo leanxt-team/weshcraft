@@ -3,7 +3,7 @@
   "info": {
     "title": "Account API",
     "version": "0.1.0",
-    "x-weshcraft-source-hash": "0086e994860a8aee"
+    "x-weshcraft-source-hash": "67b6d208abc608b7"
   },
   "paths": {
     "/users": {

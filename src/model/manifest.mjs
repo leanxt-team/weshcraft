@@ -4,6 +4,7 @@
 import { sha, slug, pascal, camel } from '../util/common.mjs';
 import { descendants } from './normalize.mjs';
 import { buildFunctions, declaredFunctions } from './functions.mjs';
+import { buildLogic, buildData, buildArchitecture, declaredAspect } from './aspects.mjs';
 
 const SCREEN_TYPES = new Set(['frame', 'component', 'componentSet', 'instance']);
 const INPUT_RE = /\b(input|field|text ?field|search|email|password|textarea|select|dropdown|picker|checkbox|toggle|switch|radio|slider|stepper)\b/i;
@@ -394,6 +395,10 @@ export function buildManifest(model, { sourceName = model.name, surface = null }
   };
   // Product functions: declared in the design (or the surface file), else suggested.
   manifest.functions = buildFunctions(manifest, declaredFunctions(model) ?? surface?.functions ?? null);
-  manifest.source.hash = sha({ screens, components, tokens: manifest.tokens, flows, domain, links, surface: surf, functions: manifest.functions }, 16);
+  // Logic, data and architecture: declared in the design (or the surface file), else inferred / suggested.
+  manifest.logic = buildLogic(manifest, declaredAspect(model, 'logic') ?? surface?.logic ?? null);
+  manifest.data = buildData(manifest);
+  manifest.architecture = buildArchitecture(manifest, declaredAspect(model, 'architecture') ?? surface?.architecture ?? null);
+  manifest.source.hash = sha({ screens, components, tokens: manifest.tokens, flows, domain, links, surface: surf, functions: manifest.functions, logic: manifest.logic, architecture: manifest.architecture }, 16);
   return manifest;
 }

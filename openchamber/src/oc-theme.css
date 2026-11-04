@@ -257,3 +257,8 @@ html.oc .top .oc-tabs { margin-left: 0; }
 /* Spec, parity and ⋯ sit together on the right */
 html.oc .top > .spacer { display: none; }
 html.oc .top .oc-tabs { flex: 1 1 auto; }
+
+/* product views: flat, OpenChamber's surfaces */
+html.oc .av-card, html.oc .api-row { background: var(--oc-bg); }
+html.oc .pnav button[aria-current="true"] { background: var(--oc-bg); box-shadow: 0 0 0 1px var(--oc-border); }
+html.oc .tabs .tab[data-tab="manifest"] { display: none; } /* in ⋯ */

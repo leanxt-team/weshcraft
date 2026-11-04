@@ -10,6 +10,7 @@ import { screenSpec, componentSpec, tokensSpec, tokensCss, flowsSpec } from './f
 import { domainSpec, apiSpec, openapi, conventionsSpec } from './back.mjs';
 import { linksSpec } from './links.mjs';
 import { functionsSpec } from './functions.mjs';
+import { logicSpec, dataSpec, apiOverviewSpec, architectureSpec } from './aspects.mjs';
 import { scanTags, traceOf, graphModule, traceSpec, graphPath, recordedGraphPath } from './trace.mjs';
 import { mcpToolSpec, mcpIndexSpec, endpointSpec, apiIndexSpec } from './surface.mjs';
 import { readNotes } from './contract.mjs';
@@ -139,6 +140,10 @@ export class Workspace {
     const m = this.manifest;
     const jobs = [];
     jobs.push({ id: 'product:functions', group: 'product', title: 'Functions', file: 'specs/FUNCTIONS.md', build: notes => functionsSpec(m, { notes }) });
+    jobs.push({ id: 'product:logic', group: 'product', title: 'Logic', file: 'specs/LOGIC.md', build: notes => logicSpec(m, { notes }) });
+    jobs.push({ id: 'product:data', group: 'product', title: 'Data', file: 'specs/DATA.md', build: notes => dataSpec(m, { notes }) });
+    jobs.push({ id: 'product:api', group: 'product', title: 'API & MCP', file: 'specs/API.md', build: notes => apiOverviewSpec(m, { notes }) });
+    jobs.push({ id: 'product:architecture', group: 'product', title: 'Architecture', file: 'specs/ARCHITECTURE.md', build: notes => architectureSpec(m, { notes }) });
     for (const s of m.screens) jobs.push({ id: `front:screen:${s.key}`, group: 'front', title: `Screen · ${s.name}`, file: `specs/front/screens/${s.key}.md`, fingerprint: s.fingerprint, node: s.id, screen: s.key, build: notes => screenSpec(this.model, m, s, { notes, ops: m.domain.operations, code: this.codeCache?.get(s.id), hasRender: fs.existsSync(this.file(`prototype/screens/${s.key}.png`)) }) });
     for (const c of m.components) jobs.push({ id: `front:component:${c.key}`, group: 'front', title: `Component · ${c.name}`, file: `specs/front/components/${c.key}.md`, fingerprint: c.fingerprint, node: c.id, build: notes => componentSpec(this.model, m, c, { notes, code: this.codeCache?.get(`c${c.id}`) }) });
     if (m.surface?.mcp) {

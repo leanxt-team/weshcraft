@@ -3,7 +3,7 @@
  "source": {
   "name": "Ridgeline onboarding",
   "truncated": false,
-  "hash": "47f927c9841b420d"
+  "hash": "b85bb69c1a0acf67"
  },
  "screens": [
   {
@@ -662,6 +662,71 @@
    "operations": [],
    "tools": []
   },
+  "missing": []
+ },
+ "logic": {
+  "declared": false,
+  "rules": [],
+  "machines": [],
+  "missing": []
+ },
+ "data": {
+  "entities": []
+ },
+ "architecture": {
+  "declared": false,
+  "components": [
+   {
+    "key": "arc-people",
+    "name": "People",
+    "kind": "client",
+    "tech": "",
+    "description": "Use the app",
+    "implements": [],
+    "code": [],
+    "source": "suggested"
+   },
+   {
+    "key": "arc-front-end",
+    "name": "Front end",
+    "kind": "frontend",
+    "tech": "",
+    "description": "The app people use",
+    "implements": [
+     "scr-1-welcome",
+     "scr-2-interests",
+     "scr-3-location",
+     "scr-4-all-set"
+    ],
+    "code": [],
+    "source": "suggested"
+   },
+   {
+    "key": "arc-back-end",
+    "name": "Back end",
+    "kind": "service",
+    "tech": "",
+    "description": "Runs the operations and the rules",
+    "implements": [
+     "op-continue-87",
+     "op-allow-location-125"
+    ],
+    "code": [],
+    "source": "suggested"
+   }
+  ],
+  "links": [
+   {
+    "from": "arc-people",
+    "to": "arc-front-end",
+    "label": "uses"
+   },
+   {
+    "from": "arc-front-end",
+    "to": "arc-back-end",
+    "label": "2 calls"
+   }
+  ],
   "missing": []
  }
 }

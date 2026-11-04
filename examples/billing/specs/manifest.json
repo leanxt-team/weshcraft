@@ -3,7 +3,7 @@
  "source": {
   "name": "Billing service",
   "truncated": false,
-  "hash": "53efee9c860fc944"
+  "hash": "06ae1ccbb7dfb23a"
  },
  "screens": [],
  "components": [],
@@ -1032,6 +1032,252 @@
    "operations": [],
    "tools": []
   },
+  "missing": []
+ },
+ "logic": {
+  "declared": false,
+  "rules": [
+   {
+    "key": "rule-post-invoices-required",
+    "name": "POST /invoices requires customerId, amount, currency",
+    "kind": "validation",
+    "text": "customerId (uuid); amount (integer); currency (string): one of EUR, USD, GBP",
+    "applies": [
+     "op-ep-post-invoices"
+    ],
+    "source": "inferred"
+   },
+   {
+    "key": "rule-api-auth",
+    "name": "Public API requires bearer authentication",
+    "kind": "permission",
+    "text": "bearer: http bearer",
+    "applies": [],
+    "source": "inferred"
+   }
+  ],
+  "machines": [
+   {
+    "key": "states-invoice-status",
+    "entity": "Invoice",
+    "field": "status",
+    "states": [
+     "draft",
+     "open",
+     "paid",
+     "void"
+    ],
+    "initial": "draft",
+    "transitions": [],
+    "unresolved": [
+     {
+      "via": "POST /invoices/{id}/send",
+      "op": "op-ep-post-invoices-id-send"
+     }
+    ],
+    "create": {
+     "via": "POST /invoices",
+     "op": "op-ep-post-invoices"
+    },
+    "source": "inferred"
+   }
+  ],
+  "missing": []
+ },
+ "data": {
+  "entities": [
+   {
+    "name": "Customer",
+    "fields": [
+     {
+      "name": "id",
+      "type": "id",
+      "required": true
+     },
+     {
+      "name": "name",
+      "type": "string",
+      "required": false
+     },
+     {
+      "name": "email",
+      "type": "email",
+      "required": true
+     }
+    ],
+    "relations": [],
+    "readBy": [
+     "fn-customers"
+    ],
+    "writtenBy": [],
+    "shownOn": [],
+    "operations": [
+     "op-ep-get-customers"
+    ]
+   },
+   {
+    "name": "Invoice",
+    "fields": [
+     {
+      "name": "customerId",
+      "type": "id",
+      "required": true
+     },
+     {
+      "name": "amount",
+      "type": "integer",
+      "required": true
+     },
+     {
+      "name": "currency",
+      "type": "string",
+      "required": true,
+      "enum": [
+       "EUR",
+       "USD",
+       "GBP"
+      ]
+     },
+     {
+      "name": "dueDate",
+      "type": "date",
+      "required": false
+     },
+     {
+      "name": "id",
+      "type": "id",
+      "required": true
+     },
+     {
+      "name": "status",
+      "type": "string",
+      "required": true,
+      "enum": [
+       "draft",
+       "open",
+       "paid",
+       "void"
+      ]
+     },
+     {
+      "name": "sentAt",
+      "type": "datetime",
+      "required": false
+     }
+    ],
+    "relations": [
+     {
+      "field": "customerId",
+      "to": "Customer",
+      "many": false
+     }
+    ],
+    "readBy": [
+     "fn-invoices"
+    ],
+    "writtenBy": [
+     "fn-invoices"
+    ],
+    "shownOn": [],
+    "operations": [
+     "op-ep-get-invoices",
+     "op-ep-post-invoices",
+     "op-ep-get-invoices-id",
+     "op-ep-post-invoices-id-send"
+    ]
+   }
+  ]
+ },
+ "architecture": {
+  "declared": false,
+  "components": [
+   {
+    "key": "arc-ai-agents",
+    "name": "AI agents",
+    "kind": "client",
+    "tech": "",
+    "description": "Call the MCP tools",
+    "implements": [],
+    "code": [],
+    "source": "suggested"
+   },
+   {
+    "key": "arc-integrations",
+    "name": "Integrations",
+    "kind": "client",
+    "tech": "",
+    "description": "Call the public API",
+    "implements": [],
+    "code": [],
+    "source": "suggested"
+   },
+   {
+    "key": "arc-mcp-server",
+    "name": "MCP server",
+    "kind": "interface",
+    "tech": "",
+    "description": "Exposes the product to AI agents",
+    "implements": [
+     "tool:create_invoice",
+     "tool:list_invoices",
+     "tool:send_invoice",
+     "tool:void_invoice"
+    ],
+    "code": [],
+    "source": "suggested"
+   },
+   {
+    "key": "arc-api",
+    "name": "API",
+    "kind": "service",
+    "tech": "",
+    "description": "Runs the operations and the rules",
+    "implements": [
+     "op-ep-get-invoices",
+     "op-ep-post-invoices",
+     "op-ep-get-invoices-id",
+     "op-ep-post-invoices-id-send",
+     "op-ep-get-customers"
+    ],
+    "code": [],
+    "source": "suggested"
+   },
+   {
+    "key": "arc-database",
+    "name": "Database",
+    "kind": "store",
+    "tech": "",
+    "description": "Holds the data",
+    "implements": [
+     "entity:Customer",
+     "entity:Invoice"
+    ],
+    "code": [],
+    "source": "suggested"
+   }
+  ],
+  "links": [
+   {
+    "from": "arc-ai-agents",
+    "to": "arc-mcp-server",
+    "label": "MCP"
+   },
+   {
+    "from": "arc-integrations",
+    "to": "arc-api",
+    "label": "HTTPS"
+   },
+   {
+    "from": "arc-mcp-server",
+    "to": "arc-api",
+    "label": "3 calls"
+   },
+   {
+    "from": "arc-api",
+    "to": "arc-database",
+    "label": "reads, writes"
+   }
+  ],
   "missing": []
  }
 }

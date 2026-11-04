@@ -1,7 +1,7 @@
 {
  "ok": true,
  "score": 100,
- "checks": 119,
+ "checks": 131,
  "errors": 0,
  "warnings": 2,
  "issues": [
@@ -19,5 +19,5 @@
    "node": 14
   }
  ],
- "sourceHash": "0086e994860a8aee"
+ "sourceHash": "67b6d208abc608b7"
 }

@@ -960,3 +960,58 @@ test('spec ⇄ code: @weshcraft tags, the product graph for code graphs, TRACE.m
   const one = JSON.parse((await mcp.callTool('weshcraft_trace', { function: 'Sign up' })).content[0].text);
   assert.ok(one.elements.some(e => e.name === 'Sign up' && e.kind === 'screen' && e.code[0] === 'src/pages/SignUp.tsx:1 SignUpPage'));
 });
+
+test('logic, data, API & MCP, architecture: inferred, declared with tools, specs and parity follow', async () => {
+  const { callDesignTool } = await import('../src/design/tools.mjs');
+  // inferred from a service without screens
+  const svc = buildManifest(emptyModel(), { surface: loadSurfaceFile(BILLING) });
+  const inv = svc.logic.machines.find(x => x.entity === 'Invoice');
+  assert.deepEqual(inv.states, ['draft', 'open', 'paid', 'void'], 'status enum → lifecycle');
+  assert.equal(inv.create.via, 'POST /invoices');
+  assert.deepEqual(inv.unresolved.map(u => u.via), ['POST /invoices/{id}/send'], 'an operation that changes it, target unknown');
+  assert.ok(svc.logic.rules.some(r => r.kind === 'validation' && /requires customerId, amount, currency/.test(r.name)));
+  assert.ok(svc.logic.rules.some(r => r.kind === 'permission' && /bearer/.test(r.name)));
+  assert.deepEqual(svc.data.entities.find(e => e.name === 'Invoice').relations, [{ field: 'customerId', to: 'Customer', many: false }]);
+  assert.deepEqual(svc.architecture.components.map(c => `${c.kind}:${c.name}`), ['client:AI agents', 'client:Integrations', 'interface:MCP server', 'service:API', 'store:Database']);
+
+  // declared in the design through the agent tools
+  const dir = tmp();
+  fs.mkdirSync(path.join(dir, 'design'));
+  fs.copyFileSync(ACCOUNT, path.join(dir, 'design/App.figcraft.json'));
+  const ws = new Workspace({ outDir: dir });
+  ws.useSource(openEditable(path.join(dir, 'design/App.figcraft.json')));
+  await ws.run();
+  const call = async (name, a) => JSON.parse((await callDesignTool(ws, name, a)).content[0].text);
+  assert.equal((await call('design_logic', {})).declared, false);
+  let r = await call('design_logic', { rule: { name: 'Only the owner edits a profile', kind: 'permission', text: 'Signed-in user only.', applies: ['Profile', 'PATCH /users/me'] }, wait: true });
+  assert.equal(r.parity.ok, true);
+  r = await call('design_logic', { states: { entity: 'User', states: ['invited', 'active', 'suspended'], transitions: [{ from: 'invited', to: 'active', via: 'POST /users' }, { from: '*', to: 'suspended', via: 'admin' }] }, wait: true });
+  const logic = await call('design_logic', {});
+  assert.equal(logic.declared, true);
+  assert.deepEqual(logic.states[0].transitions, ['invited → active (POST /users)', '* → suspended (admin)']);
+  assert.deepEqual(logic.rules.find(x => x.kind === 'permission').applies, ['Profile', 'PATCH /users/me'], 'refs read back by name');
+  await assert.rejects(callDesignTool(ws, 'design_logic', { states: { entity: 'User', states: ['a', 'b'], transitions: [{ from: 'a', to: 'zz' }] } }), /unknown state/);
+  r = await call('design_architecture', { keep: true, wait: true });
+  r = await call('design_architecture', { component: { name: 'Back end', rename: 'API', tech: 'Node 22 · Fastify' }, wait: true });
+  r = await call('design_architecture', { component: { name: 'Email', kind: 'external', tech: 'Postmark' } });
+  r = await call('design_architecture', { link: { from: 'API', to: 'Email', label: 'SMTP' }, wait: true });
+  const arch = await call('design_architecture', {});
+  assert.equal(arch.declared, true);
+  assert.ok(arch.links.includes('Front end → API (3 calls)'), 'a rename keeps its links');
+  assert.ok(arch.links.includes('API → Email (SMTP)'));
+  const md = f => fs.readFileSync(path.join(dir, 'specs', f), 'utf8');
+  assert.match(md('LOGIC.md'), /### User\.status[\s\S]*s_invited -->\|POST \/users\| s_active[\s\S]*### Permission[\s\S]*Only the owner edits a profile/);
+  assert.match(md('DATA.md'), /```mermaid\nerDiagram[\s\S]*## User[\s\S]*\| Lifecycle \| \[`invited` → `active` → `suspended`\]/);
+  assert.match(md('API.md'), /## Sign up[\s\S]*\| \[`POST`\]\(back\/api\.md#op-create-account-10\) \| `\/users` \|/);
+  assert.match(md('ARCHITECTURE.md'), /subgraph k_external\["External systems"\][\s\S]*\*\*API\*\*[\s\S]*Node 22 · Fastify/);
+  assert.equal(ws.report.ok, true);
+  // a spec out of step is an error; unknown refs are warnings
+  const f = path.join(dir, 'specs/ARCHITECTURE.md');
+  fs.writeFileSync(f, md('ARCHITECTURE.md').replace('"name": "Email"', '"name": "Mail"'));
+  assert.ok(checkParity(ws.manifest, dir).issues.some(i => i.code === 'architecture-differs'));
+  await call('design_logic', { rule: { name: 'Ghost', kind: 'policy', applies: ['Nowhere screen'] }, wait: true });
+  assert.ok(ws.report.issues.some(i => i.code === 'logic-unknown-ref' && /Nowhere screen/.test(i.message)));
+  // one undo step per change
+  ws.source.store.undo(); await ws.settled();
+  assert.ok(!(await call('design_logic', {})).rules.some(x => x.name === 'Ghost'));
+});

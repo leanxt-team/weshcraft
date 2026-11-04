@@ -1,7 +1,7 @@
 {
  "ok": true,
  "score": 100,
- "checks": 302,
+ "checks": 314,
  "errors": 0,
  "warnings": 1,
  "issues": [
@@ -12,5 +12,5 @@
    "message": "the function is suggested from the prototype: name them and give each a purpose (design_functions or the Functions view)"
   }
  ],
- "sourceHash": "47f927c9841b420d"
+ "sourceHash": "b85bb69c1a0acf67"
 }

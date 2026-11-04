@@ -7,6 +7,7 @@ import { openEditable } from './source.mjs';
 import { rememberDesign } from './discover.mjs';
 import { buildManifest } from '../model/manifest.mjs';
 import { toDeclared, ACTORS } from '../model/functions.mjs';
+import { logicToDeclared, architectureToDeclared, RULE_KINDS, COMPONENT_KINDS } from '../model/aspects.mjs';
 import { renderPrototype } from '../proto/html.mjs';
 import { summaryLine, diffManifests } from '../spec/diff.mjs';
 
@@ -51,6 +52,27 @@ export const DESIGN_TOOLS = [
       functions: { type: 'array', items: { type: 'object', properties: { name: { type: 'string' }, summary: { type: 'string' }, screens: { type: 'array', items: ID }, operations: { type: 'array', items: { type: 'string' } }, tools: { type: 'array', items: { type: 'string' } } }, required: ['name'] } },
       set: { type: 'object', properties: { name: { type: 'string' }, rename: { type: 'string' }, summary: { type: 'string' }, screens: { type: 'array', items: ID }, addScreens: { type: 'array', items: ID }, removeScreens: { type: 'array', items: ID }, operations: { type: 'array', items: { type: 'string' } }, tools: { type: 'array', items: { type: 'string' } } }, required: ['name'] },
       remove: { type: 'string' }, wait: { type: 'boolean' },
+    } },
+  },
+  {
+    name: 'design_logic',
+    description: `Business logic (Logic view, specs/LOGIC.md): rules (${RULE_KINDS.join(', ')}) and the lifecycle of data (state machines). Without arguments: current rules and state machines, declared or inferred (required request fields, status enums and the operations that move them; transitions an operation makes but whose target is unknown are listed as unresolved). To change (one undo step): rule:{name, kind, text, applies} adds or updates a rule (applies: functions, screens, operations "METHOD /path", entities, Entity.field, tools); removeRule:"name"; states:{entity, field?, states:[…], initial?, transitions:[{from (state or "*"), to, via ("METHOD /path" or words)}]} declares or replaces an entity's state machine; removeStates:"Entity"; keep:true declares the inferred ones as they are. Facts the design or API already state (screens, fields, operations) stay there: logic holds what they cannot show.`,
+    inputSchema: { type: 'object', properties: {
+      rule: { type: 'object', properties: { name: { type: 'string' }, kind: { type: 'string', enum: RULE_KINDS }, text: { type: 'string' }, applies: { type: 'array', items: { type: 'string' } } }, required: ['name'] },
+      removeRule: { type: 'string' },
+      states: { type: 'object', properties: { entity: { type: 'string' }, field: { type: 'string' }, states: { type: 'array', items: { type: 'string' } }, initial: { type: 'string' }, transitions: { type: 'array', items: { type: 'object', properties: { from: { type: 'string' }, to: { type: 'string' }, via: { type: 'string' } } } } }, required: ['entity', 'states'] },
+      removeStates: { type: 'string' }, keep: { type: 'boolean' }, wait: { type: 'boolean' },
+    } },
+  },
+  {
+    name: 'design_architecture',
+    description: `Architecture (Architecture view, specs/ARCHITECTURE.md): the system's components (${COMPONENT_KINDS.join(', ')}) and how they talk. Without arguments: the current architecture (declared, or suggested from the design, the API and the MCP surface). To change (one undo step; a suggested architecture becomes declared): component:{name, kind, tech, description, implements:[functions, screens, "METHOD /path", entities, tools], code:[paths]} adds or updates one; removeComponent:"name"; link:{from, to, label} adds one (same ends: label updated); removeLink:{from, to}; keep:true declares the suggestion as it is.`,
+    inputSchema: { type: 'object', properties: {
+      component: { type: 'object', properties: { name: { type: 'string' }, rename: { type: 'string' }, kind: { type: 'string', enum: COMPONENT_KINDS }, tech: { type: 'string' }, description: { type: 'string' }, implements: { type: 'array', items: { type: 'string' } }, code: { type: 'array', items: { type: 'string' } } }, required: ['name'] },
+      removeComponent: { type: 'string' },
+      link: { type: 'object', properties: { from: { type: 'string' }, to: { type: 'string' }, label: { type: 'string' } }, required: ['from', 'to'] },
+      removeLink: { type: 'object', properties: { from: { type: 'string' }, to: { type: 'string' } }, required: ['from', 'to'] },
+      keep: { type: 'boolean' }, wait: { type: 'boolean' },
     } },
   },
   { name: 'design_undo', description: 'Undo the last design change(s), whoever made them (you or the user in the browser).', inputSchema: { type: 'object', properties: { steps: { type: 'number' } } } },
@@ -158,6 +180,55 @@ export async function callDesignTool(ws, name, args = {}) {
       if (args.remove != null) list = list.filter(f => f.name.toLowerCase() !== String(args.remove).trim().toLowerCase());
       const r = edit([{ op: 'functions', functions: list }], 'Product functions');
       return done({ ok: true, functions: (r.results[0] ?? []).map(f => `${f.name} (${f.screens.length} screens)`) });
+    }
+    case 'design_logic': {
+      const m = ws.manifest;
+      const change = args.rule || args.removeRule != null || args.states || args.removeStates != null || args.keep;
+      if (!change) {
+        if (!m?.logic) return out('no run yet: try again in a moment', true);
+        const name = id => { const o = m.domain.operations.find(x => x.key === id); return o ? `${o.method} ${o.path}` : m.screens.find(x => x.key === id)?.name ?? m.functions?.items.find(x => x.key === id)?.name ?? m.components.find(x => x.key === id)?.name ?? id.replace(/^(entity|tool|field):/, ''); };
+        return out({
+          declared: m.logic.declared,
+          rules: m.logic.rules.map(r => ({ name: r.name, kind: r.kind, text: r.text || undefined, applies: r.applies.map(name), source: r.source })),
+          states: m.logic.machines.map(x => ({ entity: x.entity, field: x.field, states: x.states, initial: x.initial, transitions: x.transitions.map(t => `${t.from} → ${t.to}${t.via ? ` (${t.via})` : ''}`), ...(x.unresolved?.length ? { unresolved: x.unresolved.map(u => `${u.via}: target state unknown`) } : {}), source: x.source })),
+          ...(m.logic.missing.length ? { unknownRefs: m.logic.missing } : {}),
+        });
+      }
+      const cur = store.getAspect('logic') ?? (m ? logicToDeclared(m, { includeInferred: !!args.keep }) : { rules: [], states: [] });
+      let rules = [...(cur.rules ?? [])], states = [...(cur.states ?? [])];
+      if (args.keep && m) { const inf = logicToDeclared(m, { includeInferred: true }); for (const r of inf.rules) if (!rules.some(x => x.name === r.name)) rules.push(r); for (const x of inf.states) if (!states.some(y => y.entity === x.entity)) states.push(x); }
+      if (args.rule) { const i = rules.findIndex(r => r.name.toLowerCase() === String(args.rule.name).trim().toLowerCase()); const r = { ...(i >= 0 ? rules[i] : {}), ...args.rule }; if (i >= 0) rules[i] = r; else rules.push(r); }
+      if (args.removeRule != null) rules = rules.filter(r => r.name.toLowerCase() !== String(args.removeRule).trim().toLowerCase());
+      if (args.states) { const i = states.findIndex(x => x.entity.toLowerCase() === String(args.states.entity).trim().toLowerCase() && (x.field ?? 'status') === (args.states.field ?? x.field ?? 'status')); if (i >= 0) states[i] = args.states; else states.push(args.states); }
+      if (args.removeStates != null) states = states.filter(x => x.entity.toLowerCase() !== String(args.removeStates).trim().toLowerCase());
+      const r = edit([{ op: 'logic', logic: { rules, states } }], 'Logic');
+      return done({ ok: true, rules: r.results[0].rules.length, states: r.results[0].states.map(x => x.entity) });
+    }
+    case 'design_architecture': {
+      const m = ws.manifest;
+      const change = args.component || args.removeComponent != null || args.link || args.removeLink || args.keep;
+      if (!change) {
+        if (!m?.architecture) return out('no run yet: try again in a moment', true);
+        const a = m.architecture;
+        const name = new Map(a.components.map(c => [c.key, c.name]));
+        const decl = architectureToDeclared(m);
+        return out({ declared: a.declared, ...(a.declared ? {} : { note: 'suggested from the design and the surface: declare it (keep:true, or component/link) to make it the product\'s' }), components: decl.components, links: a.links.map(l => `${name.get(l.from)} → ${name.get(l.to)}${l.label ? ` (${l.label})` : ''}`), ...(a.missing.length ? { unknownRefs: a.missing } : {}) });
+      }
+      const cur = store.getAspect('architecture') ?? (m ? architectureToDeclared(m) : { components: [], links: [] });
+      let components = [...(cur.components ?? [])], links = [...(cur.links ?? [])];
+      const same = (a, b) => String(a ?? '').trim().toLowerCase() === String(b ?? '').trim().toLowerCase();
+      if (args.component) {
+        const c = args.component;
+        const i = components.findIndex(x => same(x.name, c.name));
+        const { rename, ...rest } = c;
+        const next = { ...(i >= 0 ? components[i] : {}), ...rest, ...(rename ? { name: rename } : {}) };
+        if (i >= 0) { components[i] = next; if (rename) links = links.map(l => ({ ...l, from: same(l.from, c.name) ? rename : l.from, to: same(l.to, c.name) ? rename : l.to })); } else components.push(next);
+      }
+      if (args.removeComponent != null) { components = components.filter(x => !same(x.name, args.removeComponent)); links = links.filter(l => !same(l.from, args.removeComponent) && !same(l.to, args.removeComponent)); }
+      if (args.link) { const i = links.findIndex(l => same(l.from, args.link.from) && same(l.to, args.link.to)); if (i >= 0) links[i] = { ...links[i], ...args.link }; else links.push(args.link); }
+      if (args.removeLink) links = links.filter(l => !(same(l.from, args.removeLink.from) && same(l.to, args.removeLink.to)));
+      const r = edit([{ op: 'architecture', architecture: { components, links } }], 'Architecture');
+      return done({ ok: true, components: r.results[0].components.map(c => c.name), links: r.results[0].links.length });
     }
     case 'design_undo': case 'design_redo': {
       const labels = [];
