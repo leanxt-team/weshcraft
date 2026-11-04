@@ -735,13 +735,14 @@ test('OpenChamber extension: manifest, built pages, service (state, proxy, event
   for (const entry of [c.panel.entry, c.page.entry, c.statusSection.entry, c.service.entry, c.panel.icon]) assert.ok(fs.existsSync(path.join(root, entry)), entry);
   for (const page of [c.panel.entry, c.page.entry, c.statusSection.entry]) {
     const html = fs.readFileSync(path.join(root, page), 'utf8');
-    for (const m of html.matchAll(/<script[^>]*\ssrc="([^"]+)"/g)) assert.ok(fs.statSync(path.join(root, path.dirname(page), m[1])).size > 1000, `${page} → ${m[1]} is built`);
+    assert.ok(!/<script[^>]*\ssrc=|<link[^>]*rel="stylesheet"/.test(html.replace(/<script>[\s\S]*?<\/script>/g, '')), `${page} is self-contained`);
+    assert.ok(html.length > 50_000 && /window\.__wcStarted = 'loaded'/.test(html), `${page} carries its built script`);
   }
   assert.ok(c.tools.length <= 16, 'OpenChamber accepts at most 16 tool renderers');
   const parse = path.join(root, 'node_modules/@openchamber/sdk/dist/parse.js');
   if (fs.existsSync(parse)) assert.equal((await import(parse)).parseManifestJson(JSON.stringify(pkg)).ok, true);
   // the big panel is the desktop app, rebuilt from src/web/public
-  assert.match(fs.readFileSync(path.join(root, 'openchamber/page/app.css'), 'utf8'), /@media \(max-width: 0px\)/);
+  assert.match(fs.readFileSync(path.join(root, 'openchamber/page/index.html'), 'utf8'), /@media \(max-width: 0px\)/);
 
   const dir = tmp();
   fs.mkdirSync(path.join(dir, 'design'));

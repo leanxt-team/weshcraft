@@ -78,6 +78,21 @@
 </head>
 <body>
 <div id="root"><div class="oc-problem">Connecting to OpenChamber…</div></div>
+<script>
+  // Independent of the app script: if it never loaded or never heard from OpenChamber, say which.
+  setTimeout(function () {
+    var s = window.__wcStarted;
+    if (s === 'ready') return;
+    var msg = s === 'load-error' ? 'main.js could not be loaded by OpenChamber (blocked or missing). Reload the extension in Settings → Extensions.' : (!s || s === 'loaded') ? 'The WeshCraft script did not start (it stopped while loading). Reload the extension in Settings → Extensions; if it persists, tell us the OpenChamber version.'
+      : 'OpenChamber did not answer this panel (state: ' + s + '). Enable WeshCraft in Settings → Extensions, approve it, then reload it there.';
+    var box = document.createElement('div'); box.className = 'oc-problem';
+    var t = document.createElement('strong'); t.textContent = 'WeshCraft is not connected'; var d = document.createElement('div'); d.textContent = msg;
+    box.appendChild(t); box.appendChild(d);
+    var root = document.getElementById('root');
+    if (root) { root.innerHTML = ''; root.appendChild(box); } else document.body.insertBefore(box, document.body.firstChild);
+  }, 6000);
+</script>
+<script>window.__wcStarted = 'loaded';</script>
 <script>/* WeshCraft for OpenChamber, built by openchamber/build.mjs. Edit openchamber/src or src/web/public, then rebuild. */
 (()=>{var er=Object.defineProperty;var tr=(e,o,n)=>o in e?er(e,o,{enumerable:!0,configurable:!0,writable:!0,value:n}):e[o]=n;var qe=(e,o,n)=>tr(e,typeof o!="symbol"?o+"":o,n);var T="openchamber.sdk";var ke="data-oc-scrolling",Ye=`
 :root {
@@ -358,19 +373,6 @@ ${Fo}`;var Vo="oc-sdk-ui-style";var v=e=>{let o=document.getElementById(Vo);if(o
     <p class="sp-access" data-access></p>
     <div class="sp-actions" data-go></div>`;let n=()=>new FormData(e).get("kind"),s=()=>{let i=n();e.querySelectorAll(".remote").forEach(p=>{p.hidden=i==="git"}),e.querySelectorAll(".local").forEach(p=>{p.hidden=i!=="git"});let u=o[i];e.querySelector("[data-access]").textContent=i==="git"?"Commits only WeshCraft's files, on the current branch, with your git setup.":u?.available?`Access: ${u.via}.`:`No ${Re[i]} access found: sign in to ${Re[i]} in OpenChamber (Settings \u203A Integrations) or with the ${i==="gitlab"?"glab":"gh"} CLI.`};return e.addEventListener("change",s),s(),z(e.querySelector("[data-go]"),{label:"Start syncing",size:"sm",onClick:()=>{let i=new FormData(e),u=i.get("kind"),p=String(i.get("repo")||"").trim();if(u!=="git"&&!/^[\w.-]+(\/[\w.-]+)+$/.test(p)){F.toast({kind:"error",message:"Repository: owner/name (GitHub) or group/project (GitLab)"}).catch(()=>{});return}Xt({provider:u,repo:u==="git"?null:p,branch:String(i.get("branch")||"").trim()||null,pr:i.get("pr")==="on",push:i.get("push")==="on",auto:!0},"Syncing\u2026")}}),e}async function Xt(e,o){Be=!0,Ke();try{await Yo("POST","/sync",e),F.toast({kind:"success",message:o}).catch(()=>{})}catch(n){F.toast({kind:"error",message:qo(n)}).catch(()=>{})}finally{Be=!1,Se()}}var Ur=()=>Xt({},"Synced");async function Se(){clearTimeout(Bo);try{U=await Yo("GET","/state"),te=null}catch(o){te=qo(o)}if(!N.querySelector(".sp-setup:focus-within"))try{Ke()}catch(o){Ae("render",o)}let e=Qo(te?{status:"error",error:te}:U);$t||F.setBadge(e.tone==="error"?1:null).catch(()=>{}),Bo=setTimeout(Se,document.hidden?15e3:U?.sync?.busy?1500:4e3)}document.addEventListener("visibilitychange",()=>{!document.hidden&&Ht&&Se()});var Cr=setTimeout(()=>{Wo||(N.innerHTML='<div class="oc-problem"><strong>OpenChamber has not connected this panel yet.</strong><div>Check that WeshCraft is enabled in Settings \u2192 Extensions (OpenChamber 2.0.1 or later), then reload it there.</div></div>')},4e3);addEventListener("error",e=>{N.innerHTML="";let o=S("div","oc-problem");o.append(S("strong","","WeshCraft panel error"),S("div","",e.error?.stack||e.message)),N.append(o)});function Ae(e,o){N.innerHTML="";let n=S("div","oc-problem");n.append(S("strong","",`WeshCraft panel error (${e})`),S("div","",String(o?.stack||o?.message||o))),N.append(n)}F.onReady(e=>{window.__wcStarted="ready";try{kt(e,document.documentElement)}catch(o){console.error(o)}if(!Ht){Ht=!0,Wo=Date.now(),clearTimeout(Cr);try{ie=e.directory??null,Ke(),$t&&F.setHeight(52).catch(()=>{}),Se().catch(o=>Ae("refresh",o)),F.onDirectory(o=>{if(o!==ie){ie=o,U=null;try{Ke()}catch(n){Ae("render",n)}Se().catch(n=>Ae("refresh",n))}})}catch(o){Ae("start",o)}}});})();
 </script>
-<script>
-  // Independent of main.js: if it never loaded or never heard from OpenChamber, say which.
-  setTimeout(function () {
-    var s = window.__wcStarted;
-    if (s === 'ready') return;
-    var msg = !s ? 'The WeshCraft script did not start. Reload the extension in Settings → Extensions; if it persists, check the extension card for an error.'
-      : 'OpenChamber did not answer this panel (state: ' + s + '). Enable WeshCraft in Settings → Extensions, approve it, then reload it there.';
-    var box = document.createElement('div'); box.className = 'oc-problem';
-    var t = document.createElement('strong'); t.textContent = 'WeshCraft is not connected'; var d = document.createElement('div'); d.textContent = msg;
-    box.appendChild(t); box.appendChild(d);
-    var root = document.getElementById('root');
-    if (root) { root.innerHTML = ''; root.appendChild(box); } else document.body.insertBefore(box, document.body.firstChild);
-  }, 6000);
-</script>
+
 </body>
 </html>

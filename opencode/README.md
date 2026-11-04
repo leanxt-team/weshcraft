@@ -34,7 +34,7 @@ The Work Status line shows the same state in one row; click it to open the pull 
 
 **Extension pages › WeshCraft** (the menu above the session list) opens the full desktop interface: design editor, prototype, spec builder, reader, front ⇄ back map, manifest, publish & sync. It uses OpenChamber's colours, font, radius and light/dark theme instead of WeshCraft's own Liquid Glass look, and follows the open project.
 
-Extension pages cannot reach the network themselves, so the page talks to WeshCraft through the extension's service: API calls, live updates (long-polled), the prototype (loaded as HTML), uploads (sent in 45 KB chunks). Downloads and links to other sites open through OpenChamber (in the desktop app, in its browser panel).
+Each page is one self-contained HTML file (script and styles inline), so it works however an OpenChamber version serves package files. Extension pages cannot reach the network themselves, so the page talks to WeshCraft through the extension's service: API calls, live updates (long-polled), the prototype (loaded as HTML), uploads (sent in 45 KB chunks). Downloads and links to other sites open through OpenChamber (in the desktop app, in its browser panel).
 
 ## GitHub / GitLab access is inherited
 
