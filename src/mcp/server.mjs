@@ -9,6 +9,7 @@ import readline from 'node:readline';
 import { readNotes } from '../spec/contract.mjs';
 import { collectFiles, prBody, publish } from '../publish/git.mjs';
 import { parseTarget } from '../publish/sync.mjs';
+import { resolveToken } from '../publish/credentials.mjs';
 import { DESIGN_TOOLS, NEW_DESIGN_TOOL, callDesignTool } from '../design/tools.mjs';
 
 const READ_ONLY = new Set(['list_commands', 'inspect_document', 'get_node', 'export', 'screenshot', 'inspect_ui', 'wait_for_changes', 'list_documents']);
@@ -25,7 +26,7 @@ const SPEC_TOOLS = [
   { name: 'weshcraft_read_spec', description: 'Read a generated file, e.g. specs/front/screens/scr-home.md or specs/back/api.md.', inputSchema: { type: 'object', properties: { path: { type: 'string' } }, required: ['path'] } },
   { name: 'weshcraft_write_notes', description: 'Replace the Notes block of one spec (states, edge cases, a11y, analytics, open questions). Generated sections are not editable: change the design instead (design_* tools). Cite layers as `#id`.', inputSchema: { type: 'object', properties: { path: { type: 'string' }, notes: { type: 'string' } }, required: ['path', 'notes'] } },
   { name: 'weshcraft_sync', description: 'Sync prototype + specs to git now, and optionally set the target: github:owner/repo[@branch] or gitlab:group/project[@branch] (API commit to a branch, PR/MR opened once then updated), or git[@branch] (commit in the local repository holding the output folder; push optional). auto: also sync after every in-sync regeneration.', inputSchema: { type: 'object', properties: { target: { type: 'string' }, auto: { type: 'boolean' }, pr: { type: 'boolean' }, push: { type: 'boolean' }, base: { type: 'string' }, apiUrl: { type: 'string' } } } },
-  { name: 'weshcraft_publish', description: 'Commit prototype + specs (+ CI parity check and the .figcraft source) to a branch and open or update a GitHub PR / GitLab MR. Token from GITHUB_TOKEN / GITLAB_TOKEN.', inputSchema: { type: 'object', properties: { provider: { type: 'string', enum: ['github', 'gitlab'] }, repo: { type: 'string', description: 'owner/name (GitHub) or group/project (GitLab)' }, branch: { type: 'string' }, base: { type: 'string' }, title: { type: 'string' }, apiUrl: { type: 'string' } }, required: ['provider', 'repo'] } },
+  { name: 'weshcraft_publish', description: 'Commit prototype + specs (+ CI parity check and the .figcraft source) to a branch and open or update a GitHub PR / GitLab MR. Access is inherited (OpenChamber account, gh/glab login, git credentials, GITHUB_TOKEN/GITLAB_TOKEN).', inputSchema: { type: 'object', properties: { provider: { type: 'string', enum: ['github', 'gitlab'] }, repo: { type: 'string', description: 'owner/name (GitHub) or group/project (GitLab)' }, branch: { type: 'string' }, base: { type: 'string' }, title: { type: 'string' }, apiUrl: { type: 'string' } }, required: ['provider', 'repo'] } },
 ];
 
 export class WeshCraftMcp {
@@ -137,7 +138,9 @@ export class WeshCraftMcp {
   async publish(args) {
     if (!this.ws.report) await this.ws.run();
     const provider = args.provider === 'gitlab' ? 'gitlab' : 'github';
-    const token = args.token || (provider === 'gitlab' ? process.env.GITLAB_TOKEN : process.env.GITHUB_TOKEN);
+    const kind = provider;
+    const token = (await resolveToken(provider, { apiUrl: args.apiUrl, explicit: args.token })).token;
+    if (!token) throw new Error(`no ${kind === 'gitlab' ? 'GitLab' : 'GitHub'} access: sign in in OpenChamber (Settings › Integrations), run \`${kind === 'gitlab' ? 'glab' : 'gh'} auth login\`, set ${kind === 'gitlab' ? 'GITLAB_TOKEN' : 'GITHUB_TOKEN'}, or enter a token`);
     const m = this.ws.manifest;
     const files = collectFiles(this.ws.outDir, { provider, designInputs: this.ws.designInputs(), prefix: args.prefix || '' });
     const res = await publish(provider, {

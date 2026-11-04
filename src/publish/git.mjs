@@ -161,6 +161,6 @@ export async function publishGitLab(o) {
 }
 
 export function publish(provider, o) {
-  if (!o.token) throw new Error(`no ${provider} token: set ${provider === 'gitlab' ? 'GITLAB_TOKEN' : 'GITHUB_TOKEN'} or pass one`);
+  if (!o.token) throw new Error(`no ${provider} access: sign in in OpenChamber, run ${provider === 'gitlab' ? 'glab' : 'gh'} auth login, or set ${provider === 'gitlab' ? 'GITLAB_TOKEN' : 'GITHUB_TOKEN'}`);
   return provider === 'gitlab' ? publishGitLab(o) : publishGitHub(o);
 }

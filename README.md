@@ -85,6 +85,14 @@ node bin/weshcraft.mjs serve --mcp-server "node dist/server.js" --surface api/op
 
 Without links, a tool is matched to the endpoint whose `operationId` has the same words (`list_invoices` ⇄ `listInvoices`). A live `--mcp-server` is snapshotted to `design/<name>.mcp.json`, so CI checks the same tool list.
 
+### In OpenCode and OpenChamber (plugin + extension)
+
+```bash
+node bin/weshcraft.mjs init --client opencode --global
+```
+
+Installs the OpenCode plugin (OpenCode 2.2+, also used by OpenChamber): the agent gets the `design_*` and `weshcraft_*` tools and `/weshcraft`, and the project's WeshCraft starts with it. In OpenChamber, also add this folder in **Settings → Extensions**: a **small panel** shows the sync status with GitHub, GitLab or the local repository (rail and Work Status), and the **big panel** (Extension pages › WeshCraft) is the whole desktop interface in OpenChamber's theme. GitHub/GitLab access is inherited from the account signed in to OpenChamber, the `gh`/`glab` login or git credentials. See [`opencode/README.md`](opencode/README.md).
+
 ### Live FigCraft over MCP (optional)
 
 To design in the FigCraft app itself while WeshCraft writes the specs, build FigCraft's CLI (`cargo build --release -p figcraft-cli`, see FigCraft's `docs/mcp.md`), then either:
@@ -123,7 +131,7 @@ That writes `.mcp.json` for Claude Code and `opencode.json` for OpenCode: a `wes
 | `diff --file F [--against GIT_REF]` | What changed in the design since the specs on disk (or committed at a ref). |
 | `publish [source] --provider github\|gitlab --repo R` | Commit and open/update a PR/MR. Token from `GITHUB_TOKEN` / `GITLAB_TOKEN`; `--api-url` for GitHub Enterprise or self-managed GitLab. |
 | `zip [source] --zip F` | Everything a repo needs, as a zip. |
-| `init [--client claude\|opencode\|both]` | MCP server for Claude Code (`.mcp.json`) and/or OpenCode (`opencode.json`, `mcp.servers.weshcraft`). |
+| `init [--client claude\|opencode\|both] [--global] [--no-plugin]` | Claude Code: MCP server in `.mcp.json`. OpenCode 2 / OpenChamber: the native plugin (`.opencode/plugins/`, or `~/.config/opencode/plugins/` with `--global`); `--no-plugin`: MCP server in `opencode.json`. |
 
 Source: `--file F` (default for `serve`/`mcp`: the first `design/*.figcraft`), `--mcp` (spawns `figcraft-cli mcp`), or `--attach PORT` (running app); and/or non-visual fronts: `--surface FILE` (OpenAPI JSON/YAML, MCP tool list, `weshcraft.surface.json`; repeatable) and `--mcp-server "CMD"` (repeatable).
 
@@ -214,7 +222,7 @@ This repository's own tests run in `.github/workflows/ci.yml` and `.gitlab-ci.ym
 ## Security
 
 - `serve` listens on 127.0.0.1 only unless you pass `--token` (then every request needs it; the browser gets an HttpOnly cookie).
-- Git tokens are read from the environment or passed per publish from the browser to the local server; they are never written to disk.
+- GitHub/GitLab access is inherited, in this order: a token typed in the publish dialog, `GITHUB_TOKEN`/`GH_TOKEN`/`GITLAB_TOKEN`/`GL_TOKEN`, the account signed in to OpenChamber (`~/.config/openchamber`), the `gh`/`glab` login, git's credential helper. Tokens stay in the local server process: never written to disk, never sent to the browser or the OpenChamber pages (they only see which source is used).
 - File paths from MCP and HTTP are confined to the output folder; uploads and new designs are written under `design/`.
 - Design edits are written atomically (temporary file + rename); WeshCraft's own saves are recognised by content hash, so only outside changes trigger a reload. Undo history lives in memory (200 steps) and is shared by everyone editing through the same server.
 - FigCraft's own `--automation-read-root` / `--automation-write-root` flags still apply to the FigCraft process; pass them through `--figcraft-cli` wrappers when you want an agent confined.
@@ -245,6 +253,9 @@ src/parity/check.mjs       parity
 src/spec/diff.mjs          design changelog
 src/mcp/server.mjs         WeshCraft MCP server (stdio + HTTP handler)
 src/web/                   browser app: server, design API, public/ (app + editor.js)
+src/publish/credentials.mjs  inherited GitHub/GitLab access
+opencode/                  OpenCode 2 plugin (also used by OpenChamber)
+openchamber/               OpenChamber extension: sync panel, full-interface page, service (manifest in package.json)
 src/publish/               GitHub/GitLab REST + CI templates
 wesh-bundle/               /wesh-plan-view-mode + wesh-spec-* skills, apply script and patch
 test/                      node:test suite, FigCraft protocol double, fixtures

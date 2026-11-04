@@ -401,7 +401,8 @@ function reloadProto(hash) {
   // No #fragment in the src: fragment navigation inside an iframe scrolls the parent page too.
   const frame = $('#proto');
   frame.classList.add('loading');
-  frame.src = `/out/prototype/index.html?v=${hash}`;
+  // Embedded hosts (the OpenChamber page) load the prototype their own way.
+  (window.__wc?.frame ?? ((f, u) => { f.src = u; }))(frame, `/out/prototype/index.html?v=${hash}`);
   frame.onload = () => {
     requestAnimationFrame(() => frame.classList.remove('loading'));
     if (state.protoScreen) protoPost({ weshcraft: 'show', key: state.protoScreen });
@@ -582,7 +583,9 @@ $('#notesForm').addEventListener('submit', async e => {
 const dlg = $('#publishDlg');
 const syncTokenRow = () => {
   const p = new FormData($('#publishForm')).get('provider');
-  $('#tokenRow').hidden = p === 'git' || !!state.tokens?.[p];
+  const access = state.tokens?.[p];
+  $('#tokenRow').hidden = p === 'git' || !!access?.available;
+  $('#accessHint').textContent = p === 'git' ? 'Commits with your git setup, in the repository around the output folder.' : access?.available ? `Access: ${access.via}.` : `No ${p === 'gitlab' ? 'GitLab' : 'GitHub'} access found: sign in in OpenChamber, run ${p === 'gitlab' ? 'glab' : 'gh'} auth login, or enter a token below.`;
   document.querySelectorAll('#publishForm .remote').forEach(el => { el.hidden = p === 'git'; });
   document.querySelectorAll('#publishForm .local').forEach(el => { el.hidden = p !== 'git'; });
   $('#publishForm [name=repo]').required = p !== 'git';
@@ -685,7 +688,7 @@ moreDlg.addEventListener('click', e => {
   else if (act === 'sync') $('#syncPill').click();
   else if (act === 'zip') $('#zip').click();
   else if (act === 'manifest') setPhoneView('manifest');
-  else if (act === 'openproto') window.open('/out/prototype/index.html', '_blank', 'noopener');
+  else if (act === 'openproto') (window.__wc?.open ?? (u => window.open(u, '_blank', 'noopener')))('/out/prototype/index.html');
 });
 // Tab-bar badges: build progress and link gaps.
 new MutationObserver(() => {

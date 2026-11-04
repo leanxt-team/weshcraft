@@ -34,6 +34,6 @@ Checked: wesh's own suite passes with the update (124/124, `cd bench && npm test
 
 ## Use
 
-1. Claude Code, in the project: `node /path/to/weshcraft/bin/weshcraft.mjs init --client claude` (or `--surface openapi.yaml` for an API/MCP service). OpenCode: `--client opencode` writes `opencode.json` instead (`--client both` for both). Add `--sync git` (or `--sync github:owner/repo`) to keep a repo in step automatically.
+1. Claude Code, in the project: `node /path/to/weshcraft/bin/weshcraft.mjs init --client claude` (or `--surface openapi.yaml` for an API/MCP service). OpenCode / OpenChamber: `--client opencode --global` installs the plugin (in OpenChamber, also add the WeshCraft folder in Settings → Extensions). Add `--sync git` (or `--sync github:owner/repo`) to keep a repo in step automatically.
 2. The agent designs in the project's `design/*.figcraft` with the `design_*` tools (or starts one); you can edit the same design in the browser's Design tab. To use the FigCraft app instead: `figcraft --control 7979` and `init … --attach 7979 --figcraft-cli /path/to/figcraft-cli`.
-3. Restart Claude Code or OpenCode, run `/wesh-plan-view-mode`. Open the URL it gives you.
+3. Restart Claude Code, OpenCode or OpenChamber, run `/wesh-plan-view-mode`. Open the URL it gives you.

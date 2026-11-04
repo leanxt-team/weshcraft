@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en" data-mode="panel">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>WeshCraft sync</title>
+<style>
+  html, body { margin: 0; }
+  body { background: var(--oc-bg, Canvas); color: var(--oc-fg, CanvasText); font: 13px/1.45 var(--oc-font, system-ui, sans-serif); -webkit-font-smoothing: antialiased; }
+  #root { box-sizing: border-box; display: flex; flex-direction: column; gap: 10px; padding: 12px; }
+  svg { width: 18px; height: 18px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+  .oc-problem { padding: 12px; color: var(--oc-muted, GrayText); font-size: 12px; white-space: pre-wrap; overflow-wrap: anywhere; }
+  .oc-problem strong { display: block; color: var(--oc-fg, CanvasText); font-size: 13px; margin-bottom: 4px; }
+  .sp-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
+  .sp-titles { min-width: 0; }
+  .sp-title { margin: 0; font-size: 14px; font-weight: 600; }
+  .sp-sub { color: var(--oc-muted); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .sp-card { border: 1px solid var(--oc-border); background: var(--oc-muted-surface); border-radius: var(--oc-radius, 8px); padding: 12px; display: flex; flex-direction: column; gap: 8px; }
+  .sp-target { display: flex; align-items: center; gap: 10px; }
+  .sp-target svg { width: 22px; height: 22px; color: var(--oc-fg); }
+  .sp-target svg path[d^="M12 2.5"] { fill: currentColor; stroke: none; }
+  .sp-tt { min-width: 0; }
+  .sp-repo { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .sp-meta { color: var(--oc-muted); font-size: 12px; }
+  .sp-line { margin: 0; font-size: 12.5px; overflow-wrap: anywhere; }
+  .sp-line.tone-success { color: var(--oc-success-text, var(--oc-success)); }
+  .sp-line.tone-error { color: var(--oc-error-text, var(--oc-error)); }
+  .sp-line.tone-warning { color: var(--oc-warning-text, var(--oc-warning)); }
+  .sp-line.tone-info { color: var(--oc-info-text, var(--oc-info)); }
+  .sp-link { all: unset; cursor: pointer; color: var(--oc-primary-text, var(--oc-primary)); font-weight: 500; font-size: 12.5px; align-self: flex-start; }
+  .sp-link:hover { text-decoration: underline; }
+  .sp-link:focus-visible { outline: 2px solid var(--oc-focus); outline-offset: 2px; border-radius: 3px; }
+  .sp-access, .sp-hint { margin: 0; color: var(--oc-muted); font-size: 11.5px; }
+  .sp-dl { margin: 0; display: grid; grid-template-columns: auto 1fr; gap: 3px 10px; font-size: 12px; }
+  .sp-dl dt { color: var(--oc-muted); }
+  .sp-dl dd { margin: 0; text-align: right; font-variant-numeric: tabular-nums; }
+  .sp-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+  .sp-h2 { margin: 0 0 4px; font-size: 11px; font-weight: 600; color: var(--oc-muted); text-transform: uppercase; letter-spacing: .06em; }
+  .sp-hist ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 1px; }
+  .sp-hist li { display: grid; grid-template-columns: 8px 64px 1fr; align-items: center; gap: 8px; padding: 4px 6px; border-radius: calc(var(--oc-radius, 8px) - 2px); font-size: 12px; }
+  .sp-hist li.click { cursor: pointer; }
+  .sp-hist li.click:hover { background: var(--oc-hover); }
+  .sp-hist .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--oc-success); }
+  .sp-hist li.bad .dot { background: var(--oc-error); }
+  .sp-hist .when { color: var(--oc-muted); font-variant-numeric: tabular-nums; }
+  .sp-hist .what { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-family: var(--oc-mono); font-size: 11.5px; }
+  .sp-hist li.bad .what { font-family: inherit; color: var(--oc-error-text, var(--oc-error)); }
+  .sp-foot { display: flex; justify-content: flex-end; }
+  .sp-empty { padding: 8px 0; }
+  .sp-setup { display: grid; gap: 8px; border: 1px solid var(--oc-border); border-radius: var(--oc-radius, 8px); padding: 12px; background: var(--oc-muted-surface); }
+  .sp-setup [hidden] { display: none !important; }
+  .sp-seg { display: grid; grid-template-columns: repeat(3, 1fr); gap: 2px; padding: 2px; border-radius: var(--oc-radius, 8px); background: var(--oc-bg); border: 1px solid var(--oc-border); }
+  .sp-seg label { display: flex; align-items: center; justify-content: center; gap: 6px; height: 28px; border-radius: calc(var(--oc-radius, 8px) - 2px); cursor: pointer; font-size: 12px; color: var(--oc-muted); }
+  .sp-seg label svg { width: 15px; height: 15px; }
+  .sp-seg label svg path[d^="M12 2.5"] { fill: currentColor; stroke: none; }
+  .sp-seg input { position: absolute; opacity: 0; pointer-events: none; }
+  .sp-seg label:has(input:checked) { background: var(--oc-selection); color: var(--oc-selection-fg, var(--oc-fg)); }
+  .sp-seg label:has(input:focus-visible) { outline: 2px solid var(--oc-focus); }
+  .sp-f { display: grid; gap: 4px; font-size: 12px; color: var(--oc-muted); }
+  .sp-f input { height: 28px; padding: 0 8px; border: 1px solid var(--oc-border); border-radius: calc(var(--oc-radius, 8px) - 2px); background: var(--oc-bg); color: var(--oc-fg); font: inherit; font-size: 12.5px; }
+  .sp-f input:focus { outline: none; border-color: var(--oc-focus); box-shadow: 0 0 0 2px color-mix(in srgb, var(--oc-focus) 30%, transparent); }
+  .sp-chk { display: flex; align-items: center; gap: 6px; font-size: 12px; }
+  .sp-chk input { accent-color: var(--oc-primary); margin: 0; }
+  /* Work Status: one line */
+  .st-row { all: unset; box-sizing: border-box; width: 100%; display: flex; align-items: center; gap: 8px; padding: 4px 6px; border-radius: calc(var(--oc-radius, 8px) - 2px); cursor: pointer; }
+  .st-row:hover:not(:disabled) { background: var(--oc-hover); }
+  .st-row:disabled { cursor: default; }
+  .st-row:focus-visible { outline: 2px solid var(--oc-focus); }
+  .st-dot { flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--oc-muted); }
+  .st-dot[data-tone="success"] { background: var(--oc-success); } .st-dot[data-tone="error"] { background: var(--oc-error); }
+  .st-dot[data-tone="warning"] { background: var(--oc-warning); } .st-dot[data-tone="info"] { background: var(--oc-info); animation: pulse 1.2s ease-in-out infinite; }
+  @keyframes pulse { 50% { opacity: .35; } }
+  .st-label { font-weight: 600; white-space: nowrap; }
+  .st-meta { flex: 1; min-width: 0; color: var(--oc-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .st-go { color: var(--oc-primary-text, var(--oc-primary)); font-weight: 500; }
+  .st-sub { padding: 0 6px 2px 22px; color: var(--oc-muted); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+</style>
+</head>
+<body>
+<div id="root"><div class="oc-problem">Connecting to OpenChamber…</div></div>
+<script src="main.js" crossorigin="anonymous"></script>
+</body>
+</html>

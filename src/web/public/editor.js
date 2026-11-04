@@ -135,7 +135,7 @@ export function createEditor({ openFile, markdown, log }) {
     if (act === 'dup') { const r = await ops([{ op: 'duplicate', id, ref: 'c' }], 'Duplicate screen'); if (r) { E.screenId = r.refs.c; E.sel = []; E.fit = true; refresh(); } return; }
     if (act === 'del') {
       const s = E.S.screens.find(x => x.id === id);
-      if (!confirm(`Delete screen “${s?.name}”? Its specs go with it (undo brings both back).`)) return;
+      if (!(await askConfirm(`Delete screen “${s?.name}”?`, 'Its specs go with it. Undo brings both back.', 'Delete'))) return;
       await ops([{ op: 'delete', ids: [id] }], 'Delete screen');
       return;
     }
@@ -637,6 +637,19 @@ export function createEditor({ openFile, markdown, log }) {
       }
     }
     if (list.length) ops(list, 'Nudge');
+  }
+
+  /** A confirmation in a dialog: window.confirm is blocked in sandboxed hosts (OpenChamber). */
+  function askConfirm(title, body, action) {
+    return new Promise(resolve => {
+      const d = document.createElement('dialog');
+      d.className = 'ed-confirm';
+      d.innerHTML = `<form method="dialog"><h2>${esc(title)}</h2><p class="muted">${esc(body)}</p><div class="row"><button class="btn danger" value="ok">${esc(action)}</button><button class="btn ghost" value="cancel">Cancel</button></div></form>`;
+      document.body.append(d);
+      d.addEventListener('close', () => { resolve(d.returnValue === 'ok'); d.remove(); });
+      d.showModal();
+      d.querySelector('button[value="cancel"]').focus();
+    });
   }
 
   // ---- menu ---------------------------------------------------------------------------------

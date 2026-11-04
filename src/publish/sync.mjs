@@ -12,6 +12,7 @@ import { bus } from '../util/common.mjs';
 import { collectFiles, prBody, publish, gitBlobSha } from './git.mjs';
 import { ciFiles } from './ci.mjs';
 import { changesMarkdown, summaryLine } from '../spec/diff.mjs';
+import { resolveToken, describeSource } from './credentials.mjs';
 
 const run = (cmd, args, cwd) => new Promise((resolve, reject) => {
   execFile(cmd, args, { cwd, maxBuffer: 64 * 1024 * 1024 }, (err, stdout, stderr) => {
@@ -61,6 +62,8 @@ export class Syncer {
     return {
       target: t ? `${t.kind}${t.repo ? `:${t.repo}` : ''}${t.branch ? `@${t.branch}` : ''}` : null,
       auto: !!t?.auto, pr: t?.pr !== false, push: !!t?.push, busy: !!this.busy, last: this.last,
+      history: (this.history ?? []).slice(-8).reverse(),
+      kind: t?.kind ?? null, repo: t?.repo ?? null, branch: t?.branch ?? null, access: t ? (t.kind === 'git' ? 'your git setup' : this.access ?? null) : null,
     };
   }
 
@@ -97,7 +100,11 @@ export class Syncer {
   async syncRemote() {
     const t = this.target;
     const m = this.ws.manifest;
-    const token = t.token || (t.kind === 'gitlab' ? process.env.GITLAB_TOKEN : process.env.GITHUB_TOKEN);
+    const cred = await resolveToken(t.kind, { apiUrl: t.apiUrl, explicit: t.token });
+    const kind = t.kind;
+    if (!cred.token) throw new Error(`no ${kind === 'gitlab' ? 'GitLab' : 'GitHub'} access: sign in in OpenChamber (Settings › Integrations), run \`${kind === 'gitlab' ? 'glab' : 'gh'} auth login\`, set ${kind === 'gitlab' ? 'GITLAB_TOKEN' : 'GITHUB_TOKEN'}, or enter a token`);
+    this.access = describeSource(cred);
+    const token = cred.token;
     return publish(t.kind, {
       repo: t.repo, token, branch: t.branch || 'weshcraft/specs', base: t.base, apiUrl: t.apiUrl, pr: t.pr !== false,
       title: `Specs: ${m.source.name}`,

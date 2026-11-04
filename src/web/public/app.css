@@ -738,3 +738,9 @@ button.link { border: 0; background: none; padding: 0; cursor: pointer; justify-
   .ed-keys { display: none; }
   .ed-sec:has(.ed-keys) { display: none; }
 }
+
+.ed-confirm { width: min(380px, calc(100vw - 32px)); }
+.ed-confirm h2 { margin: 0; font-size: 15px; }
+.ed-confirm p { margin: 0; }
+.ed-confirm .row { display: flex; gap: 8px; justify-content: flex-end; }
+.btn.danger { color: var(--red); }

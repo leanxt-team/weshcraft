@@ -9,6 +9,7 @@ import { bus } from '../util/common.mjs';
 import { writeZip } from '../util/zip.mjs';
 import { openEditable } from '../design/source.mjs';
 import { designApi } from './design-api.mjs';
+import { accessSummary } from '../publish/credentials.mjs';
 import { collectFiles } from '../publish/git.mjs';
 
 const PUBLIC = path.join(path.dirname(fileURLToPath(import.meta.url)), 'public');
@@ -110,7 +111,8 @@ export function startServer(o) {
       // Only what WeshCraft writes: the output folder may be the user's repository root.
       if (/^\/out\/(prototype|specs)\//.test(p)) return serveFile(res, ws.outDir, decodeURIComponent(p.slice(5)));
 
-      if (p === '/api/state') return send(res, 200, { ...ws.state(), source: ws.describe().split(`${ws.outDir}${path.sep}`).join(''), sync: o.syncer?.status() ?? null, figcraftWebUrl: o.figcraftWebUrl ?? null, tokens: { github: !!process.env.GITHUB_TOKEN, gitlab: !!process.env.GITLAB_TOKEN }, mcpUrl: '/mcp' });
+      if (p === '/api/ping') return send(res, 200, { ok: true, app: 'weshcraft', outDir: ws.outDir });
+      if (p === '/api/state') return send(res, 200, { ...ws.state(), source: ws.describe().split(`${ws.outDir}${path.sep}`).join(''), sync: o.syncer?.status() ?? null, figcraftWebUrl: o.figcraftWebUrl ?? null, tokens: await accessSummary(), mcpUrl: '/mcp' });
       if (p === '/api/events') {
         res.writeHead(200, { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-store', Connection: 'keep-alive' });
         res.write(`event: hello\ndata: ${JSON.stringify({ type: 'hello' })}\n\n`);

@@ -322,20 +322,24 @@ test('GitLab sync skips files the branch already has', async () => {
   } finally { server.close(); }
 });
 
-test('init: MCP server for Claude Code (.mcp.json) and OpenCode (opencode.json)', () => {
+test('init: Claude Code MCP, OpenCode 2 plugin (default) or OpenCode 2 MCP (--no-plugin)', () => {
   const bin = path.join(here, '..', 'bin', 'weshcraft.mjs');
   const dir = tmp();
-  fs.writeFileSync(path.join(dir, 'opencode.json'), JSON.stringify({ mcp: { servers: { other: {} } } }));
   execFileSync(process.execPath, [bin, 'init', '--client', 'both', '--attach', '7979', '--sync', 'git'], { cwd: dir });
   const claude = JSON.parse(fs.readFileSync(path.join(dir, '.mcp.json'), 'utf8'));
   assert.ok(claude.mcpServers.weshcraft.args.includes('--attach'));
   assert.ok(claude.mcpServers.weshcraft.args.includes('git'));
-  const oc = JSON.parse(fs.readFileSync(path.join(dir, 'opencode.json'), 'utf8'));
-  assert.equal(oc.mcp.servers.weshcraft.type, 'local');
-  assert.equal(oc.mcp.servers.weshcraft.disabled, false);
-  assert.ok(oc.mcp.servers.weshcraft.command.includes('--attach'));
-  assert.ok(oc.mcp.servers.other, 'existing servers kept');
-  assert.ok(!fs.existsSync(path.join(dir, '.opencode')), 'no plugin is installed');
+  const shim = fs.readFileSync(path.join(dir, '.opencode/plugins/weshcraft.js'), 'utf8');
+  assert.match(shim, /^export \{ default \} from "file:.*\/opencode\/plugin\.mjs";$/m);
+  assert.equal(shim.match(/^export /gm).length, 1, 'only the default export');
+  assert.deepEqual(JSON.parse(fs.readFileSync(path.join(dir, '.opencode/weshcraft.json'), 'utf8')), { attach: 7979, sync: 'git' });
+  assert.ok(!fs.existsSync(path.join(dir, 'opencode.json')), 'plugin mode adds no MCP entry (no duplicate tools)');
+  const dir2 = tmp();
+  fs.writeFileSync(path.join(dir2, 'opencode.json'), JSON.stringify({ mcp: { servers: { other: {} } } }));
+  execFileSync(process.execPath, [bin, 'init', '--client', 'opencode', '--no-plugin'], { cwd: dir2 });
+  const oc2 = JSON.parse(fs.readFileSync(path.join(dir2, 'opencode.json'), 'utf8'));
+  assert.equal(oc2.mcp.servers.weshcraft.disabled, false);
+  assert.ok(oc2.mcp.servers.other, 'existing servers kept');
   const dir3 = tmp();
   execFileSync(process.execPath, [bin, 'init', '--client', 'claude', '--surface', 'api/openapi.yaml'], { cwd: dir3 });
   const c3 = JSON.parse(fs.readFileSync(path.join(dir3, '.mcp.json'), 'utf8')).mcpServers.weshcraft.args;
@@ -599,9 +603,187 @@ test('CLI: new creates an empty FigCraft document; serve-style workspaces find d
   const dir = tmp();
   const bin = path.join(here, '..', 'bin', 'weshcraft.mjs');
   const out = execFileSync(process.execPath, [bin, 'new', 'Shop'], { cwd: dir, encoding: 'utf8' });
-  assert.match(out, /created design[\\/]Shop\.figcraft/);
+  assert.match(out, /created design\/Shop\.figcraft/);
   const s = DesignStore.open(path.join(dir, 'design/Shop.figcraft'));
   assert.equal(s.doc.format, 'figcraft');
   assert.equal(s.doc.name, 'Shop');
   assert.throws(() => execFileSync(process.execPath, [bin, 'new', 'Shop'], { cwd: dir, stdio: 'pipe' }));
+});
+
+import { createPlugin, detectConfig, serveArgs } from '../opencode/plugin.mjs';
+
+const billingProject = () => {
+  const dir = tmp();
+  fs.mkdirSync(path.join(dir, 'design'));
+  for (const f of fs.readdirSync(path.dirname(BILLING))) fs.copyFileSync(path.join(path.dirname(BILLING), f), path.join(dir, 'design', f));
+  return dir;
+};
+const waitFor = async (fn, ms = 15000) => { const t0 = Date.now(); for (;;) { const v = await fn().catch(() => null); if (v) return v; if (Date.now() - t0 > ms) throw new Error('timed out'); await new Promise(r => setTimeout(r, 150)); } };
+
+test('OpenCode plugin: project detection and serve arguments', () => {
+  assert.equal(detectConfig(tmp()), null, 'nothing to spec: idle');
+  const dir = billingProject();
+  const cfg = detectConfig(dir);
+  assert.deepEqual(cfg.surface, ['design/weshcraft.surface.json']);
+  assert.ok(cfg.port >= 4600 && cfg.port < 4900);
+  assert.equal(detectConfig(dir).port, cfg.port, 'stable port per project');
+  fs.mkdirSync(path.join(dir, '.opencode'));
+  fs.writeFileSync(path.join(dir, '.opencode/weshcraft.json'), JSON.stringify({ surface: 'design/openapi.yaml', port: 4777, sync: 'git' }));
+  const c2 = detectConfig(dir);
+  assert.deepEqual(serveArgs(c2).slice(0, 8), ['serve', '--out', '.', '--port', '4777', '--concurrency', '6', '--surface']);
+  assert.ok(serveArgs(c2).includes('--sync'));
+});
+
+test('OpenCode 2 plugin: starts WeshCraft, namespaced tools, /weshcraft command, regenerates on save, cleanup', async () => {
+  const dir = billingProject();
+  const port = 4870 + Math.floor(Math.random() * 25);
+  const plugin = createPlugin({ config: { ...detectConfig(dir), port } });
+  const tools = new Map(), namespaces = [], commands = new Map(), prompts = [];
+  const ctx = {
+    location: { directory: dir, project: { id: 'p', directory: dir, canonical: dir } },
+    options: {},
+    tool: { transform: async cb => cb({ namespace: n => namespaces.push(n.name), add: t => tools.set(`${t.options?.namespace ? `${t.options.namespace}_` : ''}${t.name}`, t) }) },
+    command: { transform: async cb => cb({ add: c => commands.set(c.name, c) }) },
+    session: { prompt: async p => prompts.push(p) },
+  };
+  const cleanup = await plugin.setup(ctx);
+  try {
+    assert.deepEqual(namespaces, ['weshcraft', 'design']);
+    assert.ok(tools.has('design_new'), 'no design yet (API-only project): it can start one');
+    for (const n of ['weshcraft_open', 'weshcraft_status', 'weshcraft_generate', 'weshcraft_check', 'weshcraft_links', 'weshcraft_sync', 'weshcraft_read_spec']) assert.ok(tools.has(n), n);
+    assert.equal(tools.get('weshcraft_links').input.additionalProperties, false);
+    assert.deepEqual(tools.get('weshcraft_read_spec').input.required, ['path']);
+    assert.match((await tools.get('weshcraft_open').execute({})).content, /^WeshCraft: http:\/\/127\.0\.0\.1:\d+\//);
+    await waitFor(async () => /"ok": true/.test((await tools.get('weshcraft_check').execute({}, { signal: AbortSignal.timeout(5000) })).content));
+    assert.match((await tools.get('weshcraft_read_spec').execute({ path: 'specs/front/mcp/tool-void-invoice.md' })).content, /\*\*destructive\*\*/);
+    // /weshcraft sends the instructions into the session, with whatever the user typed after it.
+    await commands.get('weshcraft').execute({ sessionID: 's1', prompt: { text: 'focus on the API' }, delivery: 'queue' });
+    assert.equal(prompts[0].sessionID, 's1');
+    assert.match(prompts[0].text, /Call weshcraft_open[\s\S]*focus on the API$/);
+    // Saving the MCP tool list (by OpenCode or anyone) regenerates: the new tool gets its spec.
+    const tf = path.join(dir, 'design', 'mcp-tools.json');
+    const j = JSON.parse(fs.readFileSync(tf, 'utf8'));
+    j.tools.push({ name: 'refund_invoice', description: 'Refund a paid invoice.', inputSchema: { type: 'object', required: ['id'], properties: { id: { type: 'string' } } }, annotations: { destructiveHint: true } });
+    fs.writeFileSync(tf, JSON.stringify(j));
+    await waitFor(async () => fs.existsSync(path.join(dir, 'specs/front/mcp/tool-refund-invoice.md')));
+  } finally { cleanup?.(); }
+  await waitFor(async () => { try { await fetch(`http://127.0.0.1:${port}/api/state`, { signal: AbortSignal.timeout(300) }); return false; } catch { return true; } });
+});
+
+test('OpenCode 2 plugin: no server where there is nothing to spec, until weshcraft_start; options come from opencode.json', async () => {
+  const dir0 = tmp();
+  const port = 4950 + Math.floor(Math.random() * 25);
+  const tools = new Map();
+  let reloads = 0;
+  const ctx = { location: { directory: dir0 }, options: { port }, tool: { transform: async cb => cb({ namespace: () => {}, add: t => tools.set(`${t.options?.namespace}_${t.name}`, t) }), reload: async () => { reloads++; } } };
+  const cleanup = await createPlugin().setup(ctx);
+  try {
+    assert.deepEqual([...tools.keys()], ['weshcraft_start'], 'one tool, no server');
+    assert.equal(await fetch(`http://127.0.0.1:${port}/api/ping`).then(() => 'up', () => 'down'), 'down');
+    const r = await tools.get('weshcraft_start').execute({});
+    assert.match(r.content, /WeshCraft started: http:\/\/127\.0\.0\.1:\d+\/ — next: design_new/);
+    assert.ok(tools.has('design_new') && reloads === 1);
+    await tools.get('design_new').execute({ name: 'Shop' });
+    assert.ok(fs.existsSync(path.join(dir0, 'design/Shop.figcraft')));
+    for (const n of ['design_tree', 'design_edit', 'design_text', 'design_bind', 'design_api', 'design_undo']) assert.ok(tools.has(n), `${n} after design_new`);
+    assert.ok(!tools.has('design_screenshot'), 'images stay MCP-only');
+    const e = JSON.parse((await tools.get('design_edit').execute({ wait: true, ops: [{ op: 'screen', name: 'Home', ref: 's' }, { op: 'create', parent: 's', type: 'text', props: { text: 'Hi' } }] })).content);
+    assert.equal(e.parity.ok, true);
+    assert.match((await tools.get('design_tree').execute({})).content, /"Home"[\s\S]*"Hi"/);
+  } finally { cleanup?.(); }
+  const dir = billingProject();
+  assert.equal(detectConfig(tmp(), { surface: 'x.yaml', port: 4999 }).port, 4999, 'plugin options are config');
+  assert.deepEqual(detectConfig(dir, { surface: 'design/openapi.yaml' }).surface, ['design/openapi.yaml'], 'options win over detection');
+});
+
+// ---- inherited GitHub/GitLab access ----------------------------------------------------------
+import { resolveToken, describeSource, forgetCachedTokens } from '../src/publish/credentials.mjs';
+
+test('credentials: explicit > env > OpenChamber account (honouring its CLI choice) > gh/glab > git credentials', async () => {
+  const d = tmp();
+  const bin = path.join(d, 'bin'), oc = path.join(d, 'oc');
+  fs.mkdirSync(bin); fs.mkdirSync(oc);
+  fs.writeFileSync(path.join(bin, 'gh'), '#!/bin/sh\n[ "$1 $2" = "auth token" ] && [ "$GH_HOST" = "github.com" ] && echo gho_cli && exit 0\nexit 1\n', { mode: 0o755 });
+  fs.writeFileSync(path.join(bin, 'git'), '#!/bin/sh\nif [ "$1 $2" = "credential fill" ]; then cat >/dev/null; printf "protocol=https\\nhost=gitlab.com\\nusername=vince\\npassword=glpat_git\\n"; exit 0; fi\nexit 1\n', { mode: 0o755 });
+  const env = { PATH: `${bin}:/usr/bin:/bin`, HOME: d, OPENCHAMBER_DATA_DIR: oc };
+  const r = async (p, extra = {}, o = {}) => { forgetCachedTokens(); return resolveToken(p, { env: { ...env, ...extra }, ...o }); };
+  if (process.platform === 'win32') return; // shell-script doubles
+  assert.equal((await r('github', { GH_TOKEN: 'e' }, { explicit: 'x' })).source, 'explicit');
+  assert.equal((await r('github', { GH_TOKEN: 'e' })).source, 'env:GH_TOKEN');
+  assert.equal((await r('github')).token, 'gho_cli');
+  const acct = (cliActive) => fs.writeFileSync(path.join(oc, 'github-auth.json'), JSON.stringify({ version: 3, instances: { 'github.com': { activeCredentialId: 'c1', cliDisabled: false, cliActive, credentials: [{ credentialId: 'c1', accessToken: 'gho_oc', user: { id: 1, login: 'vc' } }] } } }));
+  acct(false);
+  const viaOc = await r('github');
+  assert.deepEqual([viaOc.token, viaOc.source, describeSource(viaOc)], ['gho_oc', 'openchamber', 'your OpenChamber account (vc)']);
+  acct(true);
+  assert.equal((await r('github')).token, 'gho_cli', 'OpenChamber set to use the gh login');
+  const gl = await r('gitlab');
+  assert.deepEqual([gl.token, gl.source, gl.account], ['glpat_git', 'git-credential', 'vince']);
+  fs.writeFileSync(path.join(oc, 'source-control-auth.json'), JSON.stringify({ version: 3, providers: { gitlab: { instances: { 'https://gitlab.com': { activeCredentialId: 'g', cliDisabled: false, cliActive: false, credentials: [{ credentialId: 'g', token: 'glpat_oc', user: { id: 2, username: 'vince' } }] } } }, github: { instances: { 'ghe.acme.io': { activeCredentialId: 'e', cliDisabled: false, cliActive: false, credentials: [{ credentialId: 'e', accessToken: 'ghe_oc', user: { id: 3, login: 'v' } }] } } } } }));
+  assert.equal((await r('gitlab')).token, 'glpat_oc');
+  assert.equal((await r('github', {}, { apiUrl: 'https://ghe.acme.io/api/v3' })).token, 'ghe_oc');
+  assert.equal((await r('gitlab', { PATH: '/usr/bin:/bin' }, { apiUrl: 'https://git.corp.example/api/v4' })).token, null);
+});
+
+// ---- OpenChamber extension -------------------------------------------------------------------
+import { createService, listen } from '../openchamber/service/main.js';
+
+test('OpenChamber extension: manifest, built pages, service (state, proxy, events, chunked upload, git sync)', async () => {
+  const root = path.resolve(here, '..');
+  const pkg = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'));
+  const c = pkg.openchamber.contributes;
+  for (const entry of [c.panel.entry, c.page.entry, c.statusSection.entry, c.service.entry, c.panel.icon]) assert.ok(fs.existsSync(path.join(root, entry)), entry);
+  for (const page of [c.panel.entry, c.page.entry, c.statusSection.entry]) {
+    const html = fs.readFileSync(path.join(root, page), 'utf8');
+    for (const m of html.matchAll(/<script[^>]*\ssrc="([^"]+)"/g)) assert.ok(fs.statSync(path.join(root, path.dirname(page), m[1])).size > 1000, `${page} → ${m[1]} is built`);
+  }
+  assert.ok(c.tools.length <= 16, 'OpenChamber accepts at most 16 tool renderers');
+  const parse = path.join(root, 'node_modules/@openchamber/sdk/dist/parse.js');
+  if (fs.existsSync(parse)) assert.equal((await import(parse)).parseManifestJson(JSON.stringify(pkg)).ok, true);
+  // the big panel is the desktop app, rebuilt from src/web/public
+  assert.match(fs.readFileSync(path.join(root, 'openchamber/page/app.css'), 'utf8'), /@media \(max-width: 0px\)/);
+
+  const dir = tmp();
+  fs.mkdirSync(path.join(dir, 'design'));
+  fs.copyFileSync(ACCOUNT, path.join(dir, 'design', 'account.figcraft.json'));
+  execFileSync('git', ['init', '-q'], { cwd: dir });
+  execFileSync('git', ['-c', 'user.email=t@e.com', '-c', 'user.name=T', 'commit', '-q', '--allow-empty', '-m', 'init'], { cwd: dir });
+  execFileSync('git', ['config', 'user.email', 't@e.com'], { cwd: dir });
+  execFileSync('git', ['config', 'user.name', 'T'], { cwd: dir });
+  const port = 4880 + Math.floor(Math.random() * 40);
+  const service = createService({ config: (d, o) => { const cfg = detectConfig(d, o); return cfg && { ...cfg, port: d === dir ? port : cfg.port }; }, pollMs: 1500 });
+  const svcPort = 4920 + Math.floor(Math.random() * 40);
+  const server = listen({ port: svcPort, token: 'tk', service });
+  await new Promise(r => server.once('listening', r));
+  const call = async (p, q = {}, init = {}) => { const r = await fetch(`http://127.0.0.1:${svcPort}${p}?${new URLSearchParams(q)}`, { ...init, headers: { authorization: 'Bearer tk' } }); return { status: r.status, text: await r.text() }; };
+  try {
+    assert.equal((await fetch(`http://127.0.0.1:${svcPort}/health`)).status, 401);
+    assert.equal(JSON.parse((await call('/state', { directory: tmp() })).text).status, 'none', 'no server for a project without a design');
+    let st;
+    await waitUntil(async () => { st = JSON.parse((await call('/state', { directory: dir })).text); return st.status === 'ok' && st.parity?.ok; }, 20000);
+    assert.equal(st.sync?.target ?? null, null, "not syncing yet");
+    assert.ok(st.access?.github && 'available' in st.access.github);
+    // big panel: API proxy, then a live event after an edit
+    const summary = JSON.parse((await call('/wc/api/design', { directory: dir })).text);
+    assert.equal(summary.editable, true);
+    const first = JSON.parse((await call('/events', { directory: dir, since: '-1' })).text);
+    await call('/wc/api/design/op', { directory: dir }, { method: 'POST', body: JSON.stringify({ ops: [{ op: 'text', id: 4, text: 'From the page' }] }) });
+    const ev = await waitUntil(async () => { const j = JSON.parse((await call('/events', { directory: dir, since: String(first.seq) })).text); return j.events.some(e => e.type === 'design') && j; }, 10000);
+    assert.ok(ev.seq > first.seq);
+    // chunked upload of a 300 KB archive
+    const buf = fs.readFileSync(ONBOARDING);
+    const CH = 45000, parts = Math.ceil(buf.length / CH);
+    let last;
+    for (let i = 0; i < parts; i++) last = await call('/upload', { directory: dir, name: 'onboarding.figcraft', id: 'u1', part: String(i), parts: String(parts) }, { method: 'POST', body: buf.subarray(i * CH, (i + 1) * CH).toString('base64') });
+    assert.equal(last.status, 202);
+    assert.deepEqual(fs.readFileSync(path.join(dir, 'design', 'onboarding.figcraft')), buf);
+    // small panel: sync to this repository
+    await waitUntil(async () => JSON.parse((await call('/state', { directory: dir })).text).parity?.ok, 20000);
+    const s = await call('/sync', { directory: dir }, { method: 'POST', body: JSON.stringify({ provider: 'git', auto: true }) });
+    assert.equal(s.status, 200, s.text);
+    st = JSON.parse((await call('/state', { directory: dir })).text);
+    assert.equal(st.sync.kind, 'git');
+    assert.equal(st.sync.last.ok, true);
+    assert.match(execFileSync('git', ['log', '--oneline', '-1'], { cwd: dir, encoding: 'utf8' }), /docs\(specs\)/);
+  } finally { service.stop(); server.close(); }
 });
