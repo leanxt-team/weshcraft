@@ -20,7 +20,7 @@ export class Workspace {
    * @param {{source: object, outDir: string, concurrency?: number, agent?: boolean|string}} o
    */
   constructor(o) {
-    this.source = o.source;
+    this.source = null;
     this.surface = o.surface ?? null; // MCP server / public API ("front" without screens)
     this.outDir = path.resolve(o.outDir);
     this.concurrency = o.concurrency ?? 6;
@@ -32,6 +32,45 @@ export class Workspace {
     this.running = null;
     this.runs = 0;
     this.log = [];
+    this.editDelayMs = o.editDelayMs ?? 350;
+    this.useSource(o.source ?? null);
+  }
+
+  /** Switch the design source; an editable design regenerates the specs shortly after each edit. */
+  useSource(src) {
+    if (this.source && this.source !== src) { this.offChange?.(); this.source.close?.(); }
+    this.source = src;
+    this.offChange = null;
+    this.emit('source', { source: this.describe().split(`${this.outDir}${path.sep}`).join('') });
+    const store = src?.store;
+    if (store) {
+      const onChange = ev => { this.emit('design', ev); this.schedule(); };
+      store.on('change', onChange);
+      this.offChange = () => store.off('change', onChange);
+    }
+  }
+
+  /** Regenerate soon (debounced); an edit that lands during a run triggers one more run after it. */
+  schedule(delayMs = this.editDelayMs) {
+    this.dirty = true;
+    clearTimeout(this.soonTimer);
+    this.soonTimer = setTimeout(() => { this.soonTimer = null; this.kick(); }, delayMs);
+    this.soonTimer.unref?.();
+  }
+
+  kick() {
+    if (this.running) { this.running.finally(() => { if (this.dirty && !this.soonTimer) this.kick(); }); return; }
+    this.dirty = false;
+    this.run().catch(e => this.emit('log', { level: 'error', message: e.message }));
+  }
+
+  /** Resolves once every scheduled regeneration has finished. */
+  async settled() {
+    for (;;) {
+      if (this.soonTimer || this.dirty) { await new Promise(r => setTimeout(r, 40)); continue; }
+      if (this.running) { await this.running.catch(() => {}); continue; }
+      return;
+    }
   }
 
   emit(type, data) {

@@ -41,17 +41,53 @@
 
   <section class="stage" aria-label="Prototype">
     <div class="tabs" role="tablist">
+      <button role="tab" class="tab" aria-selected="false" data-tab="design" id="designTab" hidden>Design</button>
       <button role="tab" class="tab" aria-selected="true" data-tab="proto">Prototype</button>
-      <button role="tab" class="tab" aria-selected="false" data-tab="design" id="designTab" hidden>Design (FigCraft)</button>
+      <button role="tab" class="tab" aria-selected="false" data-tab="figcraft" id="figcraftTab" hidden>FigCraft</button>
       <button role="tab" class="tab" aria-selected="false" data-tab="links">Front ⇄ back <span class="badge" id="linksBadge"></span></button>
       <button role="tab" class="tab" aria-selected="false" data-tab="manifest">Manifest</button>
       <div class="spacer"></div>
-      <label class="toggle" title="Outline layers that call the back end (blue) or show its data (green). Click one to open its back-end spec."><input type="checkbox" id="overlay"> Data links</label>
-      <label class="toggle" title="Open the spec of the screen shown in the prototype"><input type="checkbox" id="follow" checked> Follow</label>
-      <a class="link" id="openProto" href="/out/prototype/index.html" target="_blank" rel="noopener" title="Open the prototype in a new tab">↗</a>
+      <label class="toggle protoonly" title="Outline layers that call the back end (blue) or show its data (green). Click one to open its back-end spec."><input type="checkbox" id="overlay"> Data links</label>
+      <label class="toggle protoonly" title="Open the spec of the screen shown in the prototype"><input type="checkbox" id="follow" checked> Follow</label>
+      <a class="link protoonly" id="openProto" href="/out/prototype/index.html" target="_blank" rel="noopener" title="Open the prototype in a new tab">↗</a>
     </div>
     <div class="tabpanel" data-panel="proto"><iframe id="proto" title="Clickable prototype" src="about:blank"></iframe></div>
-    <div class="tabpanel" data-panel="design" hidden><iframe id="design" title="FigCraft" src="about:blank" allow="clipboard-read; clipboard-write; local-fonts"></iframe></div>
+    <div class="tabpanel ed" data-panel="design" hidden>
+      <aside class="ed-left" aria-label="Screens and layers">
+        <div class="ed-head"><h3>Screens</h3><button type="button" class="ed-icon" id="edAddScreen" title="Add screen" aria-label="Add screen"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button></div>
+        <ul class="ed-screens" id="edScreens" role="listbox" aria-label="Screens"></ul>
+        <div class="ed-head"><h3>Layers</h3><span class="count" id="edLayerCount"></span></div>
+        <ul class="ed-layers" id="edLayers" role="tree" aria-label="Layers"></ul>
+      </aside>
+      <div class="ed-center">
+        <div class="ed-tools" role="toolbar" aria-label="Tools">
+          <div class="ed-seg" id="edToolSeg">
+            <button type="button" data-tool="select" aria-pressed="true" title="Move (V)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3l12 9-5.5 1.2L15 20l-2.4 1-2.5-6.6L6 18z"/></svg></button>
+            <button type="button" data-tool="frame" aria-pressed="false" title="Frame (F)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3v18M16 3v18M3 8h18M3 16h18"/></svg></button>
+            <button type="button" data-tool="rectangle" aria-pressed="false" title="Rectangle (R)"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="6" width="16" height="12" rx="1.5"/></svg></button>
+            <button type="button" data-tool="ellipse" aria-pressed="false" title="Ellipse (O)"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="7.5"/></svg></button>
+            <button type="button" data-tool="text" aria-pressed="false" title="Text (T)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 6V4.5h14V6M12 4.5V20M9 20h6"/></svg></button>
+          </div>
+          <button type="button" class="ed-icon" id="edComponents" title="Insert component" aria-label="Insert component" aria-haspopup="menu"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l4 4-4 4-4-4zM12 13l4 4-4 4-4-4zM7 8l4 4-4 4-4-4zM17 8l4 4-4 4-4-4z"/></svg></button>
+          <span class="ed-sep" aria-hidden="true"></span>
+          <button type="button" class="ed-icon" id="edUndo" title="Undo (⌘Z)" aria-label="Undo" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 7L4 12l5 5"/><path d="M4 12h10a6 6 0 0 1 0 12h-2" transform="translate(0 -5)"/></svg></button>
+          <button type="button" class="ed-icon" id="edRedo" title="Redo (⇧⌘Z)" aria-label="Redo" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 7l5 5-5 5"/><path d="M20 12H10a6 6 0 0 0 0 12h2" transform="translate(0 -5)"/></svg></button>
+          <div class="spacer"></div>
+          <span class="ed-status" id="edStatus" role="status" aria-live="polite"></span>
+          <div class="ed-zoom">
+            <button type="button" class="ed-icon" id="edZoomOut" title="Zoom out (⌘−)" aria-label="Zoom out"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 12h12"/></svg></button>
+            <button type="button" class="ed-zoomval" id="edZoomFit" title="Zoom to fit (⇧1)">100%</button>
+            <button type="button" class="ed-icon" id="edZoomIn" title="Zoom in (⌘+)" aria-label="Zoom in"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 6v12M6 12h12"/></svg></button>
+          </div>
+        </div>
+        <div class="ed-canvas" id="edCanvas" tabindex="0" aria-label="Canvas">
+          <div class="ed-scroller" id="edScroller"><div class="ed-world" id="edWorld"><div class="ed-screen" id="edScreen"></div><div class="ed-overlay" id="edOverlay"></div></div></div>
+          <div class="ed-empty" id="edEmpty" hidden></div>
+        </div>
+      </div>
+      <aside class="ed-right" id="edInspector" aria-label="Inspector"></aside>
+    </div>
+    <div class="tabpanel" data-panel="figcraft" hidden><iframe id="design" title="FigCraft" src="about:blank" allow="clipboard-read; clipboard-write; local-fonts"></iframe></div>
     <div class="tabpanel scroll" data-panel="links" hidden><div id="linkmap" class="linkmap"><p class="empty">No run yet.</p></div></div>
     <div class="tabpanel scroll" data-panel="manifest" hidden><pre id="manifest" class="mono"></pre></div>
   </section>
@@ -83,6 +119,7 @@
 <button type="button" class="fab" id="openSpec" hidden>View spec <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></button>
 <nav class="phonebar" aria-label="Views">
   <button type="button" data-view="specs" aria-label="Specs"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6h12M8 12h12M8 18h12"/><circle cx="4" cy="6" r="1"/><circle cx="4" cy="12" r="1"/><circle cx="4" cy="18" r="1"/></svg><span>Specs</span><i class="pb-badge" id="pbSpecs"></i></button>
+  <button type="button" data-view="design" aria-label="Design" hidden id="pbDesign"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20l4-1 11-11-3-3L5 16z"/><path d="M14 7l3 3"/></svg><span>Design</span></button>
   <button type="button" data-view="proto" aria-label="Prototype"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="2.5" width="12" height="19" rx="3"/><path d="M10.5 18.5h3"/></svg><span>Prototype</span></button>
   <button type="button" data-view="links" aria-label="Front and back links"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="6" r="2"/><circle cx="5" cy="18" r="2"/><circle cx="19" cy="12" r="2"/><path d="M7 6c6 0 6 6 10 6M7 18c6 0 6-6 10-6"/></svg><span>Links</span><i class="pb-badge warn" id="pbLinks"></i></button>
   <button type="button" data-view="read" aria-label="Spec reader"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h9l4 4v14H6z"/><path d="M14 3v5h5M9 13h7M9 17h5"/></svg><span>Spec</span></button>
@@ -136,6 +173,7 @@
   </form>
 </dialog>
 
+<div class="ed-menu" id="edMenu" role="menu" hidden></div>
 <script type="module" src="/app/app.js"></script>
 </body>
 </html>

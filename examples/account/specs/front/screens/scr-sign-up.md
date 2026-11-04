@@ -98,7 +98,7 @@ None bound; raw colours: #0e7c66, #0f172a, #475569, #64748b, #f1f5f9, #ffffff
 2. Every text in §Copy is shown verbatim with its typography and colour.
 3. Activating “Create account” (`#10`) navigates to Profile with a dissolve transition of 250 ms; it is reachable by keyboard and announced as a button.
 4. Activating `#10` calls `POST /users`; while pending the control is disabled; on error the screen stays and shows the error.
-5. Contrast: `#7`, `#9` are below WCAG AA in the design; keep as designed or fix in FigCraft first (the spec follows the prototype).
+5. Contrast: `#7`, `#9` are below WCAG AA in the design; keep as designed or fix in the design first (the spec follows the prototype).
 
 ## Notes
 

@@ -343,17 +343,6 @@ test('init: MCP server for Claude Code (.mcp.json) and OpenCode (opencode.json)'
 });
 
 import { diffManifests, updateChangelog, summaryLine } from '../src/spec/diff.mjs';
-import { startServer } from '../src/web/server.mjs';
-import { WeshCraftMcp as McpServer } from '../src/mcp/server.mjs';
-
-test('serve: a LAN bind needs --token, unless --allow-lan', async () => {
-  const ws = new Workspace({ outDir: tmp(), source: new FileSource(ACCOUNT) });
-  const mcp = new McpServer({ workspace: ws });
-  assert.throws(() => startServer({ workspace: ws, mcp, host: '0.0.0.0' }), /without --token/);
-  const server = await startServer({ workspace: ws, mcp, host: '0.0.0.0', port: 0, allowLan: true });
-  assert.ok(server.url.startsWith('http://'), server.url);
-  server.close();
-});
 
 test('design changelog: copy, screens and operations, newest first', async () => {
   const before = buildManifest((await new FileSource(ACCOUNT).load()).model);
@@ -462,4 +451,157 @@ test('live MCP server introspection (tools/list over stdio) with a snapshot for 
   // The snapshot alone reproduces the same manifest (what CI checks against).
   const fromSnap = buildManifest(emptyModel(), { surface: loadSurfaceFile(snap.abs) });
   assert.equal(fromSnap.source.hash, ws.manifest.source.hash);
+});
+
+// ---- design editing (store, agents, browser API) ---------------------------------------------
+import { DesignStore } from '../src/design/store.mjs';
+import { StoreSource, openEditable } from '../src/design/source.mjs';
+import { startServer } from '../src/web/server.mjs';
+
+const copyTo = (src, name = path.basename(src)) => { const d = tmp(); fs.mkdirSync(path.join(d, 'design')); const f = path.join(d, 'design', name); fs.copyFileSync(src, f); return { dir: d, file: f }; };
+const waitUntil = async (fn, ms = 10000) => { const t0 = Date.now(); for (;;) { const v = await fn().catch(() => null); if (v) return v; if (Date.now() - t0 > ms) throw new Error('timed out'); await new Promise(r => setTimeout(r, 60)); } };
+
+test('design store: batch with refs, undo/redo, rollback, spec conventions', () => {
+  const { file } = copyTo(ACCOUNT);
+  const s = DesignStore.open(file);
+  const r = s.apply([
+    { op: 'screen', name: 'Settings', ref: 'scr', layout: { mode: 'vertical', gap: 12, padding: 24 } },
+    { op: 'create', parent: 'scr', type: 'text', props: { text: 'Settings', fontSize: 28, fontWeight: 700, color: '#0f172a' } },
+    { op: 'create', parent: 'scr', type: 'frame', props: { name: 'Button/Save settings', height: 48, sizing: { h: 'fill' }, fill: '#2563eb', radius: 12, layout: { mode: 'horizontal', align: 'center' } }, ref: 'btn' },
+    { op: 'create', parent: 'scr', type: 'text', props: { text: 'Pro', name: 'Plan' }, ref: 'plan' },
+    { op: 'bind', id: 'plan', entity: 'subscription', field: 'plan' },
+    { op: 'api', id: 'btn', method: 'PATCH', path: '/settings', returns: 'Settings' },
+    { op: 'api', id: 'scr', method: 'GET', path: '/subscription', returns: 'Subscription' },
+    { op: 'link', id: 'btn', to: 'Profile' },
+  ]);
+  assert.deepEqual(Object.keys(r.refs), ['scr', 'btn', 'plan']);
+  const m = buildManifest(s.toModel());
+  const set = m.screens.find(x => x.name === 'Settings');
+  assert.equal(set.width, 393);
+  assert.deepEqual(set.actions.map(a => [a.type, a.destScreen]), [['navigate', 'scr-profile']]);
+  assert.ok(m.domain.operations.some(o => o.method === 'PATCH' && o.path === '/settings' && o.confidence === 'explicit'));
+  assert.ok(m.links.edges.some(e => e.rel === 'displays' && e.field === 'Subscription.plan' && e.screen === set.key && e.via), 'the screen loads what it shows');
+  // a rename keeps the binding
+  s.apply([{ op: 'set', id: r.refs.plan, props: { name: 'Current plan' } }]);
+  assert.equal(s.node(r.refs.plan).name, 'Current plan @subscription.plan');
+  // undo/redo are whole steps
+  const nodes = Object.keys(s.doc.nodes).length;
+  s.undo(); s.undo();
+  assert.ok(!buildManifest(s.toModel()).screens.some(x => x.name === 'Settings'));
+  s.redo();
+  assert.equal(Object.keys(s.doc.nodes).length, nodes);
+  // a failing op rolls back the whole batch and names the op
+  assert.throws(() => s.apply([{ op: 'text', id: 4, text: 'Changed' }, { op: 'set', id: 4, props: { colour: 'red' } }]), /op 2 \(set\): unknown property "colour"/);
+  assert.equal(s.node(4).characters, 'Create your account');
+  assert.throws(() => s.apply([{ op: 'create', parent: 4, type: 'rectangle' }]), /only frames/);
+  // deleting a frame clears links into it; duplicating a screen moves it right and keeps inner links inside the copy
+  s.apply([{ op: 'delete', ids: ['Profile'] }]);
+  assert.ok(!Object.values(s.doc.nodes).some(n => (n.interactions ?? []).some(i => i.actions.some(a => a.dest === 3))));
+  const before = s.node(2).transform[4];
+  const d = s.apply([{ op: 'duplicate', id: 2, ref: 'c' }]).refs.c;
+  assert.ok(s.node(d).transform[4] > before + 393);
+  // tokens: create, apply, stay bound
+  s.apply([{ op: 'token', name: 'color/brand', value: '#2563eb' }, { op: 'useToken', id: 10, token: 'color/brand' }]);
+  assert.ok(buildManifest(s.toModel()).tokens.variables.some(v => v.name === 'color/brand'));
+  assert.ok(s.node(10).bound.fill.startsWith('VariableID:'));
+});
+
+test('design store: saved file = in-memory design (CI checks what was edited); archives keep their other entries', async () => {
+  const { dir, file } = copyTo(APP);
+  const s = DesignStore.open(file);
+  const comp = Object.values(s.doc.nodes).find(n => n.type === 'component');
+  const screen = s.screens().find(n => n.type === 'frame');
+  s.apply([{ op: 'instance', component: comp.id, parent: screen.id, ref: 'i' }, { op: 'duplicate', id: screen.id }, { op: 'text', id: Object.values(s.doc.nodes).find(n => n.type === 'text').id, text: 'Edited' }]);
+  s.saveNow();
+  assert.deepEqual([...readZip(fs.readFileSync(file)).keys()], ['document.json', 'thumbnail.png']);
+  const fromFile = buildManifest((await new FileSource(file).load()).model);
+  assert.equal(fromFile.source.hash, buildManifest(s.toModel()).source.hash);
+  // specs generated from the editable source pass the CLI check against the saved file
+  const ws = new Workspace({ source: new StoreSource(s), outDir: dir });
+  const r = await ws.run();
+  assert.equal(r.report.ok, true);
+  const out = execFileSync(process.execPath, [path.join(here, '..', 'bin', 'weshcraft.mjs'), 'check', '--file', file, '--out', dir], { encoding: 'utf8' });
+  assert.match(out, /in sync/i);
+});
+
+test('design MCP: tools, one batched edit with wait, compact outputs, undo shared, design_new', async () => {
+  const { dir, file } = copyTo(ACCOUNT);
+  const ws = new Workspace({ source: openEditable(file), outDir: dir, editDelayMs: 20 });
+  const mcp = new WeshCraftMcp({ workspace: ws });
+  const call = async (name, args) => { const r = await mcp.callTool(name, args); return { err: r.isError, text: r.content[0].text, r }; };
+  const names = (await mcp.tools()).map(t => t.name);
+  for (const n of ['design_tree', 'design_find', 'design_get', 'design_edit', 'design_text', 'design_bind', 'design_api', 'design_link', 'design_screen', 'design_tokens', 'design_undo', 'design_redo']) assert.ok(names.includes(n), n);
+  assert.ok(!names.includes('design_new'));
+  assert.match((await call('design_tree', {})).text, /#4 · text · "Title" · "Create your account"/);
+  assert.match((await call('design_find', { query: 'save' })).text, /Button\/Save.*API PATCH \/users\/me/);
+  const e = await call('design_edit', { wait: true, ops: [{ op: 'screen', name: 'Plans', ref: 's', layout: 'vertical' }, { op: 'create', parent: 's', type: 'text', props: { text: 'Pick a plan' } }, { op: 'api', id: 's', method: 'GET', path: '/plans', returns: 'Plan' }] });
+  const res = JSON.parse(e.text);
+  assert.equal(res.parity.ok, true);
+  assert.ok(fs.existsSync(path.join(dir, 'specs/front/screens/scr-plans.md')));
+  assert.match(fs.readFileSync(path.join(dir, 'specs/back/api.md'), 'utf8'), /\/plans/);
+  assert.ok(!e.text.includes('\n'), 'compact JSON');
+  const bad = await call('design_set', { id: 999, props: { fill: '#fff' } });
+  assert.ok(bad.err && /no layer #999/.test(bad.text));
+  await call('design_undo', {});
+  await ws.settled();
+  assert.ok(!fs.readFileSync(path.join(dir, 'specs/back/api.md'), 'utf8').includes('/plans'), 'undo regenerates the specs');
+  // an empty project starts a design
+  const empty = tmp();
+  const ws2 = new Workspace({ source: null, outDir: empty });
+  const mcp2 = new WeshCraftMcp({ workspace: ws2 });
+  assert.ok((await mcp2.tools()).some(t => t.name === 'design_new'));
+  await mcp2.callTool('design_new', { name: 'Shop' });
+  assert.ok(fs.existsSync(path.join(empty, 'design/Shop.figcraft')));
+  assert.ok((await mcp2.tools()).some(t => t.name === 'design_edit'));
+  ws.source.close(); ws2.source.close();
+});
+
+test('design in the browser: API ops, render, undo, live events, external saves reload', async () => {
+  const { dir, file } = copyTo(ACCOUNT);
+  const ws = new Workspace({ source: openEditable(file), outDir: dir, editDelayMs: 20 });
+  const mcp = new WeshCraftMcp({ workspace: ws });
+  const server = await startServer({ workspace: ws, mcp, port: 0, watch: true });
+  const base = server.url.replace(/\/$/, '');
+  const events = [];
+  const ac = new AbortController();
+  (async () => {
+    const r = await fetch(`${base}/api/events`, { signal: ac.signal });
+    const dec = new TextDecoder();
+    for await (const chunk of r.body) events.push(dec.decode(chunk));
+  })().catch(() => {});
+  try {
+    await ws.run();
+    const S = await (await fetch(`${base}/api/design`)).json();
+    assert.equal(S.editable, true);
+    assert.deepEqual(S.screens.map(s => s.key), ['scr-sign-up', 'scr-profile']);
+    const html = (await (await fetch(`${base}/api/design/render?id=2`)).json()).html;
+    assert.match(html, /data-node="4"[^>]*>Create your account</);
+    const op = await (await fetch(`${base}/api/design/op`, { method: 'POST', body: JSON.stringify({ ops: [{ op: 'text', id: 4, text: 'Join us' }] }) })).json();
+    assert.equal(op.version, 1);
+    await waitUntil(async () => events.join('').includes('event: design'));
+    await ws.settled();
+    assert.match(fs.readFileSync(path.join(dir, 'prototype/index.html'), 'utf8'), /Join us/);
+    const bad = await fetch(`${base}/api/design/op`, { method: 'POST', body: JSON.stringify({ ops: [{ op: 'nope' }] }) });
+    assert.equal(bad.status, 400);
+    assert.equal((await (await fetch(`${base}/api/design/undo`, { method: 'POST', body: '{}' })).json()).label, 'Edit text');
+    // FigCraft (or git) rewrites the file: WeshCraft reloads it; its own saves do not count as external
+    ws.source.store.flush();
+    const other = DesignStore.open(file);
+    other.apply([{ op: 'text', id: 5, text: 'Changed in FigCraft' }]);
+    other.saveNow();
+    await waitUntil(async () => ws.source.store.node(5).characters === 'Changed in FigCraft');
+    await ws.settled();
+    await waitUntil(async () => fs.readFileSync(path.join(dir, 'prototype/index.html'), 'utf8').includes('Changed in FigCraft'));
+  } finally { ac.abort(); server.close(); ws.source.close(); }
+});
+
+test('CLI: new creates an empty FigCraft document; serve-style workspaces find design/*.figcraft', () => {
+  const dir = tmp();
+  const bin = path.join(here, '..', 'bin', 'weshcraft.mjs');
+  const out = execFileSync(process.execPath, [bin, 'new', 'Shop'], { cwd: dir, encoding: 'utf8' });
+  assert.match(out, /created design\/Shop\.figcraft/);
+  const s = DesignStore.open(path.join(dir, 'design/Shop.figcraft'));
+  assert.equal(s.doc.format, 'figcraft');
+  assert.equal(s.doc.name, 'Shop');
+  assert.throws(() => execFileSync(process.execPath, [bin, 'new', 'Shop'], { cwd: dir, stdio: 'pipe' }));
 });

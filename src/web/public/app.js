@@ -1,8 +1,11 @@
 // WeshCraft browser UI: live spec builder fed by SSE, prototype iframe, spec reader linked to
 // prototype layers, parity list, notes editing and publishing.
+import { createEditor } from '/app/editor.js';
+
 const $ = s => document.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
+let editor = null;
 const state = { jobs: new Map(), current: null, view: 'read', summary: null, report: null, streams: new Map(), protoHash: null };
 
 // ---- markdown (small, escapes everything first) ----------------------------------------------
@@ -468,7 +471,9 @@ function connect() {
     if (ev.status === 'started') { $('#parity').className = 'parity busy'; $('#parity').textContent = 'Building specs…'; state.streams.clear(); }
   });
   es.addEventListener('manifest', e => applySummary(JSON.parse(e.data).summary));
-  es.addEventListener('prototype', e => reloadProto(JSON.parse(e.data).hash));
+  es.addEventListener('prototype', e => { reloadProto(JSON.parse(e.data).hash); editor?.onRegenerated(); });
+  es.addEventListener('design', e => editor?.onDesign(JSON.parse(e.data)));
+  es.addEventListener('source', e => { const s = JSON.parse(e.data).source; $('#source').textContent = s; $('#source').title = s; });
   es.addEventListener('parity', e => { state.report = JSON.parse(e.data).report; renderParity(); });
   es.addEventListener('log', e => log(JSON.parse(e.data)));
   es.addEventListener('sync', e => renderSync(JSON.parse(e.data).status));
@@ -480,7 +485,7 @@ async function init() {
   const st = await (await fetch('/api/state')).json();
   $('#source').textContent = st.source;
   $('#source').title = st.source;
-  if (st.figcraftWebUrl) { $('#designTab').hidden = false; $('#design').dataset.src = st.figcraftWebUrl; }
+  if (st.figcraftWebUrl) { $('#figcraftTab').hidden = false; $('#design').dataset.src = st.figcraftWebUrl; }
   for (const j of st.jobs) state.jobs.set(j.id, j);
   state.report = st.report;
   if (st.summary) { applySummary(st.summary); reloadProto(st.summary.hash); }
@@ -490,6 +495,13 @@ async function init() {
   state.tokens = st.tokens;
   renderSync(st.sync);
   connect();
+  // The design editor: first tab when the design is editable here (a .figcraft file, not a live FigCraft).
+  editor = createEditor({ openFile: f => { selectTab('proto'); openFile(f); if (phone.matches) setPhoneView('read'); }, markdown, log });
+  await editor.init(editable => {
+    $('#designTab').hidden = false;
+    $('#pbDesign').hidden = false;
+    if (editable || st.source === 'nothing') { if (phone.matches) setPhoneView('design'); else selectTab('design'); }
+  });
   if (!st.summary && !st.running) run(false);
   // Deep link (PR links, bookmarks): ?open=specs/front/screens/scr-home.md#anchor
   const open = new URLSearchParams(location.search).get('open');
@@ -528,7 +540,9 @@ function selectTab(t) {
     const show = p.dataset.panel === t;
     if (show && p.hidden) { p.hidden = false; fadeIn(p); } else p.hidden = !show;
   });
-  if (t === 'design' && $('#design').src === 'about:blank') $('#design').src = $('#design').dataset.src;
+  if (t === 'figcraft' && $('#design').src === 'about:blank') $('#design').src = $('#design').dataset.src;
+  document.body.classList.toggle('editing', t === 'design');
+  if (t === 'design') editor?.shown();
   if (t === 'links') requestAnimationFrame(drawWires);
 }
 document.querySelectorAll('.tab').forEach(b => b.addEventListener('click', () => selectTab(b.dataset.tab)));
@@ -635,7 +649,7 @@ const phone = window.matchMedia('(max-width: 720px)');
 function setPhoneView(v) {
   document.body.dataset.view = v;
   document.querySelectorAll('.phonebar [data-view]').forEach(b => b.setAttribute('aria-current', String(b.dataset.view === v)));
-  if (v === 'proto' || v === 'links' || v === 'manifest') selectTab(v);
+  if (v === 'proto' || v === 'links' || v === 'manifest' || v === 'design') selectTab(v);
   if (v === 'links') requestAnimationFrame(drawWires);
   window.scrollTo(0, 0);
 }

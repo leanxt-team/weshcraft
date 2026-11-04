@@ -46,7 +46,7 @@ export function checkParity(manifest, outDir) {
     const { c, visible } = spec;
     const f = rel(file);
     checks++;
-    if (c.fingerprint !== s.fingerprint) err('stale', f, `screen changed in FigCraft since this spec was written (fingerprint ${c.fingerprint} → ${s.fingerprint})`, s.id);
+    if (c.fingerprint !== s.fingerprint) err('stale', f, `screen changed in the design since this spec was written (fingerprint ${c.fingerprint} → ${s.fingerprint})`, s.id);
     // Copy must be shown verbatim in the Copy table itself, on the row of its layer.
     const copyStart = visible.indexOf('\n## Copy');
     const copySection = copyStart < 0 ? '' : visible.slice(copyStart, visible.indexOf('\n## ', copyStart + 8) >>> 0);
@@ -96,7 +96,7 @@ export function checkParity(manifest, outDir) {
     const spec = loadSpec(file, 'front-component');
     if (!spec) continue;
     checks += 2;
-    if (spec.c.fingerprint !== comp.fingerprint) err('stale', rel(file), 'component changed in FigCraft since this spec was written', comp.id);
+    if (spec.c.fingerprint !== comp.fingerprint) err('stale', rel(file), 'component changed in the design since this spec was written', comp.id);
     if (!setEq(comp.variants.map(v => v.id), spec.c.variants || [])) err('variants-differ', rel(file), 'variants differ from the prototype');
   }
 

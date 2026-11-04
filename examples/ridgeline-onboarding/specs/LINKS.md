@@ -42,7 +42,7 @@ Screen: [3 Location](front/screens/scr-3-location.md) · action · inferred
 
 ## Domain → front end
 
-No entity is shown. Bind text to data in FigCraft (`{{entity.field}}`) to add one.
+No entity is shown. Bind a layer to data (WeshCraft: Spec section › Shows, or `design_bind`; FigCraft: `{{entity.field}}` in text) to add one.
 ## Gaps
 
 None: every field shown is loaded by an operation on its screen, and every operation is reached from a layer.

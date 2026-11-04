@@ -1,27 +1,31 @@
 # WeshCraft
 
-**Design in FigCraft, get front-end and back-end specs that match the prototype exactly — live in the browser, checked in CI, published to GitHub or GitLab.**
+**A spec-oriented FigCraft in the browser.** Design screens yourself or let your agent build them over MCP; WeshCraft writes front-end and back-end specs that match the prototype exactly, live, checked in CI, synced to GitHub, GitLab or your local git.
 
-WeshCraft sits between [FigCraft](https://github.com/storytold/figcraft) (open-source interface design and prototyping, with an MCP server) and your repository:
+WeshCraft edits [FigCraft](https://github.com/storytold/figcraft) documents directly (`.figcraft`, the same files FigCraft opens), so it needs no FigCraft install, and it can still attach to a running FigCraft:
 
 ```
- Agent (Claude Code, /wesh-plan-view-mode)            You, in the browser (weshcraft serve)
-        │  figcraft_* tools  ·  weshcraft_* tools             │  prototype · spec builder · parity · publish
-        ▼                                                     ▼
- ┌──────────────────────── WeshCraft ─────────────────────────────────────────┐
- │ MCP proxy ─► FigCraft MCP (figcraft-cli mcp | --attach <port>) or .figcraft │
- │ snapshot ─► manifest (every screen, text, interaction, component, token,    │
- │             entity, operation, with node ids and fingerprints)              │
+ Agent (Claude Code, OpenCode, /wesh-plan-view-mode)       You, in the browser (weshcraft serve)
+        │  design_* · weshcraft_* tools                          │  design editor · prototype · spec builder · parity · publish
+        ▼                                                        ▼
+ ┌──────────────────────────── WeshCraft ─────────────────────────────────────┐
+ │ design store: the .figcraft in memory, one undo stack for people and agents │
+ │   (or a live FigCraft over MCP: figcraft-cli mcp | --attach <port>)         │
+ │ every edit ─► manifest (every screen, text, interaction, component, token,  │
+ │               entity, operation, with node ids and fingerprints)            │
  │ prototype/index.html  (clickable, rendered from the same model)             │
- │ specs/front/**  specs/back/**  ◄── generated in parallel, + optional agent  │
+ │ specs/front/**  specs/back/**  ◄── regenerated in parallel, + optional agent │
  │ parity check: specs ⇄ manifest ⇄ prototype                                  │
  └──────────────┬──────────────────────────────────────────────────────────────┘
                 ▼
-     GitHub PR / GitLab MR  +  CI job that re-checks parity on every push
+     GitHub PR / GitLab MR / local git commit  +  CI job that re-checks parity
 ```
 
-- **Iterate in FigCraft over MCP.** WeshCraft proxies FigCraft's full MCP tool set (`figcraft_create_node`, `figcraft_batch`, `figcraft_run_command`, …). Every edit triggers a debounced regeneration, so specs follow the design while you work.
-- **A clean, native-feeling workspace.** Liquid Glass styling: floating translucent panes, capsule controls, system type and colours, dense macOS-style lists, light and dark. It switches to solid materials when the system asks for reduced transparency or more contrast, and turns off motion for reduced motion. On phones it becomes an iOS-style app: one full-height view at a time, a floating tab bar (Specs · Prototype · Links · Spec), 44 pt rows, an action sheet and bottom-sheet dialogs, safe areas respected, screens scaled to fit.
+- **Design in the browser.** The **Design** tab is a FigCraft-style editor on the real document: screens and layers panels, select (click a top-level layer, double-click to go deeper, ⌘-click the deepest), move and resize with handles, drag into and reorder inside auto layout, draw frames, rectangles, ellipses and text, edit text in place, insert components, undo/redo, zoom, keyboard shortcuts. The inspector edits layout (position, size, hug/fill, auto layout direction, gap, padding, alignment), fill and tokens, stroke, radius, shadow, opacity and typography.
+- **Spec-oriented by construction.** The inspector's first section is what the specs read: the **link** a layer opens (another screen, a URL, back), the **API call** it triggers or a screen loads (`POST /trails → Trail`), the **data** it shows (`trail.name`), its dev status and notes. Its **Spec** tab shows the screen's spec as it is rewritten, with the selected layer's `#id` highlighted. The spec builder on the left fills in parallel after every edit.
+- **Agents design too, cheaply.** `design_tree` and `design_find` give one line per layer; `design_edit` applies a whole batch of operations in one undoable step (refs let later ops use what earlier ops created) and, with `wait: true`, returns the parity result and what changed in the specs. Agents and people share one document and one undo stack: what the agent does appears on your canvas, and ⌘Z undoes it.
+- **Still FigCraft.** The file is saved as a FigCraft document (other archive entries kept). Edit it in FigCraft and WeshCraft reloads it; attach to a running FigCraft (`--attach`) and agents use FigCraft's own tools (`figcraft_*`) instead.
+- **A clean, native-feeling workspace.** Liquid Glass styling: floating translucent panes, capsule controls, system type and colours, dense macOS-style lists, light and dark. It switches to solid materials when the system asks for reduced transparency or more contrast, and turns off motion for reduced motion. On phones it becomes an iOS-style app: one full-height view at a time, a floating tab bar (Specs · Design · Prototype · Links · Spec), 44 pt rows, an action sheet and bottom-sheet dialogs, safe areas respected, screens scaled to fit.
 - **Specs built in parallel, shown live.** One job per screen, per component, plus tokens, flows, domain model, API (with OpenAPI 3.1) and conventions. The browser's **Spec builder** section shows each job queue, write, get enriched by an agent (streamed) and finish.
 - **Specs match the visual prototype.** Each spec embeds a machine-readable contract (an HTML comment). `weshcraft check` compares it with a fresh extraction of the design: copy verbatim on its row, interactions and destinations, component instances and variants, inputs, frame sizes, tokens and values, navigation edges, entities and operations, and that the pushed prototype was built from the same design. Every spec line cites its layer as `#id`; click it in the browser and the prototype highlights that layer.
 - **Services with little or no UI.** The "front" can be an **MCP server** (agents are the users) and/or a **public HTTP API** (developers are the users): give an OpenAPI file (JSON or YAML), an MCP `tools/list` dump, a live server (`--mcp-server "node server.js"`, introspected over stdio), or a `weshcraft.surface.json` combining them — with or without a FigCraft design. Each MCP tool and endpoint gets a spec (arguments, rules, safety hints, example call, acceptance criteria), API schemas become the domain model, tools are linked to the endpoints they call, and the prototype becomes a clean **catalog** of tools and endpoints. A changed schema makes its spec stale, like a changed screen.
@@ -44,13 +48,23 @@ npm test
 npm run demo     # serves the Ridgeline example at http://127.0.0.1:4600/
 ```
 
-With your own design:
+In your project (it picks up `design/*.figcraft`; with none, the **Design** tab offers to start one):
+
+```bash
+node /path/to/weshcraft/bin/weshcraft.mjs serve
+```
+
+```bash
+node /path/to/weshcraft/bin/weshcraft.mjs new App
+```
+
+A specific file, another output folder:
 
 ```bash
 node bin/weshcraft.mjs serve --file path/to/app.figcraft --out path/to/your/repo
 ```
 
-The file is watched: save in FigCraft and the specs regenerate. Or drop a `.figcraft` file on **Open .figcraft** in the browser.
+Edits are saved back to the file (atomically, a moment after each change). The file is also watched: save it in FigCraft, or check out another version with git, and WeshCraft reloads it. `--read-only` keeps WeshCraft from writing the design. Or drop a `.figcraft` file on **Open .figcraft** in the browser.
 
 ### An API or MCP server (no screens)
 
@@ -71,9 +85,9 @@ node bin/weshcraft.mjs serve --mcp-server "node dist/server.js" --surface api/op
 
 Without links, a tool is matched to the endpoint whose `operationId` has the same words (`list_invoices` ⇄ `listInvoices`). A live `--mcp-server` is snapshotted to `design/<name>.mcp.json`, so CI checks the same tool list.
 
-### Live FigCraft over MCP
+### Live FigCraft over MCP (optional)
 
-Build FigCraft's CLI (`cargo build --release -p figcraft-cli`, see FigCraft's `docs/mcp.md`), then either:
+To design in the FigCraft app itself while WeshCraft writes the specs, build FigCraft's CLI (`cargo build --release -p figcraft-cli`, see FigCraft's `docs/mcp.md`), then either:
 
 ```bash
 node bin/weshcraft.mjs serve --mcp --file app.figcraft --figcraft-cli /path/to/figcraft-cli
@@ -92,17 +106,18 @@ node bin/weshcraft.mjs serve --attach 7979 --figcraft-cli /path/to/figcraft-cli
 ### In Claude Code or OpenCode (`/wesh-plan-view-mode`)
 
 ```bash
-node bin/weshcraft.mjs init --client both --attach 7979 --figcraft-cli /path/to/figcraft-cli --sync git
+node bin/weshcraft.mjs init --client both --sync git
 ```
 
-That writes `.mcp.json` for Claude Code and `opencode.json` for OpenCode: a `weshcraft` stdio MCP server that also serves the browser view; both commit the specs in this repository after every in-sync run. Drop `--sync git` to commit yourself, or use `--sync github:owner/repo` to sync a branch on GitHub instead. Install the wesh update (below), restart Claude Code, run `/wesh-plan-view-mode`. The agent plans with you in rounds, puts each decision into the prototype, generates the specs, fans out sub-agents to enrich them with `wesh-spec-front` / `wesh-spec-back`, gates on parity and publishes when you say so.
+That writes `.mcp.json` for Claude Code and `opencode.json` for OpenCode: a `weshcraft` stdio MCP server that also serves the browser view; both commit the specs in this repository after every in-sync run. Drop `--sync git` to commit yourself, or use `--sync github:owner/repo` to sync a branch on GitHub instead. The server edits the project's design (`design/*.figcraft`, or starts one); add `--attach 7979 --figcraft-cli …` to drive a running FigCraft instead. Install the wesh update (below), restart Claude Code, run `/wesh-plan-view-mode`. The agent plans with you in rounds, puts each decision into the prototype with `design_edit`, generates the specs, fans out sub-agents to enrich them with `wesh-spec-front` / `wesh-spec-back`, gates on parity and publishes when you say so.
 
 ## Commands
 
 | Command | What it does |
 |---|---|
-| `serve [source]` | Browser workspace, SSE live updates, MCP over HTTP at `/mcp`, zip download. Binds to 127.0.0.1; any other host requires `--token`. |
-| `mcp [source] [--web]` | MCP server on stdio (`figcraft_*` + `weshcraft_*` tools). `--web` also serves the browser view. |
+| `serve [source] [--read-only]` | Browser workspace: design editor, prototype, live spec builder, parity, publish; SSE live updates, MCP over HTTP at `/mcp`, zip download. Edits the design in place. Binds to 127.0.0.1; any other host requires `--token`. |
+| `mcp [source] [--web] [--read-only]` | MCP server on stdio (`design_*` + `weshcraft_*` tools, `figcraft_*` with a live FigCraft). `--web` also serves the browser view. |
+| `new NAME` | Create `design/NAME.figcraft`, an empty FigCraft document. |
 | `generate [source] [--force] [--agent [CMD]]` | One run: prototype + all specs + parity. Exit 1 when out of sync. |
 | `check --file F [--format text\|markdown\|json]` | Parity only, for CI. Exit 1 when out of sync. |
 | `diff --file F [--against GIT_REF]` | What changed in the design since the specs on disk (or committed at a ref). |
@@ -110,12 +125,19 @@ That writes `.mcp.json` for Claude Code and `opencode.json` for OpenCode: a `wes
 | `zip [source] --zip F` | Everything a repo needs, as a zip. |
 | `init [--client claude\|opencode\|both]` | MCP server for Claude Code (`.mcp.json`) and/or OpenCode (`opencode.json`, `mcp.servers.weshcraft`). |
 
-Source: `--file F` (offline), `--mcp` (spawns `figcraft-cli mcp`), or `--attach PORT` (running app); and/or non-visual fronts: `--surface FILE` (OpenAPI JSON/YAML, MCP tool list, `weshcraft.surface.json`; repeatable) and `--mcp-server "CMD"` (repeatable).
+Source: `--file F` (default for `serve`/`mcp`: the first `design/*.figcraft`), `--mcp` (spawns `figcraft-cli mcp`), or `--attach PORT` (running app); and/or non-visual fronts: `--surface FILE` (OpenAPI JSON/YAML, MCP tool list, `weshcraft.surface.json`; repeatable) and `--mcp-server "CMD"` (repeatable).
 
 ### MCP tools
 
 | Tool | |
 |---|---|
+| `design_tree {root?, depth?}` | One line per layer: `#id · type · "name" · "text" · w×h @x,y · fill · layout · ▶ links · API …`. Start here. |
+| `design_find {query, type?, root?}` | Layers whose name or text matches, same format. |
+| `design_get {id}` | One layer's properties in the vocabulary `design_edit` accepts. |
+| `design_edit {ops, wait?}` | The workhorse: `screen`, `create`, `set`, `text`, `delete`, `move`, `duplicate`, `instance`, `link`, `bind`, `api`, `note`, `token`, `useToken`, `rename`, applied in order as one undo step; `ref` names a created layer for later ops. `wait: true` returns parity, design changes and gaps. |
+| `design_create` · `design_set` · `design_text` · `design_delete` · `design_move` · `design_duplicate` · `design_screen` | Single-purpose shortcuts for the same operations. |
+| `design_link {id, to \| url \| back}` · `design_bind {id, entity, field, type?}` · `design_api {id, method, path, returns?}` | Prototype link, data binding, API call: what the specs and the front ⇄ back map read. |
+| `design_tokens {name?, value?, apply?}` · `design_undo` · `design_redo` · `design_screenshot {id}` · `design_new {name}` | Tokens, shared undo, a PNG of a screen (needs Playwright), a new design. |
 | `figcraft_*` | FigCraft's own tools, unchanged (only with `--mcp` / `--attach`). Mutating calls schedule a regeneration. |
 | `weshcraft_status` | Summary, jobs, parity, live URL. |
 | `weshcraft_generate {force?}` | Snapshot + prototype + parallel spec jobs + parity. |
@@ -155,9 +177,9 @@ See [`examples/ridgeline-onboarding/`](examples/ridgeline-onboarding/) for a ful
 
 ### Making the back end explicit
 
-Front-end facts come straight from the design. Back-end facts are **explicit** when the designer states them, **inferred** otherwise (and listed as open questions):
+Front-end facts come straight from the design. Back-end facts are **explicit** when the designer states them, **inferred** otherwise (and listed as open questions). In WeshCraft, state them in the inspector's **Spec** section (Calls / Loads, Shows) or with `design_api` / `design_bind`; they are stored in the FigCraft conventions below, so FigCraft and older WeshCraft versions read them the same way:
 
-| In FigCraft | Becomes |
+| In the design | Becomes |
 |---|---|
 | Text `{{trail.name}}` or `{{trail.distance:number}}` | field `Trail.name` / `Trail.distance: number` |
 | Layer named `@trail.rating:number` | field `Trail.rating` |
@@ -193,11 +215,13 @@ This repository's own tests run in `.github/workflows/ci.yml` and `.gitlab-ci.ym
 
 - `serve` listens on 127.0.0.1 only unless you pass `--token` (then every request needs it; the browser gets an HttpOnly cookie).
 - Git tokens are read from the environment or passed per publish from the browser to the local server; they are never written to disk.
-- File paths from MCP and HTTP are confined to the output folder; uploads are written under `design/`.
+- File paths from MCP and HTTP are confined to the output folder; uploads and new designs are written under `design/`.
+- Design edits are written atomically (temporary file + rename); WeshCraft's own saves are recognised by content hash, so only outside changes trigger a reload. Undo history lives in memory (200 steps) and is shared by everyone editing through the same server.
 - FigCraft's own `--automation-read-root` / `--automation-write-root` flags still apply to the FigCraft process; pass them through `--figcraft-cli` wrappers when you want an agent confined.
 
 ## Limits
 
+- The browser editor covers FigCraft's everyday tools (frames, shapes, text, auto layout, components as instances, prototype links, tokens, annotations). Vector path editing, boolean operations, images, variants and multi-page management stay in FigCraft; such layers are kept intact and shown as rendered.
 - Fidelity of the HTML prototype is high for frames, auto layout (flex and grid), text, solid/gradient fills, strokes, shadows, blurs, vectors, stars and polygons; images, boolean groups, masks and rich text runs fall back to boxes. With a live FigCraft, its own PNG renders are stored next to the prototype as the reference.
 - The live MCP path normalises FigCraft's `inspect_document` output; it is tested against a protocol double built from FigCraft's documented shapes and real `.figcraft` files, not against a compiled `figcraft-cli`. If a FigCraft version reports a property differently, `check` against the saved file may report the specs as stale until you regenerate from the file.
 - Back-end inference is heuristic unless the design binds data or annotates operations (above).
@@ -210,6 +234,7 @@ The output is a versioned, tool-independent spec format — see [docs/SPEC-FORMA
 
 ```
 bin/weshcraft.mjs          CLI
+src/design/                design store (edit .figcraft, undo/redo, save), props vocabulary, agent tools
 src/figcraft/              MCP client + sources (file, headless, attached)
 src/model/                 normalised model + manifest extraction
 src/proto/html.mjs         prototype renderer
@@ -219,7 +244,7 @@ src/spec/                  front/back generators, contracts, workspace (parallel
 src/parity/check.mjs       parity
 src/spec/diff.mjs          design changelog
 src/mcp/server.mjs         WeshCraft MCP server (stdio + HTTP handler)
-src/web/                   browser app (server + public/)
+src/web/                   browser app: server, design API, public/ (app + editor.js)
 src/publish/               GitHub/GitLab REST + CI templates
 wesh-bundle/               /wesh-plan-view-mode + wesh-spec-* skills, apply script and patch
 test/                      node:test suite, FigCraft protocol double, fixtures

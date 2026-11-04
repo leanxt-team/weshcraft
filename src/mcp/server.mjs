@@ -1,6 +1,7 @@
-// WeshCraft's MCP server. An agent designs in FigCraft through the proxied `figcraft_*` tools
-// (the full FigCraft tool set, unchanged) and works with specs through the `weshcraft_*` tools.
-// Edits made through the proxy trigger a debounced spec run, so specs follow the design live.
+// WeshCraft's MCP server. An agent designs with the `design_*` tools (WeshCraft edits the .figcraft
+// document itself: no FigCraft app needed), or through the proxied `figcraft_*` tools when a live
+// FigCraft is attached, and works with specs through the `weshcraft_*` tools. Every design change
+// triggers a debounced spec run, so specs follow the design live.
 // Transports: newline-delimited JSON-RPC over stdio, and Streamable HTTP (POST /mcp) in `serve`.
 import fs from 'node:fs';
 import path from 'node:path';
@@ -8,6 +9,7 @@ import readline from 'node:readline';
 import { readNotes } from '../spec/contract.mjs';
 import { collectFiles, prBody, publish } from '../publish/git.mjs';
 import { parseTarget } from '../publish/sync.mjs';
+import { DESIGN_TOOLS, NEW_DESIGN_TOOL, callDesignTool } from '../design/tools.mjs';
 
 const READ_ONLY = new Set(['list_commands', 'inspect_document', 'get_node', 'export', 'screenshot', 'inspect_ui', 'wait_for_changes', 'list_documents']);
 const PROTOCOL = '2025-06-18';
@@ -16,12 +18,12 @@ const text = (t, isError = false) => ({ content: [{ type: 'text', text: typeof t
 
 const SPEC_TOOLS = [
   { name: 'weshcraft_status', description: 'Prototype summary, every spec job with its status, and the parity result.', inputSchema: { type: 'object', properties: {} } },
-  { name: 'weshcraft_generate', description: 'Snapshot the FigCraft prototype, rebuild the front prototype and regenerate every front/back spec in parallel, then check parity. Unchanged specs are skipped unless force is true.', inputSchema: { type: 'object', properties: { force: { type: 'boolean' } } } },
-  { name: 'weshcraft_check', description: 'Check that specs and prototype match the current FigCraft design exactly. Returns issues with file, node and fix hint.', inputSchema: { type: 'object', properties: {} } },
+  { name: 'weshcraft_generate', description: 'Snapshot the design, rebuild the front prototype and regenerate every front/back spec in parallel, then check parity. Unchanged specs are skipped unless force is true.', inputSchema: { type: 'object', properties: { force: { type: 'boolean' } } } },
+  { name: 'weshcraft_check', description: 'Check that specs and prototype match the current design exactly. Returns issues with file, node and fix hint.', inputSchema: { type: 'object', properties: {} } },
   { name: 'weshcraft_manifest', description: 'The proto manifest (screens, texts, interactions, components, tokens, flows, domain, operations), or one screen of it.', inputSchema: { type: 'object', properties: { screen: { type: 'string', description: 'screen key, e.g. scr-home' } } } },
   { name: 'weshcraft_links', description: 'Front ⇄ back links: which layers trigger or submit to which operation, which layers show which entity field and which operation loads it, plus gaps. Filter by screen key, operation key or Entity.field.', inputSchema: { type: 'object', properties: { screen: { type: 'string' }, op: { type: 'string' }, field: { type: 'string' } } } },
   { name: 'weshcraft_read_spec', description: 'Read a generated file, e.g. specs/front/screens/scr-home.md or specs/back/api.md.', inputSchema: { type: 'object', properties: { path: { type: 'string' } }, required: ['path'] } },
-  { name: 'weshcraft_write_notes', description: 'Replace the Notes block of one spec (states, edge cases, a11y, analytics, open questions). Generated sections are not editable: change the design in FigCraft instead. Cite layers as `#id`.', inputSchema: { type: 'object', properties: { path: { type: 'string' }, notes: { type: 'string' } }, required: ['path', 'notes'] } },
+  { name: 'weshcraft_write_notes', description: 'Replace the Notes block of one spec (states, edge cases, a11y, analytics, open questions). Generated sections are not editable: change the design instead (design_* tools). Cite layers as `#id`.', inputSchema: { type: 'object', properties: { path: { type: 'string' }, notes: { type: 'string' } }, required: ['path', 'notes'] } },
   { name: 'weshcraft_sync', description: 'Sync prototype + specs to git now, and optionally set the target: github:owner/repo[@branch] or gitlab:group/project[@branch] (API commit to a branch, PR/MR opened once then updated), or git[@branch] (commit in the local repository holding the output folder; push optional). auto: also sync after every in-sync regeneration.', inputSchema: { type: 'object', properties: { target: { type: 'string' }, auto: { type: 'boolean' }, pr: { type: 'boolean' }, push: { type: 'boolean' }, base: { type: 'string' }, apiUrl: { type: 'string' } } } },
   { name: 'weshcraft_publish', description: 'Commit prototype + specs (+ CI parity check and the .figcraft source) to a branch and open or update a GitHub PR / GitLab MR. Token from GITHUB_TOKEN / GITLAB_TOKEN.', inputSchema: { type: 'object', properties: { provider: { type: 'string', enum: ['github', 'gitlab'] }, repo: { type: 'string', description: 'owner/name (GitHub) or group/project (GitLab)' }, branch: { type: 'string' }, base: { type: 'string' }, title: { type: 'string' }, apiUrl: { type: 'string' } }, required: ['provider', 'repo'] } },
 ];
@@ -40,6 +42,8 @@ export class WeshCraftMcp {
 
   async tools() {
     const out = [...SPEC_TOOLS];
+    if (this.ws.source?.store) out.push(...DESIGN_TOOLS);
+    else if (!this.ws.source) out.push(NEW_DESIGN_TOOL);
     if (this.ws.source?.kind === 'mcp') {
       if (!this.figcraftTools) {
         try { this.figcraftTools = await this.ws.source.tools(); } catch (e) { this.figcraftTools = []; this.ws.emit('log', { level: 'warn', message: `FigCraft tools unavailable: ${e.message}` }); }
@@ -64,6 +68,7 @@ export class WeshCraftMcp {
 
   async callTool(name, args = {}) {
     try {
+      if (name.startsWith('design_')) return await callDesignTool(this.ws, name, args);
       if (name.startsWith('figcraft_')) {
         if (this.ws.source?.kind !== 'mcp') return text('FigCraft tools need a live FigCraft: start WeshCraft with --mcp or --attach <port>.', true);
         const inner = name.slice('figcraft_'.length);
@@ -159,7 +164,10 @@ export class WeshCraftMcp {
           serverInfo: { name: 'weshcraft', version: '0.1.0' },
           instructions: [
             'WeshCraft keeps front-end and back-end specs in lockstep with a FigCraft prototype.',
-            this.ws.source?.kind === 'mcp' ? 'Design with the figcraft_* tools (the full FigCraft MCP); after edits, specs regenerate automatically.' : 'Source is a .figcraft file (read-only here); edit it in FigCraft and WeshCraft regenerates on save.',
+            this.ws.source?.store
+              ? 'Design with the design_* tools: design_tree first (ids), then design_edit to batch changes (one undo step; refs link new layers), design_text for copy, design_bind / design_api to tie layers to data and API calls, design_link for prototype links. Specs regenerate automatically after each change; pass wait:true to get parity back. The user edits the same design in the browser at the same time.'
+              : this.ws.source?.kind === 'mcp' ? 'Design with the figcraft_* tools (the full FigCraft MCP); after edits, specs regenerate automatically.'
+              : 'No design yet: design_new starts one (or the project front is an API / MCP server only).',
             'Use weshcraft_status / weshcraft_check to see parity, weshcraft_links for front ⇄ back links, weshcraft_write_notes to add states, edge cases and questions, weshcraft_publish to open a PR/MR, weshcraft_sync to keep a GitHub/GitLab branch or the local git repository in step.',
             'Facts in specs (copy, sizes, colours, interactions, operations) come from the design only: to change them, change the design.',
             this.webUrl ? `Live view: ${this.webUrl}` : '',

@@ -5,6 +5,7 @@ import path from 'node:path';
 import { parseArgs } from 'node:util';
 import { fileURLToPath } from 'node:url';
 import { sourceFromOptions } from '../src/figcraft/source.mjs';
+import { openEditable } from '../src/design/source.mjs';
 import { Workspace } from '../src/spec/workspace.mjs';
 import { WeshCraftMcp } from '../src/mcp/server.mjs';
 import { startServer } from '../src/web/server.mjs';
@@ -15,15 +16,16 @@ import { writeZip } from '../src/util/zip.mjs';
 import { Syncer, parseTarget } from '../src/publish/sync.mjs';
 import { SurfaceSource } from '../src/surface/load.mjs';
 
-const HELP = `weshcraft — FigCraft prototype in, front/back specs that match it out.
+const HELP = `weshcraft — a spec-oriented FigCraft: design in the browser or over MCP, get front/back specs that match it.
 
 Usage
-  weshcraft serve    [source] [--out DIR] [--port 4600] [--host 127.0.0.1] [--token T] [--allow-lan] [--agent [CMD]]
-                     [--figcraft-web URL] [--no-watch] [--concurrency N]
-      Browser workspace: clickable prototype, live spec builder, parity, publish. MCP over HTTP at /mcp.
-      A non-loopback --host needs --token; --allow-lan serves it without one (no git token on the host).
-  weshcraft mcp      [source] [--out DIR] [--web [--port 4600]] [--agent [CMD]] [--no-auto]
-      MCP server on stdio: the FigCraft tools (as figcraft_*) plus weshcraft_* tools.
+  weshcraft serve    [source] [--out DIR] [--port 4600] [--host 127.0.0.1] [--token T] [--agent [CMD]]
+                     [--figcraft-web URL] [--no-watch] [--read-only] [--concurrency N]
+      Browser workspace: design editor, clickable prototype, live spec builder, parity, publish.
+      MCP over HTTP at /mcp. Edits the .figcraft in place (default: design/*.figcraft, or start one).
+  weshcraft mcp      [source] [--out DIR] [--web [--port 4600]] [--agent [CMD]] [--no-auto] [--read-only]
+      MCP server on stdio: design_* (edit the design), weshcraft_* (specs), figcraft_* with a live FigCraft.
+  weshcraft new      NAME [--out DIR]                 create design/NAME.figcraft (an empty FigCraft document)
   weshcraft generate [source] [--out DIR] [--force] [--agent [CMD]]
   weshcraft check    --file F [--out DIR] [--format text|markdown|json]    exit 1 when out of sync
   weshcraft diff     --file F [--out DIR] [--against GIT_REF] [--format markdown|json]
@@ -68,8 +70,7 @@ function opts(argv) {
     options: {
       file: { type: 'string', short: 'f' }, mcp: { type: 'boolean' }, attach: { type: 'string' }, 'figcraft-cli': { type: 'string' },
       out: { type: 'string', short: 'o' }, port: { type: 'string' }, host: { type: 'string' }, token: { type: 'string' },
-      'allow-lan': { type: 'boolean' },
-      agent: { type: 'string' }, 'figcraft-web': { type: 'string' }, 'no-watch': { type: 'boolean' }, concurrency: { type: 'string' },
+      agent: { type: 'string' }, 'figcraft-web': { type: 'string' }, 'no-watch': { type: 'boolean' }, 'read-only': { type: 'boolean' }, concurrency: { type: 'string' },
       web: { type: 'boolean' }, 'no-auto': { type: 'boolean' }, force: { type: 'boolean' }, format: { type: 'string' },
       provider: { type: 'string' }, against: { type: 'string' }, repo: { type: 'string' }, branch: { type: 'string' }, base: { type: 'string' }, 'api-url': { type: 'string' },
       zip: { type: 'string' }, title: { type: 'string' }, prefix: { type: 'string' }, help: { type: 'boolean', short: 'h' },
@@ -92,17 +93,26 @@ function syncer(ws, o) {
   return new Syncer(ws, parseTarget(o.sync, { auto: !o['sync-manual'], pr: !o['no-sync-pr'], push: !!o['sync-push'], base: o.base, apiUrl: o['api-url'] }));
 }
 
-function workspace(o) {
-  const file = o.file ?? o.positionals[0];
+function workspace(o, { editable = false } = {}) {
   const outDir = path.resolve(o.out ?? '.');
+  let file = o.file ?? o.positionals[0];
+  // serve / mcp in a project: pick up its design (design/*.figcraft) when none is named.
+  if (!file && editable && !o.mcp && !o.attach) {
+    const dir = path.join(outDir, 'design');
+    const found = fs.existsSync(dir) ? fs.readdirSync(dir).filter(n => /\.figcraft(\.json)?$/i.test(n)).sort() : [];
+    if (found.length) file = path.join(dir, found[0]);
+  }
   const surfaces = o.surface ?? [], servers = o['mcp-server'] ?? [];
   const surface = surfaces.length || servers.length ? new SurfaceSource({ files: surfaces, servers, snapshotDir: path.join(outDir, 'design') }) : null;
-  const source = sourceFromOptions({ file: file && path.resolve(file), mcp: o.mcp, attach: o.attach, figcraftCli: o['figcraft-cli'], surfaceOnly: !!surface });
+  const source = sourceFromOptions({ file: file && path.resolve(file), mcp: o.mcp, attach: o.attach, figcraftCli: o['figcraft-cli'], surfaceOnly: !!surface, editable, readOnly: !!o['read-only'] });
   return new Workspace({
     source, surface, outDir, concurrency: o.concurrency ? Number(o.concurrency) : 6,
     agent: o.agent ? (o.agent === 'default' ? true : o.agent) : false,
   });
 }
+
+// `weshcraft check | head`: a closed pipe ends the command quietly.
+process.stdout.on('error', e => { if (e.code === 'EPIPE') process.exit(process.exitCode ?? 0); throw e; });
 
 async function main() {
   const [cmd = 'help', ...rest] = process.argv.slice(2);
@@ -112,24 +122,35 @@ async function main() {
 
   switch (cmd) {
     case 'serve': {
-      const ws = workspace(o);
+      const ws = workspace(o, { editable: true });
       const sync = syncer(ws, o);
       const mcp = new WeshCraftMcp({ workspace: ws, syncer: sync });
-      const server = await startServer({ workspace: ws, mcp, syncer: sync, port: o.port ? Number(o.port) : 4600, host: o.host, token: o.token || process.env.WESHCRAFT_TOKEN, allowLan: !!o['allow-lan'], figcraftWebUrl: o['figcraft-web'], watch: !o['no-watch'] });
+      const server = await startServer({ workspace: ws, mcp, syncer: sync, port: o.port ? Number(o.port) : 4600, host: o.host, token: o.token || process.env.WESHCRAFT_TOKEN, figcraftWebUrl: o['figcraft-web'], watch: !o['no-watch'] });
       mcp.webUrl = server.url;
       process.stderr.write(`WeshCraft: ${server.url}\n  source:  ${ws.describe()}\n  output:  ${ws.outDir}\n  MCP:     ${server.url.replace(/\/(\?.*)?$/, '/mcp')}\n  sync:    ${sync.status().target ?? 'off'}${sync.status().auto ? ' (after every in-sync run)' : ''}\n`);
       ws.run().catch(e => process.stderr.write(`first run failed: ${e.message}\n`));
       const stop = () => { ws.source?.close(); server.close(); process.exit(0); };
+      process.on('exit', () => ws.source?.store?.flush());
       process.on('SIGINT', stop);
       process.on('SIGTERM', stop);
       return;
     }
+    case 'new': {
+      const name = o.positionals[0];
+      if (!name) { process.stderr.write('weshcraft new NAME\n'); process.exitCode = 2; return; }
+      const outDir = path.resolve(o.out ?? '.');
+      const file = path.join(outDir, 'design', `${name.replace(/[^\w.-]+/g, '-')}.figcraft`);
+      if (fs.existsSync(file)) { process.stderr.write(`${path.relative(process.cwd(), file)} already exists\n`); process.exitCode = 1; return; }
+      openEditable(file, name);
+      process.stdout.write(`created ${path.relative(process.cwd(), file)}. Next: weshcraft serve\n`);
+      return;
+    }
     case 'mcp': {
-      const ws = workspace(o);
+      const ws = workspace(o, { editable: true });
       const sync = syncer(ws, o);
       const mcp = new WeshCraftMcp({ workspace: ws, autoRun: !o['no-auto'], syncer: sync });
       if (o.web) {
-        const server = await startServer({ workspace: ws, mcp, syncer: sync, port: o.port ? Number(o.port) : 4600, host: o.host, token: o.token || process.env.WESHCRAFT_TOKEN, allowLan: !!o['allow-lan'], figcraftWebUrl: o['figcraft-web'], watch: !o['no-watch'] });
+        const server = await startServer({ workspace: ws, mcp, syncer: sync, port: o.port ? Number(o.port) : 4600, host: o.host, token: o.token || process.env.WESHCRAFT_TOKEN, figcraftWebUrl: o['figcraft-web'], watch: !o['no-watch'] });
         mcp.webUrl = server.url;
         process.stderr.write(`WeshCraft web: ${server.url}\n`);
       }
@@ -213,7 +234,8 @@ async function main() {
       // MCP config for Claude Code (.mcp.json) and/or OpenCode (opencode.json), in this folder.
       const cli = o['figcraft-cli'] || 'figcraft-cli';
       const surfaceArgs = [...(o.surface ?? []).flatMap(f => ['--surface', f]), ...(o['mcp-server'] ?? []).flatMap(c => ['--mcp-server', c])];
-      const visual = o.attach ? ['--attach', o.attach, '--figcraft-cli', cli] : o.file ? ['--file', o.file] : surfaceArgs.length ? [] : ['--mcp', '--figcraft-cli', cli];
+      // Default: WeshCraft edits the project's design itself (design/*.figcraft, or design_new).
+      const visual = o.attach ? ['--attach', o.attach, '--figcraft-cli', cli] : o.mcp ? ['--mcp', '--figcraft-cli', cli] : o.file ? ['--file', o.file] : [];
       const serverArgs = ['mcp', ...visual, ...surfaceArgs, '--out', '.', '--web', ...(o.sync ? ['--sync', o.sync] : []), ...(o['sync-push'] ? ['--sync-push'] : [])];
       // From a checkout: run this very file. With WESHCRAFT_PACKAGE (e.g. github:you/weshcraft): npx it.
       const command = process.env.WESHCRAFT_PACKAGE ? ['npx', '--yes', process.env.WESHCRAFT_PACKAGE, ...serverArgs] : ['node', fileURLToPath(import.meta.url), ...serverArgs];

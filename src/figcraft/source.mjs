@@ -4,6 +4,7 @@ import fs from 'node:fs';
 import { readZip } from '../util/zip.mjs';
 import { fromFigcraftFile, fromInspect, variablesFromRest } from '../model/normalize.mjs';
 import { McpStdioClient } from './rpc.mjs';
+import { openEditable } from '../design/source.mjs';
 
 export function readFigcraftArchive(file) {
   const buf = fs.readFileSync(file);
@@ -86,8 +87,10 @@ export class McpSource {
 export function sourceFromOptions(o) {
   if (o.attach || o.mcp) return new McpSource({ attach: o.attach, file: o.file, command: o.figcraftCli });
   if (!o.file) {
-    if (o.surfaceOnly) return null;
+    if (o.surfaceOnly || o.editable) return null;
     throw new Error('give a .figcraft file (--file), a FigCraft MCP source (--mcp / --attach <port>), or a non-visual front (--surface openapi.yaml|weshcraft.surface.json|tools.json, --mcp-server "cmd")');
   }
+  // serve / mcp edit the design in place; one-shot commands (check, diff, generate, publish) only read it.
+  if (o.editable && !o.readOnly) return openEditable(o.file);
   return new FileSource(o.file);
 }

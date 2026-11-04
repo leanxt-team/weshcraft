@@ -146,7 +146,7 @@ None bound; raw colours: #0e7c66, #0f172a, #64748b, #cbd5e1, #ddf4ec, #f4f6f8, #
 3. Activating “Back” (`#31`) goes back to the previous screen; it is reachable by keyboard and announced as a button.
 4. Activating “Continue” (`#87`) navigates to 3 Location with a push transition of 400 ms; it is reachable by keyboard and announced as a button.
 5. Activating `#87` calls `POST /interests/continue`; while pending the control is disabled; on error the screen stays and shows the error.
-6. Contrast: `#39` is below WCAG AA in the design; keep as designed or fix in FigCraft first (the spec follows the prototype).
+6. Contrast: `#39` is below WCAG AA in the design; keep as designed or fix in the design first (the spec follows the prototype).
 
 ## Notes
 

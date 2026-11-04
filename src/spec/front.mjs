@@ -181,7 +181,7 @@ export function screenSpec(model, manifest, screen, { notes, ops = [], code = nu
   for (const o of opsHere.filter(o => o.trigger)) L.push(`${k++}. Activating ${ref(o.trigger)} calls \`${o.method} ${o.path}\`; while pending the control is disabled; on error the screen stays and shows the error.`);
   for (const o of opsHere.filter(o => o.kind === 'list')) L.push(`${k++}. The list built from ${o.sources.map(ref).join(', ')} is filled from \`${o.method} ${o.path}\`, with loading and empty states.`);
   const bad = copyRows.filter(r => !r.ok);
-  if (bad.length) L.push(`${k++}. Contrast: ${bad.map(r => ref(r.t.id)).join(', ')} ${bad.length > 1 ? 'are' : 'is'} below WCAG AA in the design; keep as designed or fix in FigCraft first (the spec follows the prototype).`);
+  if (bad.length) L.push(`${k++}. Contrast: ${bad.map(r => ref(r.t.id)).join(', ')} ${bad.length > 1 ? 'are' : 'is'} below WCAG AA in the design; keep as designed or fix in the design first (the spec follows the prototype).`);
   L.push('');
   if (code) {
     L.push('## FigCraft Dev Mode code');
@@ -289,7 +289,7 @@ export function tokensSpec(manifest, { notes } = {}) {
   const { collections, variables } = manifest.tokens;
   const L = ['# Design tokens', ''];
   if (!variables.length) {
-    L.push('The prototype defines no variables. Raw colours per screen are listed in each screen spec; consider creating variables in FigCraft (`variable.create`) so code and design share names.');
+    L.push('The prototype defines no variables. Raw colours per screen are listed in each screen spec; consider creating tokens (WeshCraft: Tokens panel or `design_tokens`; FigCraft: `variable.create`) so code and design share names.');
   } else {
     for (const c of collections) {
       L.push(`## ${c.name}`);

@@ -7,7 +7,8 @@ import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { bus } from '../util/common.mjs';
 import { writeZip } from '../util/zip.mjs';
-import { FileSource } from '../figcraft/source.mjs';
+import { openEditable } from '../design/source.mjs';
+import { designApi } from './design-api.mjs';
 import { collectFiles } from '../publish/git.mjs';
 
 const PUBLIC = path.join(path.dirname(fileURLToPath(import.meta.url)), 'public');
@@ -41,16 +42,22 @@ function serveFile(res, root, rel) {
 }
 
 /**
- * @param {{workspace, mcp, host?: string, port?: number, token?: string, allowLan?: boolean, figcraftWebUrl?: string, uploadsDir?: string, watch?: boolean}} o
+ * @param {{workspace, mcp, host?: string, port?: number, token?: string, figcraftWebUrl?: string, uploadsDir?: string, watch?: boolean}} o
  */
 export function startServer(o) {
   const ws = o.workspace;
   const token = o.token || null;
   const host = o.host || '127.0.0.1';
-  if (!token && !o.allowLan && !['127.0.0.1', 'localhost', '::1'].includes(host)) {
-    throw new Error(`refusing to listen on ${host} without --token (anyone on the network could publish with your git token); pass --allow-lan if this host holds no git token`);
+  if (!token && !['127.0.0.1', 'localhost', '::1'].includes(host)) {
+    throw new Error(`refusing to listen on ${host} without --token (anyone on the network could publish with your git token)`);
   }
   const clients = new Set();
+  // Every workspace event (jobs, runs, parity, design edits) streams to every open browser.
+  const broadcast = ev => {
+    const data = `event: ${ev.type}\ndata: ${JSON.stringify(ev)}\n\n`;
+    for (const c of clients) c.write(data);
+  };
+  bus.on('weshcraft', broadcast);
   const authorized = (req, url) => {
     if (!token) return true;
     const h = req.headers.authorization || '';
@@ -59,12 +66,25 @@ export function startServer(o) {
     return !!given && given.length === token.length && crypto.timingSafeEqual(Buffer.from(given), Buffer.from(token));
   };
 
+  // The design file can change outside WeshCraft (FigCraft saved it, git checkout). Watch its folder:
+  // saves replace the file (rename), which a watch on the file itself would miss.
   let watcher = null;
   const watchFile = file => {
     watcher?.close();
     if (!o.watch || !file) return;
     let t = null;
-    watcher = fs.watch(file, () => { clearTimeout(t); t = setTimeout(() => ws.run().catch(e => ws.emit('log', { level: 'error', message: e.message })), 400); });
+    const base = path.basename(file);
+    try {
+      watcher = fs.watch(path.dirname(file), (_, name) => {
+        if (name && name !== base) return;
+        clearTimeout(t);
+        t = setTimeout(() => {
+          const store = ws.source?.store;
+          if (store) { try { store.reloadIfChanged(); } catch (e) { ws.emit('log', { level: 'error', message: `could not reload ${base}: ${e.message}` }); } }
+          else ws.run().catch(e => ws.emit('log', { level: 'error', message: e.message }));
+        }, 300);
+      });
+    } catch { /* folder gone: nothing to watch */ }
   };
   if (ws.source?.kind === 'file') watchFile(ws.source.file);
   // Surface files (OpenAPI, MCP tool lists) regenerate on save too.
@@ -90,7 +110,7 @@ export function startServer(o) {
       // Only what WeshCraft writes: the output folder may be the user's repository root.
       if (/^\/out\/(prototype|specs)\//.test(p)) return serveFile(res, ws.outDir, decodeURIComponent(p.slice(5)));
 
-      if (p === '/api/state') return send(res, 200, { ...ws.state(), sync: o.syncer?.status() ?? null, figcraftWebUrl: o.figcraftWebUrl ?? null, tokens: { github: !!process.env.GITHUB_TOKEN, gitlab: !!process.env.GITLAB_TOKEN }, mcpUrl: '/mcp' });
+      if (p === '/api/state') return send(res, 200, { ...ws.state(), source: ws.describe().split(`${ws.outDir}${path.sep}`).join(''), sync: o.syncer?.status() ?? null, figcraftWebUrl: o.figcraftWebUrl ?? null, tokens: { github: !!process.env.GITHUB_TOKEN, gitlab: !!process.env.GITLAB_TOKEN }, mcpUrl: '/mcp' });
       if (p === '/api/events') {
         res.writeHead(200, { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-store', Connection: 'keep-alive' });
         res.write(`event: hello\ndata: ${JSON.stringify({ type: 'hello' })}\n\n`);
@@ -98,6 +118,10 @@ export function startServer(o) {
         const ping = setInterval(() => res.write(': ping\n\n'), 20000);
         req.on('close', () => { clearInterval(ping); clients.delete(res); });
         return;
+      }
+      if (p.startsWith('/api/design')) {
+        const r = await designApi(ws, req, url, () => readBody(req, 8 * 1024 * 1024), { watchFile });
+        return send(res, r.status ?? 200, r.body);
       }
       if (p === '/api/run' && req.method === 'POST') {
         const body = JSON.parse((await readBody(req)).toString() || '{}');
@@ -112,8 +136,7 @@ export function startServer(o) {
         fs.mkdirSync(dir, { recursive: true });
         const file = path.join(dir, name);
         fs.writeFileSync(file, buf);
-        ws.source?.close?.();
-        ws.source = new FileSource(file);
+        ws.useSource(openEditable(file));
         watchFile(file);
         ws.run({ force: true }).catch(e => ws.emit('log', { level: 'error', message: e.message }));
         return send(res, 202, { source: ws.describe() });
@@ -159,6 +182,7 @@ export function startServer(o) {
     }
   });
 
+  server.on('close', () => { bus.off('weshcraft', broadcast); watcher?.close(); });
   return new Promise(resolve => {
     server.listen(o.port ?? 4600, host, () => {
       const addr = server.address();
