@@ -211,3 +211,73 @@ document.addEventListener('keydown', e => {
   e.preventDefault();
   submitForm(t.form, t.form.querySelector('button[type="submit"], button:not([type]), input[type="submit"]'));
 }, true);
+
+// In OpenChamber the header is one line: name · project, the main views, parity, and a menu.
+// Sync lives in Work Status, so the sync pill, source and hash move out of the way (source and
+// hash stay in the menu). After the app has wired its tabs (it measures them on load).
+setTimeout(() => {
+  const top = document.querySelector('.top');
+  const tabs = document.querySelector('.stage > .tabs');
+  if (top && tabs) { tabs.classList.add('oc-tabs'); top.querySelector('.brand')?.after(tabs); }
+  const more = document.getElementById('more');
+  if (more) { more.title = 'Actions'; top?.append(more); }
+  // The menu opens under its button, not as a phone sheet.
+  more?.addEventListener('click', () => requestAnimationFrame(() => {
+    const d = document.getElementById('moreDlg');
+    const r = more.getBoundingClientRect();
+    if (!d) return;
+           const want = Math.max(8, Math.round(document.documentElement.clientWidth - r.right));
+           d.style.top = `${Math.round(r.bottom + 6)}px`; d.style.right = `${want}px`;
+           const off = Math.round(document.documentElement.clientWidth - d.getBoundingClientRect().right) - want; // dialog margins vary by browser
+           if (off) d.style.right = `${want - off}px`;
+  }));
+}, 0);
+
+// ---- panel toggles: the spec list and the spec reader, shown or hidden from the header ----
+// The spec is a main element: one button in the header, always in the same place; picking a spec
+// anywhere shows it. Choices are remembered for this panel (best effort).
+setTimeout(() => {
+  const top = document.querySelector('.top');
+  if (!top) return;
+  const KEY = 'weshcraft.oc.panels';
+  let pref = { list: true, spec: true };
+  try { pref = { ...pref, ...JSON.parse(localStorage.getItem(KEY) || '{}') }; } catch { /* storage blocked */ }
+  const ICON = {
+    list: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6h11M9 12h11M9 18h11"/><circle cx="4.5" cy="6" r="1"/><circle cx="4.5" cy="12" r="1"/><circle cx="4.5" cy="18" r="1"/></svg>',
+    spec: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h9l4 4v14H6z"/><path d="M14 3v5h5M9 13h7M9 17h5"/></svg>',
+  };
+  const group = document.createElement('div');
+  group.className = 'oc-panels';
+  group.setAttribute('role', 'group');
+  group.setAttribute('aria-label', 'Panels');
+  const make = (key, label, title) => {
+    const b = document.createElement('button');
+    b.type = 'button'; b.id = `ocToggle-${key}`; b.dataset.panel = key; b.title = title;
+    b.innerHTML = `${ICON[key]}<span>${label}</span>`;
+    b.addEventListener('click', () => set(key, !pref[key]));
+    group.append(b);
+    return b;
+  };
+  make('list', 'Specs', 'Show or hide the list of specs');
+  make('spec', 'Spec', 'Show or hide the spec');
+  const parity = top.querySelector('.parity');
+  (parity || top.querySelector('.more'))?.before(group);
+  function apply() {
+    document.body.classList.toggle('oc-no-list', !pref.list);
+    document.body.classList.toggle('oc-no-spec', !pref.spec);
+    for (const b of group.querySelectorAll('button')) b.setAttribute('aria-pressed', String(!!pref[b.dataset.panel]));
+  }
+  function set(key, on) {
+    if (pref[key] === on) return;
+    pref[key] = on;
+    try { localStorage.setItem(KEY, JSON.stringify(pref)); } catch { /* storage blocked */ }
+    apply();
+  }
+  window.__wc = Object.assign(window.__wc || {}, { panels: { set, get: () => ({ ...pref }) } });
+  apply();
+  // Picking a spec shows it.
+  const showSpec = () => set('spec', true);
+  document.getElementById('groups')?.addEventListener('click', e => { if (e.target.closest('.job')) showSpec(); });
+  document.getElementById('issues')?.addEventListener('click', e => { if (e.target.closest('li[data-file]')) showSpec(); });
+  document.getElementById('linkmap')?.addEventListener('click', e => { if (e.target.closest('[data-key], button, a')) showSpec(); });
+}, 0);

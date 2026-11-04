@@ -71,6 +71,8 @@ export function createEditor({ openFile, markdown, log }) {
         drawOverlay();
         renderUndo();
         await renderInspector();
+        const key = S.screens.find(x => x.id === E.screenId)?.key;
+        if (key && key !== E.shownKey) { E.shownKey = key; document.dispatchEvent(new CustomEvent('weshcraft:screen', { detail: { key } })); }
       } while (E.pending);
     } catch (e) { status(e.message, 'err'); }
   }

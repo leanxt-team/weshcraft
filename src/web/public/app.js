@@ -267,6 +267,13 @@ function openFile(target) {
   fetch(`/out/${file}`).then(r => (r.ok ? r.text() : null)).then(md => { state.current = null; renderJobs(); $('#specTitle').textContent = file; showDoc(md, file); scrollToAnchor(anchor); });
 }
 
+// While designing, a spec reader beside the editor (OpenChamber panel) follows the screen being edited.
+document.addEventListener('weshcraft:screen', e => {
+  const reader = document.querySelector('.reader');
+  if (!$('#follow')?.checked || !reader || getComputedStyle(reader).display === 'none') return;
+  openFile(`specs/front/screens/${e.detail.key}.md`);
+});
+
 // ---- front ⇄ back link map ------------------------------------------------------------------
 const REL_ICON = { triggers: '▶', submits: '⇢', lists: '☰', displays: '◉', invokes: '⚙', exposes: '↗' };
 const SURFACE_GROUPS = [{ key: 'mcp', name: 'MCP tools' }, { key: 'api', name: 'Public API' }];

@@ -167,12 +167,12 @@ try {
   await o.f.locator('.tab[data-tab="links"]').click(); await sleep(600);
   ok('page: front ⇄ back map', await o.f.locator('#linkmap [data-k]').count() > 5);
   // publish dialog: access hint
-  await o.f.locator('#publish').click(); await sleep(400);
+  await o.f.locator('#more').click(); await sleep(300); await o.f.locator('#moreDlg [data-act="publish"]').click(); await sleep(400);
   ok('page: publish dialog says where access comes from', /Access:|No GitHub access found/.test(await o.f.locator('#accessHint').innerText()), await o.f.locator('#accessHint').innerText());
   await o.p.screenshot({ path: `${SHOTS}/e-page-publish-light.png` });
   await o.p.keyboard.press('Escape');
   // zip and "open prototype in new tab" leave through the host
-  await o.f.locator('#zip').click(); await sleep(500);
+  await o.f.locator('#more').click(); await sleep(300); await o.f.locator('#moreDlg [data-act="zip"]').click(); await sleep(500);
   ok('page: zip download opens via host', (await calls(o, 'open-url')).some(c => /\/api\/download\.zip$/.test(c.payload?.url)), JSON.stringify((await calls(o, 'open-url')).map(c => c.payload?.url)));
   // upload a 300 KB .figcraft (chunked)
   await o.f.locator('#upload').setInputFiles(path.join(ROOT, 'test/fixtures/ridgeline-onboarding.figcraft'));

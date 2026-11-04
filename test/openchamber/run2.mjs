@@ -16,9 +16,9 @@ const b = await chromium.launch(); const p = await b.newPage({ viewport: { width
 const errs = []; p.on('pageerror', e => errs.push(e.message)); p.on('console', m => m.type() === 'error' && !/fonts\.g/.test(m.text()) && errs.push(m.text()));
 await p.goto(`${host.url}/host?entry=openchamber/page/index.html&dir=${encodeURIComponent(P)}&w=1280&h=840&surface=page`);
 const f = p.frameLocator('#f');
-await f.locator('#publish').waitFor({ timeout: 30000 });
+await f.locator('#more').waitFor({ timeout: 30000 });
 for (let i = 0; i < 60 && !/In sync/.test(await f.locator('#parity').innerText()); i++) await p.waitForTimeout(300);
-await f.locator('#publish').click(); await p.waitForTimeout(400);
+await f.locator('#more').click(); await p.waitForTimeout(300); await f.locator('#moreDlg [data-act="publish"]').click(); await p.waitForTimeout(400);
 await f.locator('#publishForm label:has(input[value="git"])').click(); await p.waitForTimeout(200);
 await p.screenshot({ path: path.join(WORK, 'publish-dialog.png') });
 await f.locator('#publishGo').click();

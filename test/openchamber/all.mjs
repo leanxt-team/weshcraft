@@ -16,6 +16,7 @@ const runs = [
   ['run.mjs', [root, path.join(work, 'run'), work]],
   ['flow.mjs', [root, path.join(work, 'flow'), work]],
   ['run2.mjs', [root, path.join(work, 'pub')]],
+  ['header.mjs', [root, path.join(work, 'hdr'), work]],
 ];
 let failed = 0;
 for (const [script, args] of runs) {
