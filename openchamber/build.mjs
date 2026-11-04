@@ -1,5 +1,7 @@
 // Builds the OpenChamber extension pages (sandboxed iframes cannot load ES modules: one classic
 // script each). The big panel is generated from the browser app itself, so it never drifts from it.
+// The built script and styles are inlined into the page: the guest frame runs sandboxed, so its
+// origin is opaque and a separate file of the same origin is not a dependable script source.
 //   node openchamber/build.mjs        (needs the dev dependencies: npm install)
 import fs from 'node:fs';
 import path from 'node:path';
@@ -10,13 +12,15 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 const app = path.join(here, '..', 'src', 'web', 'public');
 const banner = { js: '/* WeshCraft for OpenChamber, built by openchamber/build.mjs. Edit openchamber/src or src/web/public, then rebuild. */' };
 const DESKTOP = s => s.replaceAll('(max-width: 720px)', '(max-width: 0px)'); // the big panel is the desktop interface
+const inline = s => s.replace(/<\/script/gi, '<\\/script');
 
 const common = { bundle: true, format: 'iife', platform: 'browser', target: 'es2021', minify: true, legalComments: 'none', banner };
 
 // small panel: rail + Work Status
 for (const [dir, mode, height] of [['panel', 'panel', null], ['status', 'status', 52]]) {
-  await build({ ...common, entryPoints: [path.join(here, 'src/sync.js')], outfile: path.join(here, dir, 'main.js') });
-  fs.writeFileSync(path.join(here, dir, 'index.html'), smallShell(mode, height));
+  const outfile = path.join(here, dir, 'main.js');
+  await build({ ...common, entryPoints: [path.join(here, 'src/sync.js')], outfile });
+  fs.writeFileSync(path.join(here, dir, 'index.html'), smallShell(mode, height, fs.readFileSync(outfile, 'utf8')));
 }
 
 // big panel: the whole app
@@ -28,8 +32,11 @@ const desktopPlugin = {
   },
 };
 await build({ ...common, entryPoints: [path.join(here, 'src/page-entry.js')], outfile: path.join(here, 'page', 'main.js'), plugins: [desktopPlugin] });
-fs.writeFileSync(path.join(here, 'page', 'app.css'), `/* generated from src/web/public/app.css */\n${DESKTOP(fs.readFileSync(path.join(app, 'app.css'), 'utf8'))}`);
+const appCss = `/* generated from src/web/public/app.css */\n${DESKTOP(fs.readFileSync(path.join(app, 'app.css'), 'utf8'))}`;
+fs.writeFileSync(path.join(here, 'page', 'app.css'), appCss);
+const themeCss = fs.readFileSync(path.join(here, 'src', 'oc-theme.css'), 'utf8');
 fs.copyFileSync(path.join(here, 'src', 'oc-theme.css'), path.join(here, 'page', 'oc-theme.css'));
+const pageJs = fs.readFileSync(path.join(here, 'page', 'main.js'), 'utf8');
 const index = fs.readFileSync(path.join(app, 'index.html'), 'utf8');
 const body = index.slice(index.indexOf('<body'), index.indexOf('</body>'))
   .replace(/<body[^>]*>/, '')
@@ -40,18 +47,20 @@ fs.writeFileSync(path.join(here, 'page', 'index.html'), `<!doctype html>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>WeshCraft</title>
-<link rel="stylesheet" href="app.css">
-<link rel="stylesheet" href="oc-theme.css">
+<style>
+${appCss}
+${themeCss}
+</style>
 </head>
 <body data-view="proto">
 ${body.trim()}
-<script src="main.js" onerror="window.__wcStarted='load-error'"></script>
+<script>${inline(pageJs)}</script>
 <script>
   // Independent of main.js: if it never loaded or never heard from OpenChamber, say which.
   setTimeout(function () {
     var s = window.__wcStarted;
     if (s === 'ready') return;
-    var msg = s === 'load-error' ? 'main.js could not be loaded by OpenChamber (blocked or missing). Reload the extension in Settings → Extensions.' : !s ? 'The WeshCraft script did not start (main.js not loaded). Reload the extension in Settings → Extensions; if it persists, check the extension card for an error.'
+    var msg = !s ? 'The WeshCraft script did not start. Reload the extension in Settings → Extensions; if it persists, check the extension card for an error.'
       : 'OpenChamber did not answer this panel (state: ' + s + '). Enable WeshCraft in Settings → Extensions, approve it, then reload it there.';
     var box = document.createElement('div'); box.className = 'oc-problem';
     var t = document.createElement('strong'); t.textContent = 'WeshCraft is not connected'; var d = document.createElement('div'); d.textContent = msg;
@@ -65,7 +74,7 @@ ${body.trim()}
 `);
 console.log('built openchamber/panel, openchamber/status, openchamber/page');
 
-function smallShell(mode, height) {
+function smallShell(mode, height, js) {
   return `<!doctype html>
 <html lang="en" data-mode="${mode}">
 <head>
@@ -146,13 +155,13 @@ function smallShell(mode, height) {
 </head>
 <body>
 <div id="root"><div class="oc-problem">Connecting to OpenChamber…</div></div>
-<script src="main.js" onerror="window.__wcStarted='load-error'"></script>
+<script>${inline(js)}</script>
 <script>
   // Independent of main.js: if it never loaded or never heard from OpenChamber, say which.
   setTimeout(function () {
     var s = window.__wcStarted;
     if (s === 'ready') return;
-    var msg = s === 'load-error' ? 'main.js could not be loaded by OpenChamber (blocked or missing). Reload the extension in Settings → Extensions.' : !s ? 'The WeshCraft script did not start (main.js not loaded). Reload the extension in Settings → Extensions; if it persists, check the extension card for an error.'
+    var msg = !s ? 'The WeshCraft script did not start. Reload the extension in Settings → Extensions; if it persists, check the extension card for an error.'
       : 'OpenChamber did not answer this panel (state: ' + s + '). Enable WeshCraft in Settings → Extensions, approve it, then reload it there.';
     var box = document.createElement('div'); box.className = 'oc-problem';
     var t = document.createElement('strong'); t.textContent = 'WeshCraft is not connected'; var d = document.createElement('div'); d.textContent = msg;
