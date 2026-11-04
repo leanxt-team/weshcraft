@@ -7,6 +7,7 @@
 | Behaviour | read-only · closed world |
 | Back end | [`GET /invoices`](../../back/api.md#op-ep-get-invoices) (inferred) |
 | Fingerprint | `1b6a38534bc0` |
+| Code tag | `@weshcraft list_invoices` ([trace](../../TRACE.md)) |
 
 ## Purpose
 

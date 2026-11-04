@@ -285,9 +285,14 @@ document.addEventListener('weshcraft:screen', e => {
 });
 
 // ---- product functions -----------------------------------------------------------------------
+// Spec ⇄ code (specs/trace.json): which code implements each element, from `@weshcraft` tags.
+function loadTrace() {
+  fetch('/out/specs/trace.json').then(r => (r.ok ? r.json() : null)).then(j => { state.trace = j; fnView.refresh(); }).catch(() => {});
+}
 const fnView = createFunctionsView({
   root: $('#fnview'),
   getManifest: () => state.manifest,
+  getTrace: () => state.trace,
   isEditable: () => !!state.editable,
   // Opening a spec from the diagram shows it in the reader without leaving the diagram.
   openFile: (f, { quiet } = {}) => { if (quiet && phone.matches) return; openFile(f); if (!quiet && phone.matches) setPhoneView('read'); },
@@ -480,6 +485,7 @@ function applySummary(s) {
       .replace(/:\s(-?\d[\d.e+-]*|true|false|null)/g, ': <span class="jn">$1</span>');
     try { state.manifest = JSON.parse(t); state.linkKey = null; state.linkSel = null; renderLinkMap(); fnView.refresh(); } catch { /* partial write */ }
   });
+  loadTrace();
 }
 function connect() {
   const es = new EventSource('/api/events');
@@ -500,6 +506,7 @@ function connect() {
     if (ev.status === 'started') { $('#parity').className = 'parity busy'; $('#parity').textContent = 'Building specs…'; state.streams.clear(); }
   });
   es.addEventListener('manifest', e => applySummary(JSON.parse(e.data).summary));
+  es.addEventListener('trace', () => loadTrace());
   es.addEventListener('prototype', e => { reloadProto(JSON.parse(e.data).hash); editor?.onRegenerated(); });
   es.addEventListener('design', e => editor?.onDesign(JSON.parse(e.data)));
   es.addEventListener('source', e => {

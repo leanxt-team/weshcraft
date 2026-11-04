@@ -46,7 +46,7 @@ try {
     const right = await fr.evaluate(() => { const r = s => document.querySelector(s).getBoundingClientRect(); return { panels: r('.oc-panels').right, parity: [r('#parity').left, r('#parity').right], more: [r('#more').left, r('#more').right], w: document.querySelector('.top').getBoundingClientRect().right }; });
     ok(`${w}: Spec, parity and ⋯ together on the right`, right.w - right.more[1] < 12 && right.more[0] - right.parity[1] < 16 && right.parity[0] - right.panels < 16, JSON.stringify(right));
     ok(`${w}: no logo or name in the header`, !(await f.locator('.top .brand').isVisible()));
-    ok(`${w}: sync details left to Work Status`, g.syncHidden);
+    ok(`${w}: no sync pill in the header`, g.syncHidden);
     ok(`${w}: Specs menu in the header, spec ticked`, g.specBtn && g.specPressed === 'true');
     await f.locator('#ocSpecs').click(); await sleep(250);
     const mg = await fr.evaluate(() => { const m = document.querySelector('#ocSpecsMenu').getBoundingClientRect(), b = document.querySelector('#ocSpecs').getBoundingClientRect(); return { top: m.top, bottom: b.bottom, right: m.right, w: document.documentElement.clientWidth, items: [...document.querySelectorAll('#ocSpecsMenu [role=menuitemcheckbox]')].map(x => x.textContent.trim()) }; });

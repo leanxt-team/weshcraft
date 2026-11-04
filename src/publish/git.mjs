@@ -19,6 +19,10 @@ export function collectFiles(outDir, { designFile, designInputs, prefix = '', ci
     }
   };
   for (const d of ['prototype', 'specs']) if (fs.existsSync(path.join(outDir, d))) walk(d);
+  // The product graph (code graphs index it): next to the design.
+  let graph = 'design/weshcraft.graph.mjs';
+  try { graph = JSON.parse(fs.readFileSync(path.join(outDir, 'specs/trace.json'), 'utf8')).graph || graph; } catch { /* no trace yet */ }
+  if (fs.existsSync(path.join(outDir, graph))) files.push({ path: path.posix.join(prefix, graph), data: fs.readFileSync(path.join(outDir, graph)) });
   // Design inputs (a .figcraft, OpenAPI, MCP tool lists, surface files) go to design/ by name.
   const inputs = designInputs ?? (designFile ? [{ abs: designFile, arg: '--file' }] : []);
   const args = [];

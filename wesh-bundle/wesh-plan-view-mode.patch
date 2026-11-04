@@ -88,10 +88,10 @@ index df06071..ef74e50 100644
  // wesh's own files in a project: they are not the project's code, so the code graph must not index them.
 diff --git a/skills/wesh-plan-view-mode/FORMAT.md b/skills/wesh-plan-view-mode/FORMAT.md
 new file mode 100644
-index 0000000..bc4aa81
+index 0000000..3cd39f3
 --- /dev/null
 +++ b/skills/wesh-plan-view-mode/FORMAT.md
-@@ -0,0 +1,86 @@
+@@ -0,0 +1,98 @@
 +# WeshCraft spec format (v1)
 +
 +An **advanced spec**: a folder in a git repository that holds a visual prototype and the front-end and back-end specifications generated from it, with machine-checkable links between all three. Plain markdown and JSON, readable without any tool; `weshcraft check` verifies it, `/wesh-plan-view-mode` iterates on it, `weshcraft_sync` keeps it in a branch.
@@ -115,6 +115,8 @@ index 0000000..bc4aa81
 +specs/CHANGES.md                  design changelog, newest first
 +specs/FUNCTIONS.md                how the product works: functions → screens, operations, data, journey
 +specs/LINKS.md                    front ⇄ back map
++specs/TRACE.md, trace.json        spec ⇄ code: element → code tagged `@weshcraft <ref>`
++design/weshcraft.graph.mjs        product graph for code graphs (codegraph): functions → screens → operations → entities → code
 +specs/front/screens/<key>.md      one per screen
 +specs/front/components/<key>.md   one per component (set)
 +specs/front/tokens.md, tokens.css, flows.md   (only with screens)
@@ -178,12 +180,22 @@ index 0000000..bc4aa81
 +Functions are declared in the design: the first page's `pluginData.weshcraft` holds `{"functions": [{"name", "summary", "screens": [node ids], "operations": ["METHOD /path"], "tools": ["name"]}]}` (`operations` and `tools` only for those no screen reaches). A service without screens declares them in `weshcraft.surface.json` (`"functions"`, same shape, no screens). Until declared, they are suggested from the prototype: flows, canvas sections, wizard steps (one way in, one way on), screens about the same entity, variants of one screen, API tags; the spec says so.
 +
 +The other specs follow them: a screen spec's header names its function (contract field `function`), `back/api.md` gives each operation's function, and `front/flows.md` and `LINKS.md` group screens by function. Parity: `functions-differ` (error) when FUNCTIONS.md no longer matches; warnings `functions-suggested`, `not-in-a-function` (a screen, operation or tool in none), `function-unknown-ref` (a declared screen or operation that is gone) and `empty-function`; `function-differs` (error) when a screen spec names another function.
++
++## Spec ⇄ code
++
++Code says what it implements with a tag in a comment next to the symbol: `// @weshcraft scr-sign-up`, `# @weshcraft POST /users`, `/** @weshcraft fn-join, User */`. Refs: a key (`fn-…`, `scr-…`, `cmp-…`, `op-…`), `METHOD /path`, an entity name, an MCP tool name; each spec header gives its element's tag (`Code tag`). Any language; dependencies, build output, `prototype/` and `specs/` are not scanned.
++
++From the tags, every run (and `weshcraft trace`, `weshcraft_trace`) writes:
++- `design/weshcraft.graph.mjs`: the product as JavaScript that is never imported or run, one exported function per product function (`fn…`), screen (`screen…`), component (`component…`), operation (`op…`), entity (`entity…`) and MCP tool (`tool…`), each documented (purpose, spec link, tag, non-JS code locations) and calling what it is made of: the product its functions in journey order, a function its screens, operations and tools, a screen its components, operations and the entities it shows, an operation the entity it returns, a tool its operation. Each one also imports and calls the exported JavaScript/TypeScript symbols tagged for it; code in other languages is named in its comment. Code graphs index it like the rest of the code: `codegraph explore "how does Sign up work"` returns the function, its screens and operations and the code behind them; `codegraph callers SignUpPage` names the screen it implements; `codegraph impact fetchMe --depth 4` reaches the screens and functions a change touches. Kept out of paths code graphs treat as tests (`specs/`, `test/`).
++- `specs/TRACE.md` and `specs/trace.json`: per function, each element with its tag and code locations; what has no code yet; tags that name nothing.
++
++Parity (warnings): `trace-unknown` (a tag that names nothing in the design), `trace-stale` / `trace-missing` (the product graph does not match the design and the tagged code: `weshcraft generate` or `weshcraft trace`).
 diff --git a/skills/wesh-plan-view-mode/SKILL.md b/skills/wesh-plan-view-mode/SKILL.md
 new file mode 100644
-index 0000000..77a845c
+index 0000000..e6faac7
 --- /dev/null
 +++ b/skills/wesh-plan-view-mode/SKILL.md
-@@ -0,0 +1,74 @@
+@@ -0,0 +1,79 @@
 +---
 +name: wesh-plan-view-mode
 +description: Plan in view mode. Design the prototype through WeshCraft MCP (a spec-oriented FigCraft), generate front and back specs in parallel that match it exactly, then update, sync or push the advanced spec in a git repo. Use for /wesh-plan-view-mode.
@@ -234,6 +246,10 @@ index 0000000..77a845c
 +- operation nothing reaches → wire it to a layer or cut it.
 +- inferred operation or field → confirm by binding/annotating in the design.
 +
++## 4b. Code ⇄ spec (codegraph)
++Existing code first: `codegraph_explore "how does <function> work"` (the product graph `design/weshcraft.graph.mjs` links functions → screens, components → operations → entities → the code tagged for them), `weshcraft_trace {untraced:true}` for what has no code yet.
++Writing or changing code from the specs (now, or in a later `/wesh-tdd`, `/wesh-refactor`): put the element's tag in a comment on the symbol that implements it, the `Code tag` from the spec header: `// @weshcraft scr-sign-up` on the screen component, `// @weshcraft POST /users` on the client call and on the route handler, `# @weshcraft User` on the model; several refs: `@weshcraft fn-join, User`. One tag per implementing symbol, in every language of the repo. Then `weshcraft_trace`: it rewrites the product graph and `specs/TRACE.md`; `codegraph sync` and the graph links each element to its code. Before changing shared code: `codegraph impact <symbol> --depth 4` names the screens and functions it touches. A `trace-unknown` warning (a tag naming nothing) after a design change: move the tag to the new key.
++
 +## 5. Parity gate
 +`weshcraft_check` must be `ok`, with no `functions-suggested` or `not-in-a-function` warning left. Stale or missing → `weshcraft_generate`. Drift → design changed: regenerate, never hand-edit generated sections.
 +
@@ -247,6 +263,7 @@ index 0000000..77a845c
 +Acceptance: specs/front/screens/*.md §Acceptance criteria (+ the 3-5 that matter most)
 +Decisions: entities, operations, components reused (specs/back/domain.md, api.md)
 +Functions: specs/FUNCTIONS.md — <name: purpose> per function, nothing outside a function
++Code: specs/TRACE.md — <traced>/<total> elements have code; untraced: <list or none>
 +Links: specs/LINKS.md — <n> operation links, <n> data links, gaps: <none | list>
 +Test seams · Non-goals · Slices (vertical, each = screens + operations it needs)
 +```
@@ -271,7 +288,7 @@ index 766c70b..934921f 100644
  
  ```
 diff --git a/skills/wesh-review/SKILL.md b/skills/wesh-review/SKILL.md
-index db512ce..052e1c2 100644
+index db512ce..126a326 100644
 --- a/skills/wesh-review/SKILL.md
 +++ b/skills/wesh-review/SKILL.md
 @@ -8,7 +8,7 @@ Review like the senior dev who gets paged when it breaks. Priority: correct, saf
@@ -279,16 +296,16 @@ index db512ce..052e1c2 100644
  ## 1. Target
  Named target: uncommitted/staged changes, a branch or ref (`git diff <ref>...HEAD`), a PR, files, a folder, or `repo`. Nothing named: uncommitted changes, else the last commit. Bad ref or empty diff: say so and stop.
 -Spec: the `--spec` path, issue refs in commit messages, or a matching file under `docs/`/`specs/`. None found: skip the spec axis.
-+Spec: the `--spec` path, issue refs in commit messages, or a matching file under `docs/`/`specs/`. None found: skip the spec axis. WeshCraft advanced spec (`specs/manifest.json`, schema `weshcraft/manifest@*`): run `weshcraft check` first (out of sync is a finding); the spec is each screen's §Acceptance criteria, `specs/back/api.md`, `specs/back/openapi.json` and `specs/LINKS.md`; cite layers as `#id`.
++Spec: the `--spec` path, issue refs in commit messages, or a matching file under `docs/`/`specs/`. None found: skip the spec axis. WeshCraft advanced spec (`specs/manifest.json`, schema `weshcraft/manifest@*`): run `weshcraft check` first (out of sync is a finding); the spec is each screen's §Acceptance criteria, `specs/back/api.md`, `specs/back/openapi.json` and `specs/LINKS.md`; cite layers as `#id`. Which code implements which screen or operation: `specs/TRACE.md` (`@weshcraft <ref>` tags) and `codegraph impact <symbol> --depth 4` (reaches the screens and functions in `design/weshcraft.graph.mjs`); changed code that implements an element but carries no tag is a finding.
  
  ## 2. Read what the change touches
  Diff, then callers of every changed function, functions it calls, tests, README. Signature or behavior changed: find every caller (`codegraph callers <fn>` per changed function when the project has an index, else grep; plus grep for string or dynamic references). The CLI reads the last synced index: run `codegraph sync` first when the answer decides a delete, a rename or "unused". Find the expected load (README, deploy config) and state it.
 diff --git a/skills/wesh-spec-back/SKILL.md b/skills/wesh-spec-back/SKILL.md
 new file mode 100644
-index 0000000..00023c8
+index 0000000..e9e3ae1
 --- /dev/null
 +++ b/skills/wesh-spec-back/SKILL.md
-@@ -0,0 +1,27 @@
+@@ -0,0 +1,28 @@
 +---
 +name: wesh-spec-back
 +description: Enrich WeshCraft back specs (specs/back/*.md) from a FigCraft prototype: validation, authz, errors, data, open questions. Never invents endpoints. Use for "enrich/complete back spec".
@@ -298,6 +315,7 @@ index 0000000..00023c8
 +
 +
 +Read `specs/FUNCTIONS.md` first: an operation's function (and the data it reads and writes) frames its validation, authorization and errors.
++Existing code for an operation or entity: `weshcraft_trace` (or `specs/TRACE.md`) lists what is tagged `@weshcraft METHOD /path` or `@weshcraft Entity`; `codegraph_explore "<METHOD /path> handler"` shows it with callers. Name the file you would extend.
 +
 +## Read first
 +`specs/back/domain.md`, `api.md`, `openapi.json`, `conventions.md`, the public API and MCP specs under `specs/front/api` and `specs/front/mcp` when present, `specs/LINKS.md` (or `weshcraft_links`): which layers trigger, submit to and show each operation's data; the screens each operation cites. Existing back-end code: models, routes, auth, validation library, error format, migrations. Reuse them; name the file you would extend.
@@ -318,10 +336,10 @@ index 0000000..00023c8
 +- Under 60 lines per spec. No preamble.
 diff --git a/skills/wesh-spec-front/SKILL.md b/skills/wesh-spec-front/SKILL.md
 new file mode 100644
-index 0000000..785ff80
+index 0000000..a8123c4
 --- /dev/null
 +++ b/skills/wesh-spec-front/SKILL.md
-@@ -0,0 +1,33 @@
+@@ -0,0 +1,34 @@
 +---
 +name: wesh-spec-front
 +description: Enrich WeshCraft front specs (specs/front/*.md) from a FigCraft prototype: states, a11y, analytics, open questions. Never changes generated facts. Use for "enrich/complete front spec".
@@ -331,6 +349,7 @@ index 0000000..785ff80
 +
 +
 +Read the screen's function in `specs/FUNCTIONS.md` first: its purpose frames the screen's states, empty cases and acceptance criteria.
++Existing code for the screen: `weshcraft_trace` (or `specs/TRACE.md`) lists what is tagged `@weshcraft <key>`; `codegraph_explore "<screen name> screen"` shows it with its calls. Notes that name code cite `file:symbol`.
 +
 +## Read first
 +The spec (`weshcraft_read_spec`), the screens it links, `weshcraft_manifest {screen}` for ids. Existing code for the same screen or component, when the repo has it: match its patterns.

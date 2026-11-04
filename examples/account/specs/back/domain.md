@@ -5,6 +5,8 @@ Entities and fields the prototype displays or edits. Types come from explicit bi
 <a id="entity-subscription"></a>
 ## Subscription
 
+Code tag: `@weshcraft Subscription` ([trace](../TRACE.md))
+
 Source layers: `#14` · explicit
 
 | Field | Type | Example | Shown by | Screens | Loaded by | Confidence |
@@ -14,6 +16,8 @@ Source layers: `#14` · explicit
 
 <a id="entity-user"></a>
 ## User
+
+Code tag: `@weshcraft User` ([trace](../TRACE.md))
 
 Source layers: `#12`, `#13` · explicit
 

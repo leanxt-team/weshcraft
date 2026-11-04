@@ -1,0 +1,108 @@
+{
+ "graph": "design/weshcraft.graph.mjs",
+ "coverage": {
+  "traced": 0,
+  "total": 11
+ },
+ "elements": [
+  {
+   "id": "fn-invoices",
+   "kind": "function",
+   "name": "Invoices",
+   "tag": "fn-invoices",
+   "code": []
+  },
+  {
+   "id": "fn-customers",
+   "kind": "function",
+   "name": "Customers",
+   "tag": "fn-customers",
+   "code": []
+  },
+  {
+   "id": "fn-agent-tools",
+   "kind": "function",
+   "name": "Agent tools",
+   "tag": "fn-agent-tools",
+   "code": []
+  },
+  {
+   "id": "op-ep-get-invoices",
+   "kind": "operation",
+   "name": "GET /invoices",
+   "tag": "GET /invoices",
+   "code": []
+  },
+  {
+   "id": "op-ep-post-invoices",
+   "kind": "operation",
+   "name": "POST /invoices",
+   "tag": "POST /invoices",
+   "code": []
+  },
+  {
+   "id": "op-ep-get-invoices-id",
+   "kind": "operation",
+   "name": "GET /invoices/{id}",
+   "tag": "GET /invoices/{id}",
+   "code": []
+  },
+  {
+   "id": "op-ep-post-invoices-id-send",
+   "kind": "operation",
+   "name": "POST /invoices/{id}/send",
+   "tag": "POST /invoices/{id}/send",
+   "code": []
+  },
+  {
+   "id": "op-ep-get-customers",
+   "kind": "operation",
+   "name": "GET /customers",
+   "tag": "GET /customers",
+   "code": []
+  },
+  {
+   "id": "entity:Customer",
+   "kind": "entity",
+   "name": "Customer",
+   "tag": "Customer",
+   "code": []
+  },
+  {
+   "id": "entity:Invoice",
+   "kind": "entity",
+   "name": "Invoice",
+   "tag": "Invoice",
+   "code": []
+  },
+  {
+   "id": "tool:create_invoice",
+   "kind": "tool",
+   "name": "create_invoice",
+   "tag": "create_invoice",
+   "code": []
+  },
+  {
+   "id": "tool:list_invoices",
+   "kind": "tool",
+   "name": "list_invoices",
+   "tag": "list_invoices",
+   "code": []
+  },
+  {
+   "id": "tool:send_invoice",
+   "kind": "tool",
+   "name": "send_invoice",
+   "tag": "send_invoice",
+   "code": []
+  },
+  {
+   "id": "tool:void_invoice",
+   "kind": "tool",
+   "name": "void_invoice",
+   "tag": "void_invoice",
+   "code": []
+  }
+ ],
+ "unknown": []
+}

@@ -864,3 +864,6 @@ button.link { border: 0; background: none; padding: 0; cursor: pointer; justify-
 .flow-key.k-leads-to i { border-color: var(--accent); border-top-width: 2.2px; }
 .flow-key.k-writes i, .flow-key.k-reads-writes i { border-color: var(--field); }
 .flow-key.k-reads i { border-color: var(--field); border-top-style: dashed; }
+.fn-code { display: grid !important; gap: 4px; }
+.fn-code code { font-size: 11px; }
+.fn-code b { font-weight: 600; font-size: 12px; margin-right: 4px; }

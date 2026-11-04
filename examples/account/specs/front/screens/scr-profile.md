@@ -3,6 +3,7 @@
 | | |
 |---|---|
 | Function | [Sign up](../../FUNCTIONS.md#fn-sign-up) |
+| Code tag | `@weshcraft scr-profile` ([trace](../../TRACE.md)) |
 | Node | `#3` |
 | Page | Account |
 | Frame | 393 × 600 px |

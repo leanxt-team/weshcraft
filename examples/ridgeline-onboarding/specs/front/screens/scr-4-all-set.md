@@ -3,6 +3,7 @@
 | | |
 |---|---|
 | Function | [Onboarding](../../FUNCTIONS.md#fn-onboarding) |
+| Code tag | `@weshcraft scr-4-all-set` ([trace](../../TRACE.md)) |
 | Node | `#129` |
 | Page | Onboarding |
 | Frame | 393 × 852 px |

@@ -35,6 +35,7 @@ _Purpose not described yet._
 | Operations | [`POST /users`](back/api.md#op-create-account-10) · [`GET /users/me`](back/api.md#op-get-users-me-3) · [`PATCH /users/me`](back/api.md#op-patch-users-me-15) |
 | Data | [Subscription](back/domain.md#entity-subscription) (reads) · [User](back/domain.md#entity-user) (reads, writes) |
 | Leads to | — |
+| Code | tag `@weshcraft fn-sign-up` · [what implements it](TRACE.md) |
 
 ## Notes
 

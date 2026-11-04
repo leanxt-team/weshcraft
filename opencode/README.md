@@ -5,7 +5,7 @@ Two parts in this repository, used together:
 | | What it adds | Where |
 |---|---|---|
 | **OpenCode plugin** (`opencode/plugin.mjs`) | WeshCraft's tools for the agent (`design_*`, `weshcraft_*`), the `/weshcraft` command, and the WeshCraft server for the project | OpenCode 2.2+, and OpenChamber (it runs on the OpenCode server) |
-| **OpenChamber extension** (`openchamber/`, manifest in `package.json`) | **Rail panel**: the whole WeshCraft interface (design editor, prototype, specs, links), in OpenChamber's theme. **Work Status › WeshCraft sync**: sync with GitHub / GitLab / this repository | OpenChamber 2.0.1+, web and desktop |
+| **OpenChamber extension** (`openchamber/`, manifest in `package.json`) | **Rail panel**: the whole WeshCraft interface (design editor, prototype, specs, links), in OpenChamber's theme. Sync with GitHub / GitLab / this repository from its **⋯** menu | OpenChamber 2.0.1+, web and desktop |
 
 ## How it feels
 
@@ -31,7 +31,7 @@ Open a session in a repository:
 
 **Functions** is how the product works at a glance: who uses it → its functions (each with a purpose, in journey order, with where it leads) → the data they read and write. Click one to see its screens, operations and data, and its section of `specs/FUNCTIONS.md` opens in the spec panel. Suggested from the prototype until you keep them; then rename them, give each a purpose and its screens (✎, **+ Function**, or a screen's **Function** field in the editor), or ask the agent. Screen specs, the API spec, the maps and the editor's screen list follow them.
 
-The WeshCraft icon on the right opens the full interface for the open project. Its header is one line: the views (**Functions · Design · Prototype · Front ⇄ back · Manifest**) on the left; on the right the **Specs** menu, the parity and **⋯** for the actions (Regenerate, Regenerate all, Open .figcraft, Publish & sync, Download zip, Open prototype in a new tab). Sync details live in Work Status, not here.
+The WeshCraft icon on the right opens the full interface for the open project. Its header is one line: the views (**Functions · Design · Prototype · Front ⇄ back · Manifest**) on the left; on the right the **Specs** menu, the parity and **⋯** for the actions (Regenerate, Regenerate all, Open .figcraft, Publish & sync, Download zip, Open prototype in a new tab). Sync is set up and run from **⋯** too (see Sync below).
 
 The spec list, the view and the spec sit side by side. The **Specs** menu in the header has two ticks, **Spec list** and **Spec panel**: tick one, both or neither, at any width. The spec is on by default in every view, and picking a spec anywhere (the list, the parity, the links map) shows it. While designing, the spec follows the screen being edited (the inspector is the design inspector only), and the spec list starts unticked, since the editor has its own screens and layers: tick it to see all three. Each view remembers its own choice for the visit. Drag the divider between two blocks to make one wider (the spec list, the spec, the editor's screens and its inspector); double-click a divider to reset it. Widths last for the visit. Narrow, the panel shows one view at a time with a tab bar at the bottom (Specs · Design · Prototype · Links · Spec). The same page is in **Extension pages › WeshCraft** full screen. It uses OpenChamber's colours, font, radius and light/dark theme, follows the open project (OpenChamber names it, so the header does not), and puts a dot on the rail icon when the specs are out of sync or a sync failed.
 
@@ -39,13 +39,9 @@ The spec list, the view and the spec sit side by side. The **Specs** menu in the
 
 Each page is one self-contained HTML file (script and styles inline), so it works however an OpenChamber version serves package files. Extension pages cannot reach the network themselves, so the page talks to WeshCraft through the extension's service: API calls, live updates (long-polled), the prototype (loaded as HTML), uploads (sent in 45 KB chunks). Downloads and links to other sites open through OpenChamber (in the desktop app, in its browser panel).
 
-## Work Status › WeshCraft sync
+## Sync
 
-Everything about syncing, as tall as it needs:
-
-- where the specs go (a GitHub or GitLab repository and branch, or this repository's git) and the state: Synced (commit), Syncing, Waiting (specs out of sync with the design: only matching specs are synced), Sync failed (with the reason), Not syncing;
-- the pull / merge request, **Sync now**, **Stop**, the last syncs;
-- not set up yet: GitHub · GitLab · Local git, repository, branch, pull request on/off, **Start syncing**.
+From the panel's **⋯** menu: **Publish & sync…** sets where the specs go (a GitHub or GitLab repository and branch, with a pull / merge request, or this repository's git) and **Sync now** runs it. With auto-sync on, every regeneration that matches the design is synced; a failed sync puts a dot on the rail icon and says why in the panel's log line.
 
 ## GitHub / GitLab access is inherited
 
@@ -63,7 +59,7 @@ The panel and the publish dialog say which one is used ("Access: your OpenChambe
 
 - WeshCraft starts with the project: one `weshcraft serve` per project on a stable port, shared by every session, by the OpenChamber panels and by your browser; stopped when the plugin unloads.
 - With no design yet, the plugin watches for one: when the user starts it in the panel (or another session does), the agent gets the design tools without a restart.
-- Tools: `design_*` (tree, find, get, edit — batched, one undo step —, text, bind, api, link, screen, tokens, functions, undo/redo, new), `weshcraft_*` (status, generate, check, links, manifest, read_spec, write_notes, sync, publish, open) and `figcraft_*` with a live FigCraft. Every design change regenerates the specs; the user sees it live.
+- Tools: `design_*` (tree, find, get, edit — batched, one undo step —, text, bind, api, link, screen, tokens, functions, undo/redo, new), `weshcraft_*` (status, generate, check, links, trace, manifest, read_spec, write_notes, sync, publish, open) and `figcraft_*` with a live FigCraft. Every design change regenerates the specs; the user sees it live.
 - A project with nothing to spec gets one tool, `weshcraft_start`; after it, `design_new` creates the design and the editing tools appear.
 - `/weshcraft` gives the link, parity, front ⇄ back links and open questions.
 - Settings: `.opencode/weshcraft.json` or the plugin's options in `opencode.json` (`file`, `surface`, `mcpServer`, `attach`, `figcraftCli`, `sync`, `port`, `token`). `--no-plugin` registers WeshCraft as an MCP server in `opencode.json` instead.

@@ -7,6 +7,7 @@
 | Behaviour | writes · idempotent · open world (reaches outside systems) |
 | Back end | [`POST /invoices/{id}/send`](../../back/api.md#op-ep-post-invoices-id-send) (inferred) |
 | Fingerprint | `dec5c565b001` |
+| Code tag | `@weshcraft send_invoice` ([trace](../../TRACE.md)) |
 
 ## Purpose
 

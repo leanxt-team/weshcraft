@@ -21,7 +21,7 @@ export function declaredFrom(m) {
   });
 }
 
-export function createFunctionsView({ root, getManifest, isEditable, openFile, showScreen, log }) {
+export function createFunctionsView({ root, getManifest, getTrace = () => null, isEditable, openFile, showScreen, log }) {
   let sel = null;
 
   async function save(list, label) {
@@ -31,6 +31,14 @@ export function createFunctionsView({ root, getManifest, isEditable, openFile, s
     log?.({ level: 'info', at: Date.now(), message: `${label}: specs regenerating…` });
     return true;
   }
+
+  const coverage = f => {
+    const tr = getTrace();
+    if (!tr?.elements) return '';
+    const ids = new Set([...f.screens, ...f.operations, ...f.tools.map(t => `tool:${t}`)]);
+    const els = tr.elements.filter(e => ids.has(e.id));
+    return els.length ? `code ${els.filter(e => e.code.length).length}/${els.length}` : '';
+  };
 
   function render() {
     const m = getManifest();
@@ -46,7 +54,7 @@ export function createFunctionsView({ root, getManifest, isEditable, openFile, s
       <div class="fn-card" role="button" tabindex="0" data-f="${esc(f.key)}" aria-pressed="${sel === f.key}">
         <div class="fn-top"><span class="fn-name">${esc(f.name)}</span>${editable ? `<button type="button" class="fn-edit" data-edit="${esc(f.key)}" title="Edit ${esc(f.name)}" aria-label="Edit ${esc(f.name)}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20l4-1 11-11-3-3L5 16z"/></svg></button>` : ''}</div>
         <div class="fn-sum${f.summary ? '' : ' none'}">${esc(f.summary || (editable ? 'Add a purpose' : 'No purpose yet'))}</div>
-        <div class="fn-meta">${[f.screens.length && plural(f.screens.length, 'screen'), f.operations.length && plural(f.operations.length, 'operation'), f.tools.length && plural(f.tools.length, 'tool')].filter(Boolean).map(t => `<span>${t}</span>`).join('') || '<span>empty</span>'}</div>
+        <div class="fn-meta">${[f.screens.length && plural(f.screens.length, 'screen'), f.operations.length && plural(f.operations.length, 'operation'), f.tools.length && plural(f.tools.length, 'tool'), coverage(f)].filter(Boolean).map(t => `<span>${t}</span>`).join('') || '<span>empty</span>'}</div>
         ${f.next.length ? `<div class="fn-next">${f.next.map(n => `<span data-goto="${esc(n.to)}">→ ${esc(name.get(n.to))}</span>`).join('')}</div>` : ''}
         <div class="fn-chips">${f.entities.map(e => `<span class="fn-ent ${e.access === 'reads' ? 'r' : 'w'}" title="${esc(e.access)}">${esc(e.name)}</span>`).join('')}</div>
       </div>`;
@@ -84,7 +92,20 @@ export function createFunctionsView({ root, getManifest, isEditable, openFile, s
       ${row('Operations', f.operations.map(k => `<button type="button" data-op="${esc(k)}"><b class="v-${esc(ops.get(k).method.toLowerCase())}">${esc(ops.get(k).method)}</b> ${esc(ops.get(k).path)}</button>`).join(''))}
       ${row('MCP tools', f.tools.map(t => `<code>${esc(t)}</code>`).join(' '))}
       ${row('Data', f.entities.map(e => `<button type="button" data-entity="${esc(e.name)}">${esc(e.name)} <small>${esc(e.access)}</small></button>`).join(''))}
-      ${row('Leads to', f.next.map(n => `<button type="button" data-goto="${esc(n.to)}">${esc(name.get(n.to))}</button>`).join(''))}`;
+      ${row('Leads to', f.next.map(n => `<button type="button" data-goto="${esc(n.to)}">${esc(name.get(n.to))}</button>`).join(''))}
+      ${codeRows(f)}`;
+  }
+
+  // Code that implements the function's elements (tags `@weshcraft <ref>` in the code), from specs/trace.json.
+  function codeRows(f) {
+    const tr = getTrace();
+    if (!tr?.elements) return '';
+    const ids = new Set([f.key, ...f.screens, ...f.operations, ...f.tools.map(t => `tool:${t}`), ...f.entities.map(e => `entity:${e.name}`)]);
+    const els = tr.elements.filter(e => ids.has(e.id));
+    const done = els.filter(e => e.code.length);
+    const todo = els.filter(e => !e.code.length && e.kind !== 'function');
+    const loc = t => `<code title="${esc(t.lang)}">${esc(t.file)}:${t.line}${t.symbol ? ` ${esc(t.symbol)}` : ''}</code>`;
+    return `<div class="fn-drow"><span>Code</span><div class="fn-code">${done.map(e => `<div><b>${esc(e.name)}</b> ${e.code.map(loc).join(' ')}</div>`).join('') || '<span class="muted">No code tagged yet.</span>'}${todo.length ? `<div class="muted">To tag: ${todo.map(e => `<code>@weshcraft ${esc(e.tag)}</code>`).join(' ')}</div>` : ''}</div></div>`;
   }
 
   function draw() {

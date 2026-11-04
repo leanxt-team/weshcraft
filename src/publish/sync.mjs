@@ -130,7 +130,7 @@ export class Syncer {
     const current = await run('git', ['rev-parse', '--abbrev-ref', 'HEAD'], top);
     if (t.branch && current !== t.branch) throw new Error(`check out ${t.branch} first (on ${current}); WeshCraft never switches branches in your working tree`);
     const rel = p => path.relative(top, p).split(path.sep).join('/');
-    const paths = ['prototype', 'specs'].map(d => path.join(out, d)).filter(p => fs.existsSync(p)).map(rel);
+    const paths = ['prototype', 'specs', this.ws.graphFile ?? 'design/weshcraft.graph.mjs'].map(d => path.join(out, d)).filter(p => fs.existsSync(p)).map(rel);
     const inRepo = this.ws.designInputs().map(x => ({ ...x, abs: real(x.abs) })).filter(x => x.abs.startsWith(top + path.sep));
     for (const x of inRepo) paths.push(rel(x.abs));
     const ciArgs = inRepo.filter(x => x.arg).map(x => `${x.arg} ${rel(x.abs)}`).join(' ');

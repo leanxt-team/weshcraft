@@ -90,7 +90,7 @@ export function screenSpec(model, manifest, screen, { notes, ops = [], code = nu
   const L = [];
   L.push(`# Screen: ${screen.name}`);
   L.push('');
-  L.push(`| | |\n|---|---|\n| Function | ${fn ? `[${mdEscape(fn.name)}](../../FUNCTIONS.md#${fn.key})${fn.summary ? ` — ${mdEscape(fn.summary)}` : ''}` : 'not in a function yet ([functions](../../FUNCTIONS.md))'} |\n| Node | ${ref(screen.id)} |\n| Page | ${mdEscape(screen.page)}${screen.section ? ` / ${mdEscape(screen.section)}` : ''} |\n| Frame | ${screen.width} × ${screen.height} px |\n| Dev status | ${screen.devStatus ?? 'not marked'} |\n| Fingerprint | \`${screen.fingerprint}\` |\n| Prototype | [prototype/index.html#${screen.key}](../../prototype/index.html#${screen.key})${hasRender ? ` · [FigCraft render](../../prototype/screens/${screen.key}.png)` : ''} |`);
+  L.push(`| | |\n|---|---|\n| Function | ${fn ? `[${mdEscape(fn.name)}](../../FUNCTIONS.md#${fn.key})${fn.summary ? ` — ${mdEscape(fn.summary)}` : ''}` : 'not in a function yet ([functions](../../FUNCTIONS.md))'} |\n| Code tag | \`@weshcraft ${screen.key}\` ([trace](../../TRACE.md)) |\n| Node | ${ref(screen.id)} |\n| Page | ${mdEscape(screen.page)}${screen.section ? ` / ${mdEscape(screen.section)}` : ''} |\n| Frame | ${screen.width} × ${screen.height} px |\n| Dev status | ${screen.devStatus ?? 'not marked'} |\n| Fingerprint | \`${screen.fingerprint}\` |\n| Prototype | [prototype/index.html#${screen.key}](../../prototype/index.html#${screen.key})${hasRender ? ` · [FigCraft render](../../prototype/screens/${screen.key}.png)` : ''} |`);
   L.push('');
   L.push('## Purpose');
   L.push('');
@@ -228,7 +228,7 @@ export function componentSpec(model, manifest, comp, { notes, code = null } = {}
   const L = [];
   L.push(`# Component: ${comp.name}`);
   L.push('');
-  L.push(`| | |\n|---|---|\n| Node | ${ref(comp.id)} |\n| Kind | ${comp.kind === 'set' ? `component set, ${comp.variants.length} variants` : 'component'} |\n| Size | ${node.width} × ${node.height} px |\n| Used in | ${comp.usedIn.length ? comp.usedIn.map(k => `[${mdEscape(manifest.screens.find(s => s.key === k)?.name)}](../screens/${k}.md)`).join(', ') : 'not used on any screen'} |\n| Fingerprint | \`${comp.fingerprint}\` |`);
+  L.push(`| | |\n|---|---|\n| Node | ${ref(comp.id)} |\n| Kind | ${comp.kind === 'set' ? `component set, ${comp.variants.length} variants` : 'component'} |\n| Size | ${node.width} × ${node.height} px |\n| Used in | ${comp.usedIn.length ? comp.usedIn.map(k => `[${mdEscape(manifest.screens.find(s => s.key === k)?.name)}](../screens/${k}.md)`).join(', ') : 'not used on any screen'} |\n| Fingerprint | \`${comp.fingerprint}\` |\n| Code tag | \`@weshcraft ${comp.key}\` ([trace](../../TRACE.md)) |`);
   L.push('');
   if (comp.description) { L.push(comp.description); L.push(''); }
   L.push('## Properties');

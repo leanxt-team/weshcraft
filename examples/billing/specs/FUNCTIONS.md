@@ -42,6 +42,7 @@ _Purpose not described yet._
 | MCP tools | [`create_invoice`](front/mcp/tool-create-invoice.md) · [`list_invoices`](front/mcp/tool-list-invoices.md) · [`send_invoice`](front/mcp/tool-send-invoice.md) |
 | Data | [Invoice](back/domain.md#entity-invoice) (reads, writes) |
 | Leads to | — |
+| Code | tag `@weshcraft fn-invoices` · [what implements it](TRACE.md) |
 
 <a id="fn-customers"></a>
 ## Customers
@@ -55,6 +56,7 @@ _Purpose not described yet._
 | Public API | [`GET /customers`](front/api/ep-get-customers.md) |
 | Data | [Customer](back/domain.md#entity-customer) (reads) |
 | Leads to | — |
+| Code | tag `@weshcraft fn-customers` · [what implements it](TRACE.md) |
 
 <a id="fn-agent-tools"></a>
 ## Agent tools
@@ -67,6 +69,7 @@ _Purpose not described yet._
 | MCP tools | [`void_invoice`](front/mcp/tool-void-invoice.md) |
 | Data | — |
 | Leads to | — |
+| Code | tag `@weshcraft fn-agent-tools` · [what implements it](TRACE.md) |
 
 ## Notes
 

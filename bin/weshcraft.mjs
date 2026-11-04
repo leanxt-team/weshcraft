@@ -30,6 +30,7 @@ Usage
   weshcraft new      NAME [--out DIR]                 create design/NAME.figcraft (an empty FigCraft document)
   weshcraft generate [source] [--out DIR] [--force] [--agent [CMD]]
   weshcraft check    --file F [--out DIR] [--format text|markdown|json]    exit 1 when out of sync
+  weshcraft trace    --file F [--out DIR] [--format text|json]             spec ⇄ code: rescan @weshcraft tags, rewrite design/weshcraft.graph.mjs and specs/TRACE.md
   weshcraft diff     --file F [--out DIR] [--against GIT_REF] [--format markdown|json]
       What changed in the design since the specs on disk (or committed at GIT_REF).
   weshcraft publish  [source] --provider github|gitlab --repo OWNER/NAME [--branch B] [--base B] [--api-url URL]
@@ -184,6 +185,20 @@ async function main() {
           process.stdout.write(`${report.ok ? 'in sync' : 'OUT OF SYNC'}: ${report.checks} checks, ${report.errors} errors, ${report.warnings} warnings (score ${report.score}%)\n`);
         }
         process.exitCode = report.ok ? 0 : 1;
+      } finally { ws.source?.close(); }
+      return;
+    }
+    case 'trace': {
+      const ws = workspace(o);
+      try {
+        await ws.snapshot();
+        const tr = ws.writeTrace();
+        if (o.format === 'json') process.stdout.write(`${JSON.stringify({ coverage: tr.coverage, unknown: tr.unknown }, null, 1)}\n`);
+        else {
+          for (const e of tr.elements) if (e.code.length) process.stdout.write(`${e.kind.padEnd(9)} ${e.name}: ${e.code.map(t => `${t.file}:${t.line}${t.symbol ? ` ${t.symbol}` : ''}`).join(', ')}\n`);
+          for (const t of tr.unknown) process.stdout.write(`unknown   ${t.file}:${t.line} @weshcraft ${t.ref}\n`);
+          process.stdout.write(`${tr.coverage.traced}/${tr.coverage.total} elements have code · ${ws.graphFile} · specs/TRACE.md\n`);
+        }
       } finally { ws.source?.close(); }
       return;
     }

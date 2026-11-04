@@ -6,6 +6,7 @@ import path from 'node:path';
 import { readContract, visibleText, citedNodes } from '../spec/contract.mjs';
 import { stableStringify } from '../util/common.mjs';
 import { functionsContract } from '../spec/functions.mjs';
+import { scanTags, traceOf, graphModule, recordedGraphPath } from '../spec/trace.mjs';
 
 const read = f => (fs.existsSync(f) ? fs.readFileSync(f, 'utf8') : null);
 const setEq = (a, b) => a.length === b.length && a.every(x => b.includes(x));
@@ -14,7 +15,7 @@ const key = o => stableStringify(o);
 /**
  * @returns {{ok: boolean, score: number, checks: number, issues: Array<{level, code, file, message, node?}>, sourceHash: string}}
  */
-export function checkParity(manifest, outDir) {
+export function checkParity(manifest, outDir, { graphFile } = {}) {
   const issues = [];
   let checks = 0;
   const err = (code, file, message, node) => issues.push({ level: 'error', code, file, message, ...(node != null ? { node } : {}) });
@@ -103,6 +104,17 @@ export function checkParity(manifest, outDir) {
     for (const t of fns.unassigned.tools) { checks++; warn('not-in-a-function', 'specs/FUNCTIONS.md', `MCP tool ${t} is in no function`); }
     for (const x of fns.missing) { checks++; warn('function-unknown-ref', 'specs/FUNCTIONS.md', `function ${fns.items.find(i => i.key === x.function)?.name ?? x.function} lists ${x.kind} ${x.ref}, which is not in the prototype`); }
     for (const x of fns.items) if (!x.screens.length && !x.operations.length && !x.tools.length) { checks++; warn('empty-function', 'specs/FUNCTIONS.md', `function ${x.name} has no screen, operation or tool`); }
+  }
+
+  // Spec ⇄ code: tags that point at nothing, and a product graph that no longer matches design and code.
+  if (manifest.screens.length || manifest.domain.operations.length || manifest.surface?.mcp?.tools?.length) {
+    const trace = traceOf(manifest, scanTags(outDir));
+    for (const t of trace.unknown) { checks++; warn('trace-unknown', t.file, `\`@weshcraft ${t.ref}\` (line ${t.line}) names nothing in the design: renamed or removed? See specs/TRACE.md`); }
+    checks++;
+    const gf = graphFile ?? recordedGraphPath(outDir);
+    const g = read(path.join(outDir, gf));
+    if (g == null) warn('trace-missing', gf, 'the product graph is missing: run weshcraft generate');
+    else if (g !== graphModule(manifest, trace, { graphFile: gf })) warn('trace-stale', gf, 'the product graph does not match the design and the tagged code: run weshcraft generate (or weshcraft_trace)');
   }
 
   // Specs for screens that no longer exist.

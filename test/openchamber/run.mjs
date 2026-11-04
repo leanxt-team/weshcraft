@@ -47,57 +47,35 @@ const text = async o => (await o.frame()?.evaluate(() => document.body.innerText
 const calls = async (o, type) => (await o.p.evaluate(() => window.__calls)).filter(c => !type || c.type === type);
 
 try {
-  // ===== A. Work Status: everything about sync, local git =====
-  const ST = 'openchamber/status/index.html';
-  const stOpts = (o = {}) => ({ w: 340, h: 320, surface: 'status', ...o });
-  let o = await open(ST, P1, stOpts());
-  ok('status: "Not syncing" and the setup form', !!await waitFor(async () => /Not syncing/.test(await text(o)) && /Start syncing/.test(await text(o))), (await text(o)).slice(0, 80).replace(/\n/g, ' | '));
-  ok('status: the section is sized to its content', !!await waitFor(async () => (await calls(o, 'resize')).some(c => (c.payload?.height ?? 0) > 120)), JSON.stringify((await calls(o, 'resize')).map(c => c.payload)));
-  await o.p.screenshot({ path: `${SHOTS}/a-status-off-light.png` });
-  await o.f.locator('.sp-seg label:has(input[value="git"])').click();
-  ok('status: local git hides repository field', await o.f.locator('input[name="repo"]').isHidden());
-  await o.f.locator('[data-go] button').click();
-  ok('status: local git sync → Synced', !!await waitFor(async () => /Synced/.test(await text(o)), 30000), (await text(o)).slice(0, 160).replace(/\n/g, ' | '));
+  let o;
+  // ===== A. sync, local git (no Work Status section: the full panel's ⋯ menu drives it) =====
+  const state = async dir => (await svc('/state', { directory: dir })).json;
+  const g = await svc('/sync', { directory: P1 }, { provider: 'git', auto: true });
+  ok('local git sync via the service', g.status === 200, JSON.stringify(g.json).slice(0, 160));
   const log1 = execSync('git log --oneline', { cwd: P1 }).toString();
-  ok('status: commit created in the repository', /docs\(specs\)/.test(log1), log1.split('\n')[0]);
-  ok('status: recent syncs listed', await o.f.locator('.st-hist li.ok').count() >= 1);
-  ok('status: toast on success', (await calls(o, 'toast')).some(c => c.payload?.kind === 'success'));
-  ok('status: no clipped lines (height follows content)', await o.frame().evaluate(() => document.getElementById('root').getBoundingClientRect().height < 320));
-  await o.p.screenshot({ path: `${SHOTS}/a-status-git-light.png` });
-  await o.p.close();
-  o = await open(ST, P1, stOpts({ theme: 'dark' }));
-  await waitFor(async () => /Synced/.test(await text(o)));
-  await o.p.screenshot({ path: `${SHOTS}/a-status-git-dark.png` });
-  await o.p.close();
+  ok('local git: commit created in the repository', /docs\(specs\)/.test(log1), log1.split('\n')[0]);
+  let st = await state(P1);
+  ok('local git: state says synced', st.sync?.kind === 'git' && st.sync?.last?.ok === true && st.sync?.history?.length >= 1, JSON.stringify(st.sync).slice(0, 200));
 
   // ===== C. GitHub through the OpenChamber account =====
   const set = await svc('/sync', { directory: P2 }, { provider: 'github', repo: 'acme/app', branch: 'weshcraft/specs', apiUrl: gh.url, pr: true, auto: true });
   ok('github sync via service', set.status === 200 && set.json?.result?.url?.endsWith('/pull/7'), JSON.stringify(set.json).slice(0, 200));
   ok('github: token inherited from the OpenChamber account', [...gh.seen.auth].some(a => a.includes('oc-secret-token')), [...gh.seen.auth].join(','));
-  o = await open(ST, P2, stOpts());
-  ok('status: GitHub synced with PR link', !!await waitFor(async () => /Pull request #7/.test(await text(o))), (await text(o)).slice(0, 200).replace(/\n/g, ' | '));
-  ok('status: says where access comes from', /your OpenChamber account \(vcroise\)/.test(await text(o)));
-  await o.f.locator('.sp-link').click();
-  await sleep(300);
-  ok('status: PR link opens through the host', (await calls(o, 'open-url')).some(c => c.payload?.url === 'https://github.example/acme/app/pull/7'));
-  await o.p.screenshot({ path: `${SHOTS}/c-status-github-light.png` });
-  await o.f.locator('.st-btns button:has-text("Sync now")').click();
-  await waitFor(async () => (await o.f.locator('.st-hist li').count()) >= 2, 20000);
-  ok('status: Sync now adds a history entry', await o.f.locator('.st-hist li').count() >= 2);
-  await o.p.close();
-  o = await open(ST, P2, stOpts({ theme: 'dark' }));
-  await waitFor(async () => /#7/.test(await text(o)));
-  await o.p.screenshot({ path: `${SHOTS}/c-status-github-dark.png` });
+  st = await state(P2);
+  ok('github: state has the pull request and where access comes from', /\/pull\/7$/.test(st.sync?.last?.url ?? '') && /OpenChamber account \(vcroise\)/.test(st.sync?.access ?? ''), JSON.stringify(st.sync).slice(0, 240));
+  o = await open('openchamber/page/index.html', P2, { w: 1280, h: 820, surface: 'panel' });
+  await waitFor(async () => /In sync|Out of sync/.test(await text(o)), 30000);
+  await o.f.locator('#more').click(); await sleep(300);
+  ok('panel: ⋯ offers Sync now when a target is set', await o.f.locator('#moreDlg [data-act="sync"]').isVisible());
+  const before2 = (await state(P2)).sync.history.length;
+  await o.f.locator('#moreDlg [data-act="sync"]').click();
+  ok('panel: Sync now syncs', !!await waitFor(async () => (await state(P2)).sync.history.length > before2, 20000));
   await o.p.close();
 
   // ===== D. failure =====
   await svc('/sync', { directory: P2 }, { provider: 'github', repo: 'acme/missing', apiUrl: gh.url, auto: true });
-  o = await open(ST, P2, stOpts());
-  ok('status: failed sync is shown with its reason', !!await waitFor(async () => /Sync failed/.test(await text(o)) && /404/.test(await text(o))), (await text(o)).slice(0, 220).replace(/\n/g, ' | '));
-  await o.p.screenshot({ path: `${SHOTS}/d-status-failed-light.png` });
-  await o.f.locator('.st-btns button:has-text("Stop")').click();
-  ok('status: Stop returns to the setup form', !!await waitFor(async () => /Start syncing/.test(await text(o))));
-  await o.p.close();
+  st = await state(P2);
+  ok('failed sync: state has the reason', st.sync?.last?.ok === false && /404/.test(st.sync?.last?.error ?? ''), JSON.stringify(st.sync?.last).slice(0, 200));
   // the rail panel (full interface) shows a badge when a sync fails
   await svc('/sync', { directory: P2 }, { provider: 'github', repo: 'acme/missing', apiUrl: gh.url, auto: true }).catch(() => {});
   o = await open('openchamber/page/index.html', P2, { w: 520, h: 820, surface: 'panel' });
@@ -196,9 +174,7 @@ try {
   await o.p.close();
 
   // ===== F. empty project: start a design from the page =====
-  o = await open('openchamber/status/index.html', P3, { w: 340, h: 200, surface: 'status' });
-  ok('status (empty project): No design', !!await waitFor(async () => /No design/.test(await text(o))));
-  await o.p.close();
+  ok('state (empty project): no design, no server started', (await state(P3)).status === 'none');
   o = await open('openchamber/page/index.html', P3, { w: 1440, h: 880, surface: 'page' });
   ok('page (empty project): Start a design', !!await waitFor(async () => /Start a design/.test(await text(o)), 30000));
   await o.p.screenshot({ path: `${SHOTS}/f-page-empty-light.png` });
@@ -210,15 +186,9 @@ try {
   o = await open('openchamber/page/index.html', P1, { w: 1000, h: 600, surface: 'page', mode: 'noready' });
   ok('page without OpenChamber says so', !!await waitFor(async () => /has not connected this page/.test(await text(o)), 8000));
   await o.p.close();
-  o = await open('openchamber/status/index.html', P1, { mode: 'noready' });
-  ok('status section without OpenChamber says so', !!await waitFor(async () => /has not connected this panel/.test(await text(o)), 8000));
-  await o.p.close();
   o = await open('openchamber/page/index.html', P1, { w: 1000, h: 600, surface: 'page', mode: 'noservice' });
   ok('page without the service explains how to allow it', !!await waitFor(async () => /Allow the WeshCraft service/.test(await text(o)), 8000));
   await o.p.screenshot({ path: `${SHOTS}/g-page-noservice.png` });
-  await o.p.close();
-  o = await open('openchamber/status/index.html', P1, { mode: 'noservice' });
-  ok('status section without the service explains how to allow it', !!await waitFor(async () => /Allow the WeshCraft service/.test(await text(o)), 8000));
   await o.p.close();
 
   ok('every guest message valid for OpenChamber', host.log.filter(x => x.invalid).length === 0, JSON.stringify(host.log.filter(x => x.invalid)).slice(0, 300));

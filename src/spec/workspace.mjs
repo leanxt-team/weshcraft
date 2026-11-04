@@ -10,6 +10,7 @@ import { screenSpec, componentSpec, tokensSpec, tokensCss, flowsSpec } from './f
 import { domainSpec, apiSpec, openapi, conventionsSpec } from './back.mjs';
 import { linksSpec } from './links.mjs';
 import { functionsSpec } from './functions.mjs';
+import { scanTags, traceOf, graphModule, traceSpec, graphPath, recordedGraphPath } from './trace.mjs';
 import { mcpToolSpec, mcpIndexSpec, endpointSpec, apiIndexSpec } from './surface.mjs';
 import { readNotes } from './contract.mjs';
 import { diffManifests, updateChangelog, summaryLine } from './diff.mjs';
@@ -244,12 +245,36 @@ export class Workspace {
     const results = await pool(jobs, this.concurrency, j => this.runJob(j, { force }));
     results.forEach((r, i) => { if (!r.ok) this.setJob(jobs[i], { status: 'failed', error: String(r.error?.message ?? r.error) }); });
     this.removeOrphans();
+    this.writeTrace();
     const report = this.check();
     this.writeIndex();
     const ms = Date.now() - t0;
     this.emit('run', { status: 'finished', run: this.runs, ms, ok: report.ok, score: report.score });
     this.emit('log', { level: report.ok ? 'info' : 'warn', message: `Run ${this.runs}: ${jobs.length} specs in ${ms} ms, parity ${report.score}% (${report.errors} errors)` });
     return { jobs: [...this.jobs.values()].map(({ preview, ...j }) => j), report, ms };
+  }
+
+  /**
+   * Spec ⇄ code: find the `@weshcraft` tags in the project's code, write the product graph code graphs
+   * index (weshcraft.graph.mjs next to the design) and specs/TRACE.md + trace.json. Also on demand (weshcraft_trace):
+   * code changes do not trigger a run.
+   */
+  writeTrace() {
+    if (!this.manifest) return null;
+    const trace = traceOf(this.manifest, scanTags(this.outDir));
+    this.trace = trace;
+    const put = (rel, text) => { const f = this.file(rel); if (!fs.existsSync(f) || fs.readFileSync(f, 'utf8') !== text) writeFileSafe(f, text); };
+    const graphFile = graphPath(this.outDir, this.designInputs());
+    // Moved (another design opened): the old graph goes; nothing to trace yet: nothing is written.
+    const before = recordedGraphPath(this.outDir);
+    if (before !== graphFile) { const old = this.file(before); try { if (fs.readFileSync(old, 'utf8').includes('WeshCraft product graph')) fs.rmSync(old); } catch { /* none */ } }
+    this.graphFile = graphFile;
+    if (!trace.elements.length) { for (const f of ['specs/TRACE.md', 'specs/trace.json']) fs.rmSync(this.file(f), { force: true }); return trace; }
+    put(graphFile, graphModule(this.manifest, trace, { graphFile }));
+    put('specs/TRACE.md', `${traceSpec(this.manifest, trace, { graphFile })}\n`);
+    put('specs/trace.json', `${JSON.stringify({ graph: graphFile, coverage: trace.coverage, elements: trace.elements.map(e => ({ id: e.id, kind: e.kind, name: e.name, tag: e.kind === 'operation' ? e.refs[1] : e.refs[0], code: e.code.map(t => ({ file: t.file, line: t.line, symbol: t.symbol, lang: t.lang })) })), unknown: trace.unknown.map(t => ({ file: t.file, line: t.line, ref: t.ref })) }, null, 1)}\n`);
+    this.emit('trace', { coverage: trace.coverage, unknown: trace.unknown.length });
+    return trace;
   }
 
   /** Specs for screens/components deleted in FigCraft are removed, not left to rot. */
@@ -268,7 +293,7 @@ export class Workspace {
   }
 
   check() {
-    const report = checkParity(this.manifest, this.outDir);
+    const report = checkParity(this.manifest, this.outDir, { graphFile: this.graphFile });
     this.report = report;
     writeFileSafe(this.file('specs/PARITY.md'), parityMarkdown(report, this.manifest));
     writeFileSafe(this.file('specs/parity.json'), `${JSON.stringify(report, null, 1)}\n`);

@@ -29,6 +29,7 @@ _Purpose not described yet._
 | Operations | [`POST /interests/continue`](back/api.md#op-continue-87) · [`POST /location/allow`](back/api.md#op-allow-location-125) |
 | Data | — |
 | Leads to | — |
+| Code | tag `@weshcraft fn-onboarding` · [what implements it](TRACE.md) |
 
 ## Notes
 

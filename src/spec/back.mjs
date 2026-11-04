@@ -40,6 +40,8 @@ export function domainSpec(manifest, { notes } = {}) {
     L.push(`<a id="${entityAnchor(e.name)}"></a>`);
     L.push(`## ${e.name}`);
     L.push('');
+    L.push(`Code tag: \`@weshcraft ${e.name}\` ([trace](../TRACE.md))`);
+    L.push('');
     L.push(e.sources.length ? `Source layers: ${e.sources.map(ref).join(', ')} · ${e.confidence}` : `Source: API schema \`${e.schema ?? e.name}\` · ${e.confidence}`);
     L.push('');
     L.push('| Field | Type | Example | Shown by | Screens | Loaded by | Confidence |');
@@ -92,6 +94,7 @@ export function apiSpec(manifest, { notes } = {}) {
       if (tools.length) L.push(`- MCP: ${tools.map(t => `[\`${t.name}\`](../front/mcp/${t.key}.md)`).join(', ')}`);
       const fnOf = functionOfOperation(manifest, o.key);
       L.push(`- Function: ${fnOf ? `[${mdEscape(fnOf.name)}](../FUNCTIONS.md#${fnOf.key})` : 'not in a function yet'}`);
+      L.push(`- Code tag: \`@weshcraft ${o.method} ${o.path}\` ([trace](../TRACE.md))`);
       L.push(`- Kind: ${o.kind} · confidence: ${o.confidence}`);
       const used = manifest.links.edges.filter(x => x.op === o.key);
       // Screens' layers; MCP tools and public endpoints have their own lines above.

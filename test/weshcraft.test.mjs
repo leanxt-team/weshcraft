@@ -732,8 +732,9 @@ test('OpenChamber extension: manifest, built pages, service (state, proxy, event
   const root = path.resolve(here, '..');
   const pkg = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'));
   const c = pkg.openchamber.contributes;
-  for (const entry of [c.panel.entry, c.page.entry, c.statusSection.entry, c.service.entry, c.panel.icon]) assert.ok(fs.existsSync(path.join(root, entry)), entry);
-  for (const page of [...new Set([c.panel.entry, c.page.entry, c.statusSection.entry])]) {
+  assert.equal(c.statusSection, undefined, 'no Work Status section: the panel does it all');
+  for (const entry of [c.panel.entry, c.page.entry, c.service.entry, c.panel.icon]) assert.ok(fs.existsSync(path.join(root, entry)), entry);
+  for (const page of [...new Set([c.panel.entry, c.page.entry])]) {
     const html = fs.readFileSync(path.join(root, page), 'utf8');
     assert.ok(!/<script[^>]*\ssrc=|<link[^>]*rel="stylesheet"/.test(html.replace(/<script>[\s\S]*?<\/script>/g, '')), `${page} is self-contained`);
     assert.ok(html.length > 50_000 && /window\.__wcStarted = 'loaded'/.test(html), `${page} carries its built script`);
@@ -902,4 +903,60 @@ test('product functions: suggested, declared in the design, followed by every sp
   // bad input is refused, nothing changes
   await assert.rejects(callDesignTool(ws, 'design_functions', { functions: [{ name: 'A' }, { name: 'a' }] }), /two functions are called/);
   assert.equal(ws.source.store.getFunctions().length, 1);
+});
+
+test('spec ⇄ code: @weshcraft tags, the product graph for code graphs, TRACE.md, parity, weshcraft_trace', async () => {
+  const { scanTags, GRAPH_FILE } = await import('../src/spec/trace.mjs');
+  const dir = tmp();
+  fs.mkdirSync(path.join(dir, 'design'));
+  fs.copyFileSync(ACCOUNT, path.join(dir, 'design/App.figcraft.json'));
+  const put = (f, t) => { fs.mkdirSync(path.dirname(path.join(dir, f)), { recursive: true }); fs.writeFileSync(path.join(dir, f), t); };
+  put('src/api/users.ts', "// @weshcraft POST /users\nexport async function createUser(b: { email: string }) { return b; }\n/** @weshcraft GET /users/me */\nexport async function fetchMe() { return null; }\n/** @weshcraft User */\nexport interface User { id: string }\n");
+  put('src/pages/SignUp.tsx', "// @weshcraft scr-sign-up\nexport function SignUpPage() { return null; }\n");
+  put('src/pages/Profile.tsx', "/** @weshcraft scr-profile, PATCH /users/me */\nexport default class ProfilePage {}\n");
+  put('server/routes.py', '# @weshcraft POST /users\ndef post_users(request):\n    return {}\n\nclass UserModel:  # @weshcraft User\n    pass\n');
+  put('node_modules/x/index.js', '// @weshcraft scr-sign-up\nexport function nope() {}\n');
+  put('src/old.ts', '// @weshcraft scr-gone\nexport const old = 1;\n');
+  const tags = scanTags(dir);
+  assert.ok(!tags.some(t => t.file.startsWith('node_modules')), 'dependencies are not scanned');
+  assert.deepEqual(tags.find(t => t.file === 'server/routes.py' && t.ref === 'User'), { ref: 'User', file: 'server/routes.py', line: 5, lang: 'python', symbol: 'UserModel', exported: false, isDefault: false, kind: 'symbol' }, 'a tag after the code on the same line');
+  assert.equal(tags.filter(t => t.file === 'src/pages/Profile.tsx').length, 2, 'several refs in one tag');
+  assert.ok(tags.find(t => t.symbol === 'ProfilePage').isDefault);
+
+  const ws = new Workspace({ source: new FileSource(path.join(dir, 'design/App.figcraft.json')), outDir: dir });
+  const r = await ws.run();
+  const graph = fs.readFileSync(path.join(dir, GRAPH_FILE), 'utf8');
+  // valid JavaScript that is never run: parse it as a module
+  execFileSync(process.execPath, ['--check', path.join(dir, GRAPH_FILE)]);
+  assert.match(graph, /import \{ SignUpPage \} from '\.\.\/src\/pages\/SignUp';/);
+  assert.match(graph, /import ProfilePage from '\.\.\/src\/pages\/Profile';/);
+  assert.match(graph, /import \{ createUser, fetchMe \} from '\.\.\/src\/api\/users';/);
+  assert.match(graph, /export function weshcraftProduct\(\) \{\n  fnSignUp\(\);/, 'the product calls its functions');
+  assert.match(graph, /export function screenSignUp\(\) \{\n  opPostUsers\(\);\n  SignUpPage\(\);/, 'a screen calls its operations and its code');
+  assert.match(graph, /export function screenProfile\(\) \{[^}]*new ProfilePage\(\);/, 'classes are constructed');
+  assert.match(graph, /export function opPostUsers\(\) \{\n  entityUser\(\);\n  createUser\(\);/);
+  assert.match(graph, /Code: server\/routes\.py:1 post_users/, 'code that cannot be imported is named');
+  assert.match(graph, /Entity «User»[\s\S]*Code: server\/routes\.py:5 UserModel, src\/api\/users\.ts:5 User/);
+  const trace = fs.readFileSync(path.join(dir, 'specs/TRACE.md'), 'utf8');
+  assert.match(trace, /## Function: Sign up/);
+  assert.match(trace, /\| screen \| \[Sign up\]\(front\/screens\/scr-sign-up\.md\) \| `@weshcraft scr-sign-up` \| `src\/pages\/SignUp\.tsx:1` SignUpPage \|/);
+  assert.match(trace, /## Tags that point nowhere[\s\S]*src\/old\.ts:1/);
+  const tj = JSON.parse(fs.readFileSync(path.join(dir, 'specs/trace.json'), 'utf8'));
+  assert.deepEqual(tj.coverage, { traced: 6, total: 7 }, 'Subscription has no code yet');
+  // the specs say which tag to use
+  assert.match(fs.readFileSync(path.join(dir, 'specs/front/screens/scr-sign-up.md'), 'utf8'), /\| Code tag \| `@weshcraft scr-sign-up`/);
+  assert.match(fs.readFileSync(path.join(dir, 'specs/back/api.md'), 'utf8'), /Code tag: `@weshcraft POST \/users`/);
+  assert.match(fs.readFileSync(path.join(dir, 'specs/back/domain.md'), 'utf8'), /Code tag: `@weshcraft User`/);
+  // parity: a dangling tag is a warning; specs stay in sync
+  assert.equal(r.report.ok, true);
+  assert.ok(r.report.issues.some(i => i.code === 'trace-unknown' && i.file === 'src/old.ts'));
+  // code moves: the graph is stale until regenerated, weshcraft_trace refreshes it
+  put('src/pages/Profile.tsx', "/** @weshcraft scr-profile */\nexport default class ProfilePage {}\n");
+  assert.ok(checkParity(ws.manifest, dir).issues.some(i => i.code === 'trace-stale'));
+  const mcp = new WeshCraftMcp({ workspace: ws, autoRun: false });
+  const res = JSON.parse((await mcp.callTool('weshcraft_trace', { untraced: true })).content[0].text);
+  assert.deepEqual(res.elements.map(e => e.tag), ['@weshcraft PATCH /users/me', '@weshcraft Subscription']);
+  assert.ok(!checkParity(ws.manifest, dir).issues.some(i => i.code === 'trace-stale'));
+  const one = JSON.parse((await mcp.callTool('weshcraft_trace', { function: 'Sign up' })).content[0].text);
+  assert.ok(one.elements.some(e => e.name === 'Sign up' && e.kind === 'screen' && e.code[0] === 'src/pages/SignUp.tsx:1 SignUpPage'));
 });

@@ -9,6 +9,7 @@ Every operation a screen needs, grouped by screen. Conventions (auth, errors, pa
 
 - Screen: [Sign up](../front/screens/scr-sign-up.md), triggered by `#10`
 - Function: [Sign up](../FUNCTIONS.md#fn-sign-up)
+- Code tag: `@weshcraft POST /users` ([trace](../TRACE.md))
 - Kind: annotated · confidence: explicit
 - Front end: ▶ `#10` Create account · ⇢ `#6` Email field · ⇢ `#8` Password field
 - Returns: `User`
@@ -22,6 +23,7 @@ Every operation a screen needs, grouped by screen. Conventions (auth, errors, pa
 
 - Screen: [Profile](../front/screens/scr-profile.md), on screen load
 - Function: [Sign up](../FUNCTIONS.md#fn-sign-up)
+- Code tag: `@weshcraft GET /users/me` ([trace](../TRACE.md))
 - Kind: annotated · confidence: explicit
 - Response shown: `User.name` (`#12`), `User.email` (`#13`)
 - Returns: `User`
@@ -32,6 +34,7 @@ Every operation a screen needs, grouped by screen. Conventions (auth, errors, pa
 
 - Screen: [Profile](../front/screens/scr-profile.md), triggered by `#15`
 - Function: [Sign up](../FUNCTIONS.md#fn-sign-up)
+- Code tag: `@weshcraft PATCH /users/me` ([trace](../TRACE.md))
 - Kind: annotated · confidence: explicit
 - Front end: ▶ `#15` Save
 - Errors: 400 validation (field errors shown next to the inputs), 401 unauthenticated, 409 conflict, 5xx shown as a retryable banner.

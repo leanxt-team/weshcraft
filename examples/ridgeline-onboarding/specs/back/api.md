@@ -9,6 +9,7 @@ Every operation a screen needs, grouped by screen. Conventions (auth, errors, pa
 
 - Screen: [2 Interests](../front/screens/scr-2-interests.md), triggered by `#87`
 - Function: [Onboarding](../FUNCTIONS.md#fn-onboarding)
+- Code tag: `@weshcraft POST /interests/continue` ([trace](../TRACE.md))
 - Kind: action · confidence: inferred
 - Front end: ▶ `#87` Continue
 - Errors: 400 validation (field errors shown next to the inputs), 401 unauthenticated, 409 conflict, 5xx shown as a retryable banner.
@@ -20,6 +21,7 @@ Every operation a screen needs, grouped by screen. Conventions (auth, errors, pa
 
 - Screen: [3 Location](../front/screens/scr-3-location.md), triggered by `#125`
 - Function: [Onboarding](../FUNCTIONS.md#fn-onboarding)
+- Code tag: `@weshcraft POST /location/allow` ([trace](../TRACE.md))
 - Kind: action · confidence: inferred
 - Front end: ▶ `#125` Allow location
 - Errors: 400 validation (field errors shown next to the inputs), 401 unauthenticated, 409 conflict, 5xx shown as a retryable banner.

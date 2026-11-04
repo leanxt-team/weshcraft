@@ -221,7 +221,7 @@ document.addEventListener('keydown', e => {
 }, true);
 
 // In OpenChamber the header is one line: name · project, the main views, parity, and a menu.
-// Sync lives in Work Status, so the sync pill, source and hash move out of the way (source and
+// Sync is driven from the ⋯ menu, so the sync pill, source and hash move out of the way (source and
 // hash stay in the menu). After the app has wired its tabs (it measures them on load).
 setTimeout(() => {
   const top = document.querySelector('.top');

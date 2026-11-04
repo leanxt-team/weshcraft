@@ -81,6 +81,7 @@ export function functionsSpec(manifest, { notes } = {}) {
     if (x.tools.length) L.push(`| MCP tools | ${x.tools.map(t => `[\`${t}\`](front/mcp/${tools.get(t).key}.md)`).join(' · ')} |`);
     L.push(`| Data | ${x.entities.map(e => `[${mdEscape(e.name)}](back/domain.md#${entityAnchor(e.name)}) (${e.access})`).join(' · ') || '—'} |`);
     L.push(`| Leads to | ${x.next.map(n => `[${mdEscape(fn.get(n.to).name)}](#${n.to})`).join(' · ') || '—'} |`);
+    L.push(`| Code | tag \`@weshcraft ${x.key}\` · [what implements it](TRACE.md) |`);
     L.push('');
   }
   const u = f.unassigned;

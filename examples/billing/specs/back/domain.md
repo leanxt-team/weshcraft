@@ -5,6 +5,8 @@ Entities and fields the prototype displays or edits. Types come from explicit bi
 <a id="entity-customer"></a>
 ## Customer
 
+Code tag: `@weshcraft Customer` ([trace](../TRACE.md))
+
 Source: API schema `Customer` · explicit
 
 | Field | Type | Example | Shown by | Screens | Loaded by | Confidence |
@@ -16,6 +18,8 @@ Source: API schema `Customer` · explicit
 
 <a id="entity-invoice"></a>
 ## Invoice
+
+Code tag: `@weshcraft Invoice` ([trace](../TRACE.md))
 
 Source: API schema `Invoice` · explicit
 

@@ -7,6 +7,7 @@
 | Behaviour | writes · **destructive** · idempotent · closed world |
 | Back end | none (declared: implemented in the server) |
 | Fingerprint | `3b4e6c4cc1d1` |
+| Code tag | `@weshcraft void_invoice` ([trace](../../TRACE.md)) |
 
 ## Purpose
 

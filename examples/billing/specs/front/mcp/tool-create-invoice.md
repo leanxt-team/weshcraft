@@ -7,6 +7,7 @@
 | Behaviour | writes · closed world |
 | Back end | [`POST /invoices`](../../back/api.md#op-ep-post-invoices) (explicit) |
 | Fingerprint | `dc429baba1d6` |
+| Code tag | `@weshcraft create_invoice` ([trace](../../TRACE.md)) |
 
 ## Purpose
 

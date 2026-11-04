@@ -28,7 +28,7 @@ const HINTS = h => [h.readOnly ? 'read-only' : 'writes', h.destructive ? '**dest
 export function mcpToolSpec(manifest, tool, { notes } = {}) {
   const op = tool.op ? manifest.domain.operations.find(o => o.key === tool.op) : null;
   const L = [`# MCP tool: \`${tool.name}\``, ''];
-  L.push(`| | |\n|---|---|\n| Title | ${mdEscape(tool.title ?? '—')} |\n| Server | ${mdEscape(manifest.surface.mcp.server ?? '—')} |\n| Behaviour | ${HINTS(tool.hints)} |\n| Back end | ${op ? `[\`${op.method} ${op.path}\`](../../back/api.md#${op.key}) (${tool.link})` : tool.link === 'none' ? 'none (declared: implemented in the server)' : '⚠️ not linked to an operation'} |\n| Fingerprint | \`${tool.fingerprint}\` |`);
+  L.push(`| | |\n|---|---|\n| Title | ${mdEscape(tool.title ?? '—')} |\n| Server | ${mdEscape(manifest.surface.mcp.server ?? '—')} |\n| Behaviour | ${HINTS(tool.hints)} |\n| Back end | ${op ? `[\`${op.method} ${op.path}\`](../../back/api.md#${op.key}) (${tool.link})` : tool.link === 'none' ? 'none (declared: implemented in the server)' : '⚠️ not linked to an operation'} |\n| Fingerprint | \`${tool.fingerprint}\` |\n| Code tag | \`@weshcraft ${tool.name}\` ([trace](../../TRACE.md)) |`);
   L.push('');
   L.push('## Purpose');
   L.push('');

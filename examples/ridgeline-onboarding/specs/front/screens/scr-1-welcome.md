@@ -3,6 +3,7 @@
 | | |
 |---|---|
 | Function | [Onboarding](../../FUNCTIONS.md#fn-onboarding) |
+| Code tag | `@weshcraft scr-1-welcome` ([trace](../../TRACE.md)) |
 | Node | `#2` |
 | Page | Onboarding |
 | Frame | 393 × 852 px |
