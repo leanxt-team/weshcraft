@@ -3,3 +3,12 @@ node_modules/
 *.tmp
 *-specs.zip
 .DS_Store
+
+# A WeshCraft run inside this repository (the plugin starts one for the project it
+# is in): its workspace output is generated, never part of the source.
+/design/
+/prototype/
+/specs/
+
+# Release archives are published as GitHub releases, not kept in the repository.
+*.zip
