@@ -9,8 +9,10 @@ Legend: ▶ triggers an operation · ⇢ submits a request field · ☰ list fil
 ```mermaid
 flowchart LR
   subgraph Front[Front end]
-    scr_sign_up["Sign up"]
-    scr_profile["Profile"]
+    subgraph fn_sign_up["Sign up"]
+      scr_sign_up["Sign up"]
+      scr_profile["Profile"]
+    end
   end
   subgraph API
     op_create_account_10["POST /users"]
@@ -126,6 +128,6 @@ _No notes yet._
  ],
  "gaps": 1,
  "kind": "links",
- "sourceHash": "071d12bcdc75e2a0"
+ "sourceHash": "0086e994860a8aee"
 }
 -->

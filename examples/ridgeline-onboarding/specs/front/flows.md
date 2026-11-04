@@ -2,10 +2,12 @@
 
 ```mermaid
 flowchart LR
-  scr_1_welcome["1 Welcome"]
-  scr_2_interests["2 Interests"]
-  scr_3_location["3 Location"]
-  scr_4_all_set["4 All set"]
+  subgraph fn_onboarding["Onboarding"]
+    scr_1_welcome["1 Welcome"]
+    scr_2_interests["2 Interests"]
+    scr_3_location["3 Location"]
+    scr_4_all_set["4 All set"]
+  end
   scr_1_welcome -- "Get started" --> scr_2_interests
   scr_2_interests -- "Continue" --> scr_3_location
   scr_3_location -- "Allow location" --> scr_4_all_set
@@ -54,6 +56,6 @@ _No notes yet. Agent or human additions go here; WeshCraft keeps this block when
   }
  ],
  "kind": "front-flows",
- "sourceHash": "046006b98ea38890"
+ "sourceHash": "47f927c9841b420d"
 }
 -->

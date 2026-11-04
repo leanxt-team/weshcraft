@@ -9,8 +9,10 @@ Legend: ▶ triggers an operation · ⇢ submits a request field · ☰ list fil
 ```mermaid
 flowchart LR
   subgraph Front[Front end]
-    scr_2_interests["2 Interests"]
-    scr_3_location["3 Location"]
+    subgraph fn_onboarding["Onboarding"]
+      scr_2_interests["2 Interests"]
+      scr_3_location["3 Location"]
+    end
   end
   subgraph API
     op_continue_87["POST /interests/continue"]
@@ -69,6 +71,6 @@ _No notes yet._
  ],
  "gaps": 0,
  "kind": "links",
- "sourceHash": "046006b98ea38890"
+ "sourceHash": "47f927c9841b420d"
 }
 -->

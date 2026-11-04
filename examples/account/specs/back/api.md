@@ -8,6 +8,7 @@ Every operation a screen needs, grouped by screen. Conventions (auth, errors, pa
 ### `POST /users` — Create account
 
 - Screen: [Sign up](../front/screens/scr-sign-up.md), triggered by `#10`
+- Function: [Sign up](../FUNCTIONS.md#fn-sign-up)
 - Kind: annotated · confidence: explicit
 - Front end: ▶ `#10` Create account · ⇢ `#6` Email field · ⇢ `#8` Password field
 - Returns: `User`
@@ -20,6 +21,7 @@ Every operation a screen needs, grouped by screen. Conventions (auth, errors, pa
 ### `GET /users/me` — GET /users/me → User
 
 - Screen: [Profile](../front/screens/scr-profile.md), on screen load
+- Function: [Sign up](../FUNCTIONS.md#fn-sign-up)
 - Kind: annotated · confidence: explicit
 - Response shown: `User.name` (`#12`), `User.email` (`#13`)
 - Returns: `User`
@@ -29,6 +31,7 @@ Every operation a screen needs, grouped by screen. Conventions (auth, errors, pa
 ### `PATCH /users/me` — PATCH /users/me
 
 - Screen: [Profile](../front/screens/scr-profile.md), triggered by `#15`
+- Function: [Sign up](../FUNCTIONS.md#fn-sign-up)
 - Kind: annotated · confidence: explicit
 - Front end: ▶ `#15` Save
 - Errors: 400 validation (field errors shown next to the inputs), 401 unauthenticated, 409 conflict, 5xx shown as a retryable banner.
@@ -65,6 +68,6 @@ _No notes yet. Agent or human additions go here; WeshCraft keeps this block when
    "trigger": 15
   }
  ],
- "sourceHash": "071d12bcdc75e2a0"
+ "sourceHash": "0086e994860a8aee"
 }
 -->

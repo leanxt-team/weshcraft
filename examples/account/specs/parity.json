@@ -1,10 +1,16 @@
 {
  "ok": true,
  "score": 100,
- "checks": 113,
+ "checks": 118,
  "errors": 0,
- "warnings": 1,
+ "warnings": 2,
  "issues": [
+  {
+   "level": "warning",
+   "code": "functions-suggested",
+   "file": "specs/FUNCTIONS.md",
+   "message": "the function is suggested from the prototype: name them and give each a purpose (design_functions or the Functions view)"
+  },
   {
    "level": "warning",
    "code": "gap-unloaded-data",
@@ -13,5 +19,5 @@
    "node": 14
   }
  ],
- "sourceHash": "071d12bcdc75e2a0"
+ "sourceHash": "0086e994860a8aee"
 }

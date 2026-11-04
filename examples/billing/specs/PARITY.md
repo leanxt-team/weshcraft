@@ -1,5 +1,7 @@
 # Spec ↔ prototype parity
 
-✅ **In sync.** 84 checks, 0 errors, 0 warnings, score 100%. Prototype `4adc5ece25fbe421` (0 screens, 0 components, 0 tokens, 5 operations).
+✅ **In sync.** 87 checks, 0 errors, 1 warnings, score 100%. Prototype `53efee9c860fc944` (0 screens, 0 components, 0 tokens, 5 operations).
 
-Every screen, text, interaction, instance, input, component, token, navigation edge, entity and operation in the prototype is in the specs, verbatim, and nothing else is.
+| Level | Check | File | Detail |
+|---|---|---|---|
+| warning | functions-suggested | `specs/FUNCTIONS.md` | the 3 functions are suggested from the prototype: name them and give each a purpose (design_functions or the Functions view) |

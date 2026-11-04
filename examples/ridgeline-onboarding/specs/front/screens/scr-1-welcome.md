@@ -2,6 +2,7 @@
 
 | | |
 |---|---|
+| Function | [Onboarding](../../FUNCTIONS.md#fn-onboarding) |
 | Node | `#2` |
 | Page | Onboarding |
 | Frame | 393 × 852 px |
@@ -131,6 +132,7 @@ _No notes yet. Agent or human additions go here; WeshCraft keeps this block when
   }
  ],
  "fingerprint": "38228a482aae",
+ "function": "fn-onboarding",
  "inputs": [],
  "instances": [],
  "key": "scr-1-welcome",
@@ -142,6 +144,6 @@ _No notes yet. Agent or human additions go here; WeshCraft keeps this block when
   393,
   852
  ],
- "sourceHash": "046006b98ea38890"
+ "sourceHash": "47f927c9841b420d"
 }
 -->

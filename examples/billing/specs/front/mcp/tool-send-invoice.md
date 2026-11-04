@@ -54,6 +54,6 @@ _No notes yet. Agent or human additions go here; WeshCraft keeps this block when
  "kind": "front-mcp-tool",
  "name": "send_invoice",
  "op": "op-ep-post-invoices-id-send",
- "sourceHash": "4adc5ece25fbe421"
+ "sourceHash": "53efee9c860fc944"
 }
 -->

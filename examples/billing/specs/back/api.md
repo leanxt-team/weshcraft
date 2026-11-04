@@ -9,6 +9,7 @@ Every operation a screen needs, grouped by screen. Conventions (auth, errors, pa
 
 - Public endpoint: [`GET /invoices`](../front/api/ep-get-invoices.md)
 - MCP: [`list_invoices`](../front/mcp/tool-list-invoices.md)
+- Function: [Invoices](../FUNCTIONS.md#fn-invoices)
 - Kind: list · confidence: explicit
 - Returns: `Invoice[]` (paginated)
 - Errors: 400 validation (field errors shown next to the inputs), 401 unauthenticated, 409 conflict, 5xx shown as a retryable banner.
@@ -18,6 +19,7 @@ Every operation a screen needs, grouped by screen. Conventions (auth, errors, pa
 
 - Public endpoint: [`POST /invoices`](../front/api/ep-post-invoices.md)
 - MCP: [`create_invoice`](../front/mcp/tool-create-invoice.md)
+- Function: [Invoices](../FUNCTIONS.md#fn-invoices)
 - Kind: endpoint · confidence: explicit
 - Returns: `Invoice`
 - Errors: 400 validation (field errors shown next to the inputs), 401 unauthenticated, 409 conflict, 5xx shown as a retryable banner.
@@ -26,6 +28,7 @@ Every operation a screen needs, grouped by screen. Conventions (auth, errors, pa
 ### `GET /invoices/{id}` — Get one invoice
 
 - Public endpoint: [`GET /invoices/{id}`](../front/api/ep-get-invoices-id.md)
+- Function: [Invoices](../FUNCTIONS.md#fn-invoices)
 - Kind: endpoint · confidence: explicit
 - Returns: `Invoice`
 - Errors: 400 validation (field errors shown next to the inputs), 401 unauthenticated, 409 conflict, 5xx shown as a retryable banner.
@@ -35,6 +38,7 @@ Every operation a screen needs, grouped by screen. Conventions (auth, errors, pa
 
 - Public endpoint: [`POST /invoices/{id}/send`](../front/api/ep-post-invoices-id-send.md)
 - MCP: [`send_invoice`](../front/mcp/tool-send-invoice.md)
+- Function: [Invoices](../FUNCTIONS.md#fn-invoices)
 - Kind: endpoint · confidence: explicit
 - Errors: 400 validation (field errors shown next to the inputs), 401 unauthenticated, 409 conflict, 5xx shown as a retryable banner.
 
@@ -42,6 +46,7 @@ Every operation a screen needs, grouped by screen. Conventions (auth, errors, pa
 ### `GET /customers` — List customers
 
 - Public endpoint: [`GET /customers`](../front/api/ep-get-customers.md)
+- Function: [Customers](../FUNCTIONS.md#fn-customers)
 - Kind: list · confidence: explicit
 - Returns: `Customer[]` (paginated)
 - Errors: 400 validation (field errors shown next to the inputs), 401 unauthenticated, 409 conflict, 5xx shown as a retryable banner.
@@ -92,6 +97,6 @@ _No notes yet. Agent or human additions go here; WeshCraft keeps this block when
    "trigger": null
   }
  ],
- "sourceHash": "4adc5ece25fbe421"
+ "sourceHash": "53efee9c860fc944"
 }
 -->

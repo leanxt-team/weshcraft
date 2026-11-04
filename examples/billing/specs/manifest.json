@@ -3,7 +3,7 @@
  "source": {
   "name": "Billing service",
   "truncated": false,
-  "hash": "4adc5ece25fbe421"
+  "hash": "53efee9c860fc944"
  },
  "screens": [],
  "components": [],
@@ -949,5 +949,89 @@
     }
    ]
   }
+ },
+ "functions": {
+  "declared": false,
+  "items": [
+   {
+    "key": "fn-invoices",
+    "name": "Invoices",
+    "summary": "",
+    "screens": [],
+    "operations": [
+     "op-ep-get-invoices",
+     "op-ep-post-invoices",
+     "op-ep-get-invoices-id",
+     "op-ep-post-invoices-id-send"
+    ],
+    "tools": [
+     "create_invoice",
+     "list_invoices",
+     "send_invoice"
+    ],
+    "endpoints": [
+     "ep-get-invoices",
+     "ep-post-invoices",
+     "ep-get-invoices-id",
+     "ep-post-invoices-id-send"
+    ],
+    "entities": [
+     {
+      "name": "Invoice",
+      "access": "reads, writes"
+     }
+    ],
+    "actors": [
+     "agent",
+     "api"
+    ],
+    "next": []
+   },
+   {
+    "key": "fn-customers",
+    "name": "Customers",
+    "summary": "",
+    "screens": [],
+    "operations": [
+     "op-ep-get-customers"
+    ],
+    "tools": [],
+    "endpoints": [
+     "ep-get-customers"
+    ],
+    "entities": [
+     {
+      "name": "Customer",
+      "access": "reads"
+     }
+    ],
+    "actors": [
+     "api"
+    ],
+    "next": []
+   },
+   {
+    "key": "fn-agent-tools",
+    "name": "Agent tools",
+    "summary": "",
+    "screens": [],
+    "operations": [],
+    "tools": [
+     "void_invoice"
+    ],
+    "endpoints": [],
+    "entities": [],
+    "actors": [
+     "agent"
+    ],
+    "next": []
+   }
+  ],
+  "unassigned": {
+   "screens": [],
+   "operations": [],
+   "tools": []
+  },
+  "missing": []
  }
 }

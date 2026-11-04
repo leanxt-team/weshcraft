@@ -3,7 +3,7 @@
  "source": {
   "name": "Account",
   "truncated": false,
-  "hash": "071d12bcdc75e2a0"
+  "hash": "0086e994860a8aee"
  },
  "screens": [
   {
@@ -403,5 +403,46 @@
     "message": "Subscription.plan is shown on scr-profile but no operation on that screen loads Subscription"
    }
   ]
+ },
+ "functions": {
+  "declared": false,
+  "items": [
+   {
+    "key": "fn-sign-up",
+    "name": "Sign up",
+    "summary": "",
+    "screens": [
+     "scr-sign-up",
+     "scr-profile"
+    ],
+    "operations": [
+     "op-create-account-10",
+     "op-get-users-me-3",
+     "op-patch-users-me-15"
+    ],
+    "tools": [],
+    "endpoints": [],
+    "entities": [
+     {
+      "name": "Subscription",
+      "access": "reads"
+     },
+     {
+      "name": "User",
+      "access": "reads, writes"
+     }
+    ],
+    "actors": [
+     "user"
+    ],
+    "next": []
+   }
+  ],
+  "unassigned": {
+   "screens": [],
+   "operations": [],
+   "tools": []
+  },
+  "missing": []
  }
 }

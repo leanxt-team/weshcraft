@@ -2,6 +2,7 @@
 
 | | |
 |---|---|
+| Function | [Sign up](../../FUNCTIONS.md#fn-sign-up) |
 | Node | `#3` |
 | Page | Account |
 | Frame | 393 × 600 px |
@@ -122,6 +123,7 @@ _No notes yet. Agent or human additions go here; WeshCraft keeps this block when
   }
  ],
  "fingerprint": "388d8dc61cc8",
+ "function": "fn-sign-up",
  "inputs": [],
  "instances": [],
  "key": "scr-profile",
@@ -157,6 +159,6 @@ _No notes yet. Agent or human additions go here; WeshCraft keeps this block when
   393,
   600
  ],
- "sourceHash": "071d12bcdc75e2a0"
+ "sourceHash": "0086e994860a8aee"
 }
 -->

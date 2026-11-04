@@ -3,7 +3,7 @@
   "info": {
     "title": "Billing service API",
     "version": "0.1.0",
-    "x-weshcraft-source-hash": "4adc5ece25fbe421"
+    "x-weshcraft-source-hash": "53efee9c860fc944"
   },
   "paths": {
     "/invoices": {

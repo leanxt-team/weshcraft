@@ -43,7 +43,7 @@ _No notes yet. Agent or human additions go here; WeshCraft keeps this block when
  "resources": [
   "billing://invoices/{id}.pdf"
  ],
- "sourceHash": "4adc5ece25fbe421",
+ "sourceHash": "53efee9c860fc944",
  "tools": [
   "create_invoice",
   "list_invoices",

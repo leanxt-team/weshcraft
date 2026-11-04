@@ -2,8 +2,10 @@
 
 ```mermaid
 flowchart LR
-  scr_sign_up["Sign up"]
-  scr_profile["Profile"]
+  subgraph fn_sign_up["Sign up"]
+    scr_sign_up["Sign up"]
+    scr_profile["Profile"]
+  end
   scr_sign_up -- "Create account" --> scr_profile
 ```
 
@@ -27,6 +29,6 @@ _No notes yet. Agent or human additions go here; WeshCraft keeps this block when
   }
  ],
  "kind": "front-flows",
- "sourceHash": "071d12bcdc75e2a0"
+ "sourceHash": "0086e994860a8aee"
 }
 -->

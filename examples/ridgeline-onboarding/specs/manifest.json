@@ -3,7 +3,7 @@
  "source": {
   "name": "Ridgeline onboarding",
   "truncated": false,
-  "hash": "046006b98ea38890"
+  "hash": "47f927c9841b420d"
  },
  "screens": [
   {
@@ -630,5 +630,38 @@
    }
   ],
   "gaps": []
+ },
+ "functions": {
+  "declared": false,
+  "items": [
+   {
+    "key": "fn-onboarding",
+    "name": "Onboarding",
+    "summary": "",
+    "screens": [
+     "scr-1-welcome",
+     "scr-2-interests",
+     "scr-3-location",
+     "scr-4-all-set"
+    ],
+    "operations": [
+     "op-continue-87",
+     "op-allow-location-125"
+    ],
+    "tools": [],
+    "endpoints": [],
+    "entities": [],
+    "actors": [
+     "user"
+    ],
+    "next": []
+   }
+  ],
+  "unassigned": {
+   "screens": [],
+   "operations": [],
+   "tools": []
+  },
+  "missing": []
  }
 }
