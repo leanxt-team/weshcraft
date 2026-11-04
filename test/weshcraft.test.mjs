@@ -603,7 +603,7 @@ test('CLI: new creates an empty FigCraft document; serve-style workspaces find d
   const dir = tmp();
   const bin = path.join(here, '..', 'bin', 'weshcraft.mjs');
   const out = execFileSync(process.execPath, [bin, 'new', 'Shop'], { cwd: dir, encoding: 'utf8' });
-  assert.match(out, /created design\/Shop\.figcraft/);
+  assert.match(out, /created design[\\/]Shop\.figcraft/);
   const s = DesignStore.open(path.join(dir, 'design/Shop.figcraft'));
   assert.equal(s.doc.format, 'figcraft');
   assert.equal(s.doc.name, 'Shop');
