@@ -176,10 +176,12 @@ export function createPlugin(deps = {}) {
       let cfg = deps.config ?? detectConfig(dir, ctx.options ?? {});
       if (cfg?.error) { log(cfg.error); return undefined; }
       let bridge = null;
+      let hasDesign = false;
       const register = async () => {
         bridge ??= deps.bridge ?? new Bridge(dir, cfg, { log, spawnImpl: deps.spawn });
         let defs = [OPEN_TOOL];
         try { defs = [OPEN_TOOL, ...(await bridge.tools())]; } catch (e) { log(`could not start WeshCraft: ${e.message}`); }
+        hasDesign = defs.some(t => t.name.startsWith('design_') && t.name !== 'design_new');
         await ctx.tool?.transform?.(editor => {
           editor.namespace({ name: 'weshcraft', description: 'WeshCraft: specs that match the prototype, the MCP server and the API of this project, kept in sync and in git.' });
           if (defs.some(t => t.name.startsWith('design_'))) editor.namespace({ name: 'design', description: 'Edit this project\'s design (a FigCraft document) the way a designer would: every change regenerates the specs; the user sees it live in WeshCraft.' });
@@ -199,6 +201,7 @@ export function createPlugin(deps = {}) {
               cfg = detectConfig(dir, { ...(ctx.options ?? {}), force: true });
               await register();
               await ctx.tool?.reload?.();
+              watchDesign();
               return { content: `WeshCraft started: ${bridge.url()} — next: design_new {name}` };
             },
           });
@@ -217,18 +220,37 @@ export function createPlugin(deps = {}) {
       // Idle project: if the user starts WeshCraft from OpenChamber (or a browser), take its tools
       // without a restart. Cheap: one local HTTP check every few seconds, nothing when the port is free.
       let idleCheck = null;
+      const tick = deps.idleCheckMs ?? 4000;
+      // No design yet (or not yet loaded when the tools were listed): when one appears, from
+      // OpenChamber, a browser or another session, take its design tools without a restart.
+      const watchDesign = () => {
+        if (hasDesign || idleCheck) return;
+        idleCheck = setInterval(async () => {
+          if (hasDesign) { clearInterval(idleCheck); idleCheck = null; return; }
+          if (!bridge || !(await bridge.alive())) return;
+          const names = await bridge.tools().then(ts => ts.map(t => t.name)).catch(() => []);
+          if (!names.some(n => n.startsWith('design_') && n !== 'design_new')) return;
+          clearInterval(idleCheck); idleCheck = null;
+          await register();
+          await ctx.tool?.reload?.();
+          log('WeshCraft has a design for this project: design tools are ready');
+        }, tick);
+        idleCheck.unref?.();
+      };
       if (!cfg) {
         const probe = new Bridge(dir, detectConfig(dir, { ...(ctx.options ?? {}), force: true }), { log, spawnImpl: deps.spawn });
         idleCheck = setInterval(async () => {
-          if (bridge || !(await probe.alive())) return;
-          clearInterval(idleCheck);
+          if (bridge) { clearInterval(idleCheck); idleCheck = null; watchDesign(); return; }
+          if (!(await probe.alive())) return;
+          clearInterval(idleCheck); idleCheck = null;
           cfg = probe.cfg;
           await register();
           await ctx.tool?.reload?.();
           log('WeshCraft is running for this project: design and spec tools are ready');
-        }, deps.idleCheckMs ?? 4000);
+          watchDesign();
+        }, tick);
         idleCheck.unref?.();
-      }
+      } else watchDesign();
       return () => { clearInterval(idleCheck); bridge?.stop(); };
     },
   };

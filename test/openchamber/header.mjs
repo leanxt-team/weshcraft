@@ -37,6 +37,7 @@ try {
     let g = await geo();
     ok(`${w}: header on one line`, g.oneLine && g.top.height < 52, JSON.stringify(g.top));
     ok(`${w}: views in the header`, g.tabsInTop);
+    ok(`${w}: no logo or name in the header`, !(await f.locator('.top .brand').isVisible()));
     ok(`${w}: sync details left to Work Status`, g.syncHidden);
     ok(`${w}: Spec button in the header, on`, g.specBtn && g.specPressed === 'true');
     ok(`${w}: spec panel shown while designing`, g.reader, JSON.stringify(g));
@@ -45,6 +46,22 @@ try {
     await f.locator('#edScreens li').nth(1).click(); await sleep(1200);
     ok(`${w}: spec follows the screen being edited`, /2 Interests/.test(await f.locator('#specTitle').innerText()) || /Interests/.test((await f.locator('#doc').innerText()).slice(0, 200)), await f.locator('#specTitle').innerText());
     await f.locator('#edScreens li').nth(0).click(); await sleep(1000);
+    // dividers: drag the spec, the inspector and the screens list wider
+    const drag = async (name, dx) => {
+      const h = f.locator(`.oc-split[data-split="${name}"]`);
+      if (!(await h.isVisible())) return null;
+      const box = await h.boundingBox(); const y = box.y + box.height / 2, x = box.x + box.width / 2;
+      await p.mouse.move(x, y); await p.mouse.down(); await p.mouse.move(x + dx / 2, y, { steps: 3 }); await p.mouse.move(x + dx, y, { steps: 3 }); await p.mouse.up(); await sleep(250);
+      return true;
+    };
+    const width = sel => fr.evaluate(s => document.querySelector(s).getBoundingClientRect().width, sel);
+    for (const [name, sel, dx, grow] of [['spec', '.reader', -60, 1], ['edr', '.ed-right', -30, 1], ['edl', '.ed-left', 30, 1]]) {
+      const w0 = await width(sel); const did = await drag(name, dx); const w1 = await width(sel);
+      const cw = await width('.ed-center');
+      ok(`${w}: divider resizes ${sel} (or stops at the canvas minimum)`, did && (Math.abs((w1 - w0) - Math.abs(dx) * grow) <= 3 || (w1 >= w0 && cw <= 224)), `${did} ${Math.round(w0)} → ${Math.round(w1)}, center ${Math.round(cw)}`);
+    }
+    ok(`${w}: canvas still has room`, (await width('#edCanvas')) >= 200, String(await width('#edCanvas')));
+    await f.locator('.oc-split[data-split="spec"]').dblclick(); await sleep(250);
     await p.screenshot({ path: `${OUT}/h-${w}-design-spec.png` });
     await f.locator('#ocToggle-spec').click(); await sleep(400);
     g = await geo();
@@ -55,6 +72,9 @@ try {
     if (w >= 1200) {
       await f.locator('#ocToggle-list').click(); await sleep(300);
       ok(`${w}: Specs button hides the list`, !(await geo()).builder);
+      await f.locator('#ocToggle-list').click(); await sleep(300);
+      { const w0 = await width('.builder'); await drag('list', 50); const w1 = await width('.builder'); ok(`${w}: divider resizes the spec list`, Math.abs(w1 - w0 - 50) <= 3, `${Math.round(w0)} → ${Math.round(w1)}`); }
+      await f.locator('#ocToggle-list').click(); await sleep(300);
       await f.locator('#ocToggle-list').click(); await sleep(300);
       await f.locator('.job >> nth=0').click(); await sleep(800);
     } else {

@@ -34,7 +34,7 @@ ok('narrow: toolbar above the canvas', geo.tools.bottom <= geo.canvas.top + 1, J
 ok('narrow: inspector below the canvas, no overlap', geo.canvas.bottom <= geo.insp.top + 1, JSON.stringify([geo.canvas.bottom, geo.insp.top]));
 ok('narrow: everything above the tab bar', geo.insp.bottom <= geo.bar.top + 1, JSON.stringify([geo.insp.bottom, geo.bar.top]));
 ok('narrow: canvas gets real room', geo.canvas.height > 300, String(geo.canvas.height));
-ok('narrow: project name in the header', /repo/.test(await o.f.locator('.brand').innerText()));
+ok('narrow: no logo or name in the header', !(await o.f.locator('.top .brand').isVisible()));
 for (const v of ['specs', 'proto', 'links', 'read']) { await o.f.locator(`.phonebar [data-view="${v}"]`).click(); await o.p.waitForTimeout(900); await o.p.screenshot({ path: `${OUT}/n-${v}.png` }); }
 await o.p.close();
 // a monorepo whose design lives in a subfolder

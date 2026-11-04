@@ -281,3 +281,64 @@ setTimeout(() => {
   document.getElementById('issues')?.addEventListener('click', e => { if (e.target.closest('li[data-file]')) showSpec(); });
   document.getElementById('linkmap')?.addEventListener('click', e => { if (e.target.closest('[data-key], button, a')) showSpec(); });
 }, 0);
+
+// ---- dividers between the blocks: drag to resize them (for this visit), double-click to reset ----
+setTimeout(() => {
+  const layout = document.querySelector('.layout');
+  const ed = document.querySelector('.tabpanel.ed');
+  if (!layout) return;
+  const q = s => document.querySelector(s);
+  const visible = el => !!el && el.getClientRects().length > 0 && getComputedStyle(el).display !== 'none';
+  // name, container, the block it resizes, which edge, the block that gives room, minimum width
+  const defs = [
+    { v: '--oc-list', box: layout, el: q('.builder'), edge: 'right', mid: q('.stage'), min: 160 },
+    { v: '--oc-spec', box: layout, el: q('.reader'), edge: 'left', mid: q('.stage'), min: 240 },
+    { v: '--oc-edl', box: ed, el: q('.ed-left'), edge: 'right', mid: q('.ed-center'), min: 120 },
+    { v: '--oc-edr', box: ed, el: q('.ed-right'), edge: 'left', mid: q('.ed-center'), min: 200 },
+  ].filter(d => d.box && d.el && d.mid);
+  const MID_MIN = 220;
+  for (const d of defs) {
+    const h = d.h = document.createElement('div');
+    h.className = 'oc-split'; h.dataset.split = d.v.slice(5); h.title = 'Drag to resize · double-click to reset';
+    h.setAttribute('role', 'separator'); h.setAttribute('aria-orientation', 'vertical');
+    d.box.append(h);
+    h.addEventListener('dblclick', () => { document.body.style.removeProperty(d.v); place(); });
+    h.addEventListener('pointerdown', e => {
+      if (e.button !== 0) return;
+      e.preventDefault();
+      h.setPointerCapture(e.pointerId);
+      const x0 = e.clientX, w0 = d.el.getBoundingClientRect().width, room = d.mid.getBoundingClientRect().width - MID_MIN;
+      const max = Math.max(d.min, w0 + room);
+      h.classList.add('dragging'); document.body.classList.add('oc-resizing');
+      const move = ev => {
+        const dx = ev.clientX - x0;
+        const w = Math.round(Math.min(max, Math.max(d.min, d.edge === 'right' ? w0 + dx : w0 - dx)));
+        document.body.style.setProperty(d.v, `${w}px`);
+        place();
+      };
+      const up = () => {
+        h.removeEventListener('pointermove', move); h.removeEventListener('pointerup', up); h.removeEventListener('pointercancel', up);
+        h.classList.remove('dragging'); document.body.classList.remove('oc-resizing');
+        window.dispatchEvent(new Event('resize')); // the canvas and the prototype refit
+      };
+      h.addEventListener('pointermove', move); h.addEventListener('pointerup', up); h.addEventListener('pointercancel', up);
+    });
+  }
+  function place() {
+    for (const d of defs) {
+      const show = visible(d.box) && visible(d.el) && visible(d.mid);
+      d.h.hidden = !show;
+      if (!show) continue;
+      const r = d.el.getBoundingClientRect(), b = d.box.getBoundingClientRect();
+      d.h.style.left = `${Math.round((d.edge === 'right' ? r.right : r.left) - b.left)}px`;
+    }
+  }
+  let raf = 0;
+  const later = () => { cancelAnimationFrame(raf); raf = requestAnimationFrame(place); };
+  const ro = new ResizeObserver(later);
+  for (const d of defs) { ro.observe(d.el); ro.observe(d.box); }
+  new MutationObserver(later).observe(document.body, { attributes: true, attributeFilter: ['class'] });
+  for (const el of document.querySelectorAll('.tabpanel')) new MutationObserver(later).observe(el, { attributes: true, attributeFilter: ['hidden'] });
+  addEventListener('resize', later);
+  place();
+}, 0);
