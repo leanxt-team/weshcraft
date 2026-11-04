@@ -45,8 +45,8 @@ try {
   const shown = await waitFor(async () => (await o.f.locator('#edScreen [data-node]').count()) > 5, 20000);
   ok('existing work: the panel shows the design right away', !!shown, `${((Date.now() - o.t0) / 1000).toFixed(1)} s`);
   let B = await bot(EXIST); cleanups.push(B.cleanup);
-  ok('existing work: the bot has the design tools', B.tools.has('design_edit') && B.tools.has('design_text'));
-  await B.call('design_text', { edits: [{ id: 4, text: 'Join the trail club' }] });
+  ok('existing work: the bot has the light toolset', ['weshcraft_status', 'weshcraft_read', 'weshcraft_edit'].every(n => B.tools.has(n)) && ![...B.tools.keys()].some(n => /^(design|figcraft)_/.test(n)));
+  await B.call('weshcraft_edit', { ops: [{ op: 'text', id: 4, text: 'Join the trail club' }] });
   ok('bot edit appears on the canvas', !!await waitFor(async () => (await canvasText(o)).includes('Join the trail club'), 8000));
   ok('bot edit is in the specs', !!await waitFor(async () => fs.readFileSync(path.join(EXIST, 'specs/front/screens/scr-sign-up.md'), 'utf8').includes('Join the trail club'), 8000));
   const node = o.f.locator('#edScreen [data-node="5"]');
@@ -54,7 +54,7 @@ try {
   await o.p.keyboard.down('Control'); await o.p.mouse.click(bb.x + 3, bb.y + 3); await o.p.keyboard.up('Control');
   await o.p.keyboard.press('Enter'); await sleep(150); await o.p.keyboard.type('Edited by hand'); await o.p.keyboard.press('Enter');
   ok('hand edit is in the specs', !!await waitFor(async () => fs.readFileSync(path.join(EXIST, 'specs/front/screens/scr-sign-up.md'), 'utf8').includes('Edited by hand'), 8000));
-  ok('the bot sees the hand edit', /Edited by hand/.test(await B.call('design_get', { id: 5 })));
+  ok('the bot sees the hand edit', /Edited by hand/.test(await B.call('weshcraft_read', { what: 'layer', id: 5 })));
   await o.p.screenshot({ path: `${OUT}/flow-existing.png` });
   // 5. branch switch: same panel, another branch
   fs.rmSync(path.join(EXIST, 'specs'), { recursive: true, force: true });
@@ -78,14 +78,14 @@ try {
 
   // 3. empty project, started by hand; the bot picks it up by itself
   B = await bot(EMPTY1); cleanups.push(B.cleanup);
-  ok('empty: the bot has only weshcraft_start', [...B.tools.keys()].join() === 'weshcraft_start');
+  ok('empty: the bot has only weshcraft_new', [...B.tools.keys()].join() === 'weshcraft_new');
   o = await panel(EMPTY1);
   await o.f.locator('#edEmpty .ed-preset').first().waitFor({ timeout: 20000 });
   await o.p.screenshot({ path: `${OUT}/flow-empty.png` });
   await o.f.locator('#edEmpty .ed-preset').first().click();
   ok('empty (hand): editor shows the first screen', !!await waitFor(async () => (await o.f.locator('#edScreen [data-node]').count()) >= 1, 15000));
-  ok('empty (hand): the bot gets the design tools without a restart', !!await waitFor(async () => B.tools.has('design_edit'), 10000), [...B.tools.keys()].slice(0, 6).join(','));
-  await B.call('design_edit', { ops: [{ op: 'create', parent: 'Home', type: 'text', props: { text: 'Hello from the bot', x: 24, y: 80 } }] });
+  ok('empty (hand): the bot gets the design tools without a restart', !!await waitFor(async () => B.tools.has('weshcraft_edit'), 10000), [...B.tools.keys()].slice(0, 6).join(','));
+  await B.call('weshcraft_edit', { ops: [{ op: 'create', parent: 'Home', type: 'text', props: { text: 'Hello from the bot', x: 24, y: 80 } }] });
   ok('empty (hand): the bot edit shows in the panel', !!await waitFor(async () => (await canvasText(o)).includes('Hello from the bot'), 8000));
   await o.p.close();
 
@@ -93,10 +93,9 @@ try {
   B = await bot(EMPTY2); cleanups.push(B.cleanup);
   o = await panel(EMPTY2);
   await o.f.locator('#edEmpty .ed-preset').first().waitFor({ timeout: 20000 });
-  await B.call('weshcraft_start');
-  await B.call('design_new', { name: 'Shop' });
-  ok('empty (bot): the bot gets the editing tools', B.tools.has('design_edit'));
-  await B.call('design_edit', { ops: [{ op: 'screen', name: 'Cart', ref: 's' }, { op: 'create', parent: 's', type: 'text', props: { text: 'Your cart', x: 24, y: 60, fontSize: 24 } }] });
+  await B.call('weshcraft_new', { name: 'Shop' });
+  ok('empty (bot): the bot gets the editing tools', B.tools.has('weshcraft_edit'));
+  await B.call('weshcraft_edit', { ops: [{ op: 'screen', name: 'Cart', ref: 's' }, { op: 'create', parent: 's', type: 'text', props: { text: 'Your cart', x: 24, y: 60, fontSize: 24 } }] });
   ok('empty (bot): the panel switches to the editor by itself', !!await waitFor(async () => (await canvasText(o)).includes('Your cart'), 10000));
   ok('empty (bot): specs written', !!await waitFor(async () => fs.existsSync(path.join(EMPTY2, 'specs/front/screens/scr-cart.md')), 8000));
   await o.p.screenshot({ path: `${OUT}/flow-bot-started.png` });

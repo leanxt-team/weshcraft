@@ -1,13 +1,13 @@
 // The other aspects of the product, next to its functions:
 //   logic         business rules (validation, permission, calculation, policy, event) and the
-//                 lifecycle of the data (state machines). Declared in the design (design_logic,
+//                 lifecycle of the data (state machines). Declared in the design (weshcraft_edit,
 //                 the Logic view); until then, inferred: required request fields, status enums and
 //                 the operations that move them.
 //   data          the entities, their fields, how they relate, who reads, writes and shows them.
 //   api           every operation, public endpoint and MCP tool, grouped by function, with who
 //                 calls it and what it returns.
 //   architecture  the system's parts (clients, interfaces, services, stores, external systems) and
-//                 how they talk. Declared (design_architecture, the Architecture view); until then
+//                 how they talk. Declared (weshcraft_edit, the Architecture view); until then
 //                 suggested from the design, the API and the MCP surface.
 // Declared aspects live with the functions in the first page's pluginData.weshcraft.
 import { slug } from '../util/common.mjs';

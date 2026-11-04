@@ -1,5 +1,5 @@
 // Compact, token-cheap views of the design for agents: an outline (one line per layer), a search,
-// and one layer's editable properties in the same vocabulary `design_edit` accepts.
+// and one layer's editable properties in the same vocabulary `weshcraft_edit` accepts.
 import { hexOf } from './props.mjs';
 
 const r1 = n => Math.round(n * 10) / 10;
@@ -60,7 +60,7 @@ export function tree(store, { root, depth = 8, screenKeys } = {}) {
   const walk = (id, d) => {
     const raw = store.node(id);
     out.push(`${'  '.repeat(d)}${line(store, raw, { screenKeys })}`);
-    if (d >= depth) { if (raw.children?.length) out.push(`${'  '.repeat(d + 1)}… ${raw.children.length} layers (design_tree with root #${id})`); return; }
+    if (d >= depth) { if (raw.children?.length) out.push(`${'  '.repeat(d + 1)}… ${raw.children.length} layers (weshcraft_read tree with root #${id})`); return; }
     for (const c of raw.children ?? []) walk(c, d + 1);
   };
   walk(start, 0);
@@ -86,7 +86,7 @@ export function subtree(store, id) {
   return out;
 }
 
-/** A layer's properties in design_edit's vocabulary (what you can pass back to `set`). */
+/** A layer's properties in weshcraft_edit's vocabulary (what you can pass back to `set`). */
 export function props(store, id) {
   const raw = store.node(id);
   const o = { id: raw.id, type: raw.type, name: String(raw.name ?? '').replace(/\s*@[A-Za-z_]\w*\.[A-Za-z_]\w*(?::\w+)?/, '').trim() || raw.name, parent: raw.parent, children: raw.children ?? [] };

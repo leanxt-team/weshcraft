@@ -4,5 +4,5 @@
 
 | Level | Check | File | Detail |
 |---|---|---|---|
-| warning | functions-suggested | `specs/FUNCTIONS.md` | the 3 functions are suggested from the prototype: name them and give each a purpose (design_functions or the Functions view) |
-| warning | logic-open-transition | `specs/LOGIC.md` | POST /invoices/{id}/send changes Invoice but no status says to what: declare the transition (design_logic) |
+| warning | functions-suggested | `specs/FUNCTIONS.md` | the 3 functions are suggested from the prototype: name them and give each a purpose (the Functions view, or weshcraft_edit) |
+| warning | logic-open-transition | `specs/LOGIC.md` | POST /invoices/{id}/send changes Invoice but no status says to what: declare the transition (Logic view, or weshcraft_edit {op:"lifecycle"}) |

@@ -40,7 +40,7 @@ export const logicContract = m => ({
 export function logicSpec(m, { notes: n } = {}) {
   const l = m.logic;
   const L = ['# Logic', ''];
-  L.push(`What the screens and the API cannot show: ${l.rules.length} rule${l.rules.length === 1 ? '' : 's'} and ${l.machines.length} lifecycle${l.machines.length === 1 ? '' : 's'}. ${l.declared ? '' : 'Nothing is declared yet: what follows is inferred from the design and the API (required fields, status values, operations). Declare rules and lifecycles with `design_logic` or in the Logic view.'}`.trim());
+  L.push(`What the screens and the API cannot show: ${l.rules.length} rule${l.rules.length === 1 ? '' : 's'} and ${l.machines.length} lifecycle${l.machines.length === 1 ? '' : 's'}. ${l.declared ? '' : 'Nothing is declared yet: what follows is inferred from the design and the API (required fields, status values, operations). Declare rules and lifecycles in the Logic view or with `weshcraft_edit` {op:"rule"} / {op:"lifecycle"}.'}`.trim());
   L.push('');
   if (l.machines.length) {
     L.push('## Lifecycles', '');
@@ -163,7 +163,7 @@ export function architectureSpec(m, { notes: n, codeDirs = null } = {}) {
   const a = m.architecture;
   const name = new Map(a.components.map(c => [c.key, c.name]));
   const L = ['# Architecture', ''];
-  L.push(`${a.components.length} component${a.components.length === 1 ? '' : 's'} and how they talk. ${a.declared ? '' : 'Suggested from the design, the API and the MCP surface: declare the real one (`design_architecture`, or the Architecture view) with its technologies.'}`.trim(), '');
+  L.push(`${a.components.length} component${a.components.length === 1 ? '' : 's'} and how they talk. ${a.declared ? '' : 'Suggested from the design, the API and the MCP surface: declare the real one (the Architecture view, or `weshcraft_edit` {op:"component"} / {op:"connect"}) with its technologies.'}`.trim(), '');
   if (a.components.length) {
     L.push('```mermaid', 'flowchart LR');
     for (const k of KIND_ORDER) {

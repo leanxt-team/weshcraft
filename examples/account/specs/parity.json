@@ -9,7 +9,7 @@
    "level": "warning",
    "code": "functions-suggested",
    "file": "specs/FUNCTIONS.md",
-   "message": "the function is suggested from the prototype: name them and give each a purpose (design_functions or the Functions view)"
+   "message": "the function is suggested from the prototype: name them and give each a purpose (the Functions view, or weshcraft_edit)"
   },
   {
    "level": "warning",

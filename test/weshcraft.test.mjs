@@ -121,7 +121,7 @@ test('agent pass fills notes through any stdin/stdout CLI and cannot add danglin
   assert.match(md, /#123456 \(unknown layer\)/);
 });
 
-test('MCP: FigCraft tools are proxied and an edit regenerates the specs', async () => {
+test('MCP: one light toolset, also with a live FigCraft (read there, no second set of tools)', async () => {
   const out = tmp();
   const ws = new Workspace({ source: new McpSource({ command: FAKE, file: ONBOARDING }), outDir: out });
   const mcp = new WeshCraftMcp({ workspace: ws, debounceMs: 10 });
@@ -129,16 +129,21 @@ test('MCP: FigCraft tools are proxied and an edit regenerates the specs', async 
     const init = await mcp.handle({ jsonrpc: '2.0', id: 1, method: 'initialize', params: { protocolVersion: '2025-06-18' } });
     assert.equal(init.result.serverInfo.name, 'weshcraft');
     const list = await mcp.handle({ jsonrpc: '2.0', id: 2, method: 'tools/list' });
-    const names = list.result.tools.map(t => t.name);
-    assert.ok(names.includes('figcraft_set_properties') && names.includes('weshcraft_generate'));
+    assert.deepEqual(list.result.tools.map(t => t.name), ['weshcraft_status', 'weshcraft_read', 'weshcraft_edit', 'weshcraft_notes', 'weshcraft_generate', 'weshcraft_sync'], 'no figcraft_* and no design_* listed');
+    assert.ok(JSON.stringify(list.result).length < 9000, 'light: the whole tool list stays small');
     await ws.run();
+    const call = async (name, a) => mcp.handle({ jsonrpc: '2.0', id: 3, method: 'tools/call', params: { name, arguments: a } });
+    const ed = await call('weshcraft_edit', { ops: [{ op: 'text', id: 1, text: 'x' }] });
+    assert.equal(ed.result.isError, true);
+    assert.match(ed.result.content[0].text, /live FigCraft/);
+    const fns = JSON.parse((await call('weshcraft_read', { what: 'functions' })).result.content[0].text);
+    assert.equal(fns.functions[0].name, 'Onboarding', 'the product reads without an editable design');
+    // a change made in FigCraft: the next run follows it
     const welcome = ws.manifest.screens[0];
     const title = welcome.texts.find(t => t.characters.length > 10);
-    const done = new Promise(resolve => { const t = setInterval(() => { if (!ws.running && ws.runs >= 2) { clearInterval(t); resolve(); } }, 20); });
-    await mcp.handle({ jsonrpc: '2.0', id: 3, method: 'tools/call', params: { name: 'figcraft_set_properties', arguments: { ids: [title.id], props: { characters: 'Trails, sorted.' } } } });
-    await done;
-    const md = fs.readFileSync(path.join(out, `specs/front/screens/${welcome.key}.md`), 'utf8');
-    assert.match(md, /Trails, sorted\./);
+    await ws.source.call('set_properties', { ids: [title.id], props: { characters: 'Trails, sorted.' } });
+    await call('weshcraft_generate', {});
+    assert.match(fs.readFileSync(path.join(out, `specs/front/screens/${welcome.key}.md`), 'utf8'), /Trails, sorted\./);
     assert.ok(ws.report.ok);
   } finally { ws.source.close(); }
 });
@@ -528,35 +533,47 @@ test('design store: saved file = in-memory design (CI checks what was edited); a
   assert.match(out, /in sync/i);
 });
 
-test('design MCP: tools, one batched edit with wait, compact outputs, undo shared, design_new', async () => {
+test('MCP: the light toolset reads, edits in one batch with wait, undoes, starts a design', async () => {
   const { dir, file } = copyTo(ACCOUNT);
   const ws = new Workspace({ source: openEditable(file), outDir: dir, editDelayMs: 20 });
   const mcp = new WeshCraftMcp({ workspace: ws });
   const call = async (name, args) => { const r = await mcp.callTool(name, args); return { err: r.isError, text: r.content[0].text, r }; };
   const names = (await mcp.tools()).map(t => t.name);
-  for (const n of ['design_tree', 'design_find', 'design_get', 'design_edit', 'design_text', 'design_bind', 'design_api', 'design_link', 'design_screen', 'design_tokens', 'design_undo', 'design_redo']) assert.ok(names.includes(n), n);
-  assert.ok(!names.includes('design_new'));
-  assert.match((await call('design_tree', {})).text, /#4 · text · "Title" · "Create your account"/);
-  assert.match((await call('design_find', { query: 'save' })).text, /Button\/Save.*API PATCH \/users\/me/);
-  const e = await call('design_edit', { wait: true, ops: [{ op: 'screen', name: 'Plans', ref: 's', layout: 'vertical' }, { op: 'create', parent: 's', type: 'text', props: { text: 'Pick a plan' } }, { op: 'api', id: 's', method: 'GET', path: '/plans', returns: 'Plan' }] });
+  assert.deepEqual(names, ['weshcraft_status', 'weshcraft_read', 'weshcraft_edit', 'weshcraft_notes', 'weshcraft_generate', 'weshcraft_sync']);
+  assert.match((await call('weshcraft_read', { what: 'tree' })).text, /#4 · text · "Title" · "Create your account"/);
+  assert.match((await call('weshcraft_read', { what: 'find', query: 'save' })).text, /Button\/Save.*API PATCH \/users\/me/);
+  const e = await call('weshcraft_edit', { wait: true, ops: [{ op: 'screen', name: 'Plans', ref: 's', layout: 'vertical' }, { op: 'create', parent: 's', type: 'text', props: { text: 'Pick a plan' } }, { op: 'api', id: 's', method: 'GET', path: '/plans', returns: 'Plan' }] });
   const res = JSON.parse(e.text);
   assert.equal(res.parity.ok, true);
   assert.ok(fs.existsSync(path.join(dir, 'specs/front/screens/scr-plans.md')));
   assert.match(fs.readFileSync(path.join(dir, 'specs/back/api.md'), 'utf8'), /\/plans/);
   assert.ok(!e.text.includes('\n'), 'compact JSON');
-  const bad = await call('design_set', { id: 999, props: { fill: '#fff' } });
-  assert.ok(bad.err && /no layer #999/.test(bad.text));
-  await call('design_undo', {});
+  const bad = await call('weshcraft_edit', { ops: [{ op: 'set', id: 999, props: { fill: '#fff' } }] });
+  assert.ok(bad.err && /no layer #999/.test(bad.text), bad.text);
+  // product ops in the same batch as layer ops: one undo step
+  const before = ws.source.store.undoStack.length;
+  const p = JSON.parse((await call('weshcraft_edit', { wait: true, ops: [{ op: 'screen', name: 'Billing', ref: 'b' }, { op: 'function', name: 'Pay', summary: 'Choose a plan and pay', screens: ['Billing', 'Plans'] }, { op: 'rule', name: 'Prices include VAT', kind: 'calculation' }, { op: 'component', name: 'Payments', kind: 'external', tech: 'Stripe' }, { op: 'connect', from: 'Back end', to: 'Payments', label: 'HTTPS' }] })).text);
+  assert.equal(p.parity.ok, true);
+  assert.equal(ws.source.store.undoStack.length, before + 1, 'one undo step');
+  const fns = JSON.parse((await call('weshcraft_read', { what: 'functions' })).text);
+  assert.deepEqual(fns.functions.find(f => f.name === 'Pay').screens.map(s => s.split(' #')[0]), ['Billing', 'Plans'], 'a screen made in the same batch');
+  assert.ok(JSON.parse((await call('weshcraft_read', { what: 'architecture' })).text).links.includes('Back end → Payments (HTTPS)'));
+  await call('weshcraft_edit', { undo: 1 });
+  await ws.settled();
+  assert.ok(!JSON.parse((await call('weshcraft_read', { what: 'functions' })).text).functions.some(f => f.name === 'Pay'), 'undo takes the whole batch back');
+  await call('weshcraft_edit', { undo: 1 });
   await ws.settled();
   assert.ok(!fs.readFileSync(path.join(dir, 'specs/back/api.md'), 'utf8').includes('/plans'), 'undo regenerates the specs');
+  const st = JSON.parse((await call('weshcraft_status', {})).text);
+  assert.ok(st.editable && st.product.screens === 2 && st.next.length >= 1, JSON.stringify(st));
   // an empty project starts a design
   const empty = tmp();
   const ws2 = new Workspace({ source: null, outDir: empty });
   const mcp2 = new WeshCraftMcp({ workspace: ws2 });
-  assert.ok((await mcp2.tools()).some(t => t.name === 'design_new'));
-  await mcp2.callTool('design_new', { name: 'Shop' });
+  assert.ok((await mcp2.tools()).some(t => t.name === 'weshcraft_new'));
+  await mcp2.callTool('weshcraft_new', { name: 'Shop' });
   assert.ok(fs.existsSync(path.join(empty, 'design/Shop.figcraft')));
-  assert.ok((await mcp2.tools()).some(t => t.name === 'design_edit'));
+  assert.ok(!(await mcp2.tools()).some(t => t.name === 'weshcraft_new'));
   ws.source.close(); ws2.source.close();
 });
 
@@ -648,18 +665,17 @@ test('OpenCode 2 plugin: starts WeshCraft, namespaced tools, /weshcraft command,
   };
   const cleanup = await plugin.setup(ctx);
   try {
-    assert.deepEqual(namespaces, ['weshcraft', 'design']);
-    assert.ok(tools.has('design_new'), 'no design yet (API-only project): it can start one');
-    for (const n of ['weshcraft_open', 'weshcraft_status', 'weshcraft_generate', 'weshcraft_check', 'weshcraft_links', 'weshcraft_sync', 'weshcraft_read_spec']) assert.ok(tools.has(n), n);
-    assert.equal(tools.get('weshcraft_links').input.additionalProperties, false);
-    assert.deepEqual(tools.get('weshcraft_read_spec').input.required, ['path']);
-    assert.match((await tools.get('weshcraft_open').execute({})).content, /^WeshCraft: http:\/\/127\.0\.0\.1:\d+\//);
-    await waitFor(async () => /"ok": true/.test((await tools.get('weshcraft_check').execute({}, { signal: AbortSignal.timeout(5000) })).content));
-    assert.match((await tools.get('weshcraft_read_spec').execute({ path: 'specs/front/mcp/tool-void-invoice.md' })).content, /\*\*destructive\*\*/);
+    assert.deepEqual(namespaces, ['weshcraft'], 'one namespace');
+    assert.deepEqual([...tools.keys()], ['weshcraft_status', 'weshcraft_read', 'weshcraft_edit', 'weshcraft_notes', 'weshcraft_generate', 'weshcraft_sync', 'weshcraft_new'], 'the light toolset; new: an API-only project can start a design');
+    assert.equal(tools.get('weshcraft_status').input.additionalProperties, false);
+    assert.deepEqual(tools.get('weshcraft_read').input.required, ['what']);
+    assert.match((await tools.get('weshcraft_status').execute({})).content, /"live":"http:\/\/127\.0\.0\.1:\d+/);
+    await waitFor(async () => /"ok": ?true/.test((await tools.get('weshcraft_read').execute({ what: 'parity' }, { signal: AbortSignal.timeout(5000) })).content));
+    assert.match((await tools.get('weshcraft_read').execute({ what: 'spec', path: 'specs/front/mcp/tool-void-invoice.md' })).content, /\*\*destructive\*\*/);
     // /weshcraft sends the instructions into the session, with whatever the user typed after it.
     await commands.get('weshcraft').execute({ sessionID: 's1', prompt: { text: 'focus on the API' }, delivery: 'queue' });
     assert.equal(prompts[0].sessionID, 's1');
-    assert.match(prompts[0].text, /Call weshcraft_open[\s\S]*focus on the API$/);
+    assert.match(prompts[0].text, /Call weshcraft_status[\s\S]*focus on the API$/);
     // Saving the MCP tool list (by OpenCode or anyone) regenerates: the new tool gets its spec.
     const tf = path.join(dir, 'design', 'mcp-tools.json');
     const j = JSON.parse(fs.readFileSync(tf, 'utf8'));
@@ -670,7 +686,7 @@ test('OpenCode 2 plugin: starts WeshCraft, namespaced tools, /weshcraft command,
   await waitFor(async () => { try { await fetch(`http://127.0.0.1:${port}/api/state`, { signal: AbortSignal.timeout(300) }); return false; } catch { return true; } });
 });
 
-test('OpenCode 2 plugin: no server where there is nothing to spec, until weshcraft_start; options come from opencode.json', async () => {
+test('OpenCode 2 plugin: no server where there is nothing to spec, until weshcraft_new; options come from opencode.json', async () => {
   const dir0 = tmp();
   const port = 4950 + Math.floor(Math.random() * 25);
   const tools = new Map();
@@ -678,18 +694,16 @@ test('OpenCode 2 plugin: no server where there is nothing to spec, until weshcra
   const ctx = { location: { directory: dir0 }, options: { port }, tool: { transform: async cb => cb({ namespace: () => {}, add: t => tools.set(`${t.options?.namespace}_${t.name}`, t) }), reload: async () => { reloads++; } } };
   const cleanup = await createPlugin().setup(ctx);
   try {
-    assert.deepEqual([...tools.keys()], ['weshcraft_start'], 'one tool, no server');
+    assert.deepEqual([...tools.keys()], ['weshcraft_new'], 'one tool, no server');
     assert.equal(await fetch(`http://127.0.0.1:${port}/api/ping`).then(() => 'up', () => 'down'), 'down');
-    const r = await tools.get('weshcraft_start').execute({});
-    assert.match(r.content, /WeshCraft started: http:\/\/127\.0\.0\.1:\d+\/ — next: design_new/);
-    assert.ok(tools.has('design_new') && reloads === 1);
-    await tools.get('design_new').execute({ name: 'Shop' });
+    const r = await tools.get('weshcraft_new').execute({ name: 'Shop' });
+    assert.match(r.content, /WeshCraft: http:\/\/127\.0\.0\.1:\d+\/ — next: weshcraft_status/);
     assert.ok(fs.existsSync(path.join(dir0, 'design/Shop.figcraft')));
-    for (const n of ['design_tree', 'design_edit', 'design_text', 'design_bind', 'design_api', 'design_undo']) assert.ok(tools.has(n), `${n} after design_new`);
-    assert.ok(!tools.has('design_screenshot'), 'images stay MCP-only');
-    const e = JSON.parse((await tools.get('design_edit').execute({ wait: true, ops: [{ op: 'screen', name: 'Home', ref: 's' }, { op: 'create', parent: 's', type: 'text', props: { text: 'Hi' } }] })).content);
+    assert.ok(reloads >= 1);
+    for (const n of ['weshcraft_status', 'weshcraft_read', 'weshcraft_edit']) assert.ok(tools.has(n), `${n} after weshcraft_new`);
+    const e = JSON.parse((await tools.get('weshcraft_edit').execute({ wait: true, ops: [{ op: 'screen', name: 'Home', ref: 's' }, { op: 'create', parent: 's', type: 'text', props: { text: 'Hi' } }] })).content);
     assert.equal(e.parity.ok, true);
-    assert.match((await tools.get('design_tree').execute({})).content, /"Home"[\s\S]*"Hi"/);
+    assert.match((await tools.get('weshcraft_read').execute({ what: 'tree' })).content, /"Home"[\s\S]*"Hi"/);
   } finally { cleanup?.(); }
   const dir = billingProject();
   assert.equal(detectConfig(tmp(), { surface: 'x.yaml', port: 4999 }).port, 4999, 'plugin options are config');

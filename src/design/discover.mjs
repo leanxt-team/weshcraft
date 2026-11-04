@@ -51,3 +51,14 @@ export function rememberDesign(root, file) {
   cfg.file = file;
   fs.writeFileSync(f, `${JSON.stringify(cfg, null, 2)}\n`);
 }
+
+/** The project's WeshCraft settings (.weshcraft.json): the remembered design, the specs' folders. */
+export function readProjectConfig(root) {
+  try { return JSON.parse(fs.readFileSync(path.join(root, PROJECT_CONFIG), 'utf8')); } catch { return {}; }
+}
+export function updateProjectConfig(root, patch) {
+  const cfg = { ...readProjectConfig(root), ...patch };
+  for (const [k, v] of Object.entries(patch)) if (v == null) delete cfg[k];
+  fs.writeFileSync(path.join(root, PROJECT_CONFIG), `${JSON.stringify(cfg, null, 2)}\n`);
+  return cfg;
+}

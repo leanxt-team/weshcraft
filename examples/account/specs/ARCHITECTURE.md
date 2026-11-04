@@ -1,6 +1,6 @@
 # Architecture
 
-4 components and how they talk. Suggested from the design, the API and the MCP surface: declare the real one (`design_architecture`, or the Architecture view) with its technologies.
+4 components and how they talk. Suggested from the design, the API and the MCP surface: declare the real one (the Architecture view, or `weshcraft_edit` {op:"component"} / {op:"connect"}) with its technologies.
 
 ```mermaid
 flowchart LR

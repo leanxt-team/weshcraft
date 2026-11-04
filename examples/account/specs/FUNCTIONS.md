@@ -2,7 +2,7 @@
 
 1 function: [Sign up](#fn-sign-up). Who uses each one, the data it reads and writes, and where it leads. The screen, API and map specs refer to these functions.
 
-**Suggested.** These functions are grouped from the prototype (flows, sections, navigation, API tags). Name them and give each a purpose (`design_functions`, or the Functions view) to make them the product's.
+**Suggested.** These functions are grouped from the prototype (flows, sections, navigation, API tags). Name them and give each a purpose (the Functions view, or `weshcraft_edit` {op:"function"}) to make them the product's.
 
 ```mermaid
 flowchart LR

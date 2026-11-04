@@ -15,6 +15,7 @@ export async function startHost({ root, sdkDir, service, port = 0 }) {
   const ui = await import(path.join(sdkDir, 'dist/ui/index.js'));
   const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.svg': 'image/svg+xml', '.json': 'application/json', '.png': 'image/png' };
   const log = [];
+  const store = new Map();
   const tokens = {
     light: { background: '#ffffff', elevated: '#ffffff', foreground: '#18181b', muted: '#71717a', subtle: '#f4f4f5', border: '#e4e4e7', hover: '#f4f4f5', selection: '#e0e7ff', focus: '#6366f1', primary: '#4f46e5', mutedSurface: '#fafafa', elevatedForeground: '#18181b', active: '#e4e4e7', selectionForeground: '#1e1b4b', primaryForeground: '#ffffff', primaryText: '#4338ca', successText: '#15803d', warningText: '#b45309', errorText: '#b91c1c', infoText: '#1d4ed8', success: '#22c55e', warning: '#f59e0b', error: '#ef4444', info: '#3b82f6', font: '"IBM Plex Sans", system-ui, sans-serif', mono: '"IBM Plex Mono", ui-monospace, monospace', radius: '6px' },
   };
@@ -40,6 +41,7 @@ addEventListener('message', async e => {
     if (mode==='noservice') return reply({channel:m.channel,v:1,type:'result',id:m.id,ok:false,error:'Service not granted',code:'NO_SERVICE'});
     const r=await fetch('/svc',{method:'POST',body:JSON.stringify(m.payload)}); return reply({channel:m.channel,v:1,type:'result',id:m.id,ok:true,payload:await r.json()});
   }
+  if (m.type==='storage') { const r=await (await fetch('/storage',{method:'POST',body:JSON.stringify(m.payload)})).json(); return reply({channel:m.channel,v:1,type:'result',id:m.id,ok:true,payload:r}); }
   reply({channel:m.channel,v:1,type:'result',id:m.id,ok:true,payload:{}});
 });
 </script></body></html>`;
@@ -53,6 +55,15 @@ addEventListener('message', async e => {
       const r = schemas.guestMessageSchema.safeParse(JSON.parse(body));
       if (!r.success) log.push({ invalid: JSON.parse(body).type, issues: r.error.issues.slice(0, 2) });
       res.writeHead(200); return res.end(JSON.stringify({ ok: r.success, error: r.success ? null : JSON.stringify(r.error.issues).slice(0, 300) }));
+    }
+    if (u.pathname === '/storage') { // extension storage (instance scope), kept for the host's life
+      const p = JSON.parse(body);
+      const out = { storage: true, op: p.op };
+      if (p.op === 'get') { out.found = store.has(p.key); if (out.found) out.value = store.get(p.key); }
+      else if (p.op === 'set') store.set(p.key, p.value);
+      else if (p.op === 'delete') store.delete(p.key);
+      else if (p.op === 'keys') out.keys = [...store.keys()].sort();
+      res.writeHead(200); return res.end(JSON.stringify(out));
     }
     if (u.pathname === '/svc') {
       const p = JSON.parse(body);

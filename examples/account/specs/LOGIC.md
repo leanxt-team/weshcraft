@@ -1,6 +1,6 @@
 # Logic
 
-What the screens and the API cannot show: 1 rule and 0 lifecycles. Nothing is declared yet: what follows is inferred from the design and the API (required fields, status values, operations). Declare rules and lifecycles with `design_logic` or in the Logic view.
+What the screens and the API cannot show: 1 rule and 0 lifecycles. Nothing is declared yet: what follows is inferred from the design and the API (required fields, status values, operations). Declare rules and lifecycles in the Logic view or with `weshcraft_edit` {op:"rule"} / {op:"lifecycle"}.
 
 ## Rules
 

@@ -4,9 +4,8 @@
 // openapi.*, design/*.mcp.json), configured by .opencode/weshcraft.json or the plugin's options:
 //   - starts `weshcraft serve` for the project (one per project, stable port, reused by sessions);
 //     its own file watcher regenerates the specs when a design, OpenAPI or MCP file changes
-//   - registers the WeshCraft tools by proxying the server's MCP endpoint: `design_*` (edit the
-//     design: tree, find, edit, text, bind, api, link, screens, tokens, undo), `weshcraft_*` (specs,
-//     parity, links, sync, publish, weshcraft_open) and `figcraft_*` when a live FigCraft is attached
+//   - registers WeshCraft's one light set of tools by proxying the server's MCP endpoint: status, read,
+//     edit, notes, generate, sync (and new while the project has no design)
 //   - GitHub/GitLab access is inherited: the server gets OpenCode's environment and resolves the
 //     OpenChamber account, gh/glab login or git credentials itself (src/publish/credentials.mjs)
 //   - registers the /weshcraft command
@@ -154,9 +153,8 @@ export class Bridge {
     return j.result;
   }
 
-  // WeshCraft's design and spec tools, and FigCraft's when a live FigCraft is attached. A PNG does
-  // not travel as an OpenCode tool result: design_screenshot stays MCP-only.
-  tools() { return this.rpc('tools/list', {}).then(r => (r.tools || []).filter(t => /^(weshcraft|figcraft|design)_/.test(t.name) && t.name !== 'design_screenshot')); }
+  // WeshCraft's one light set of tools (status, read, edit, notes, generate, sync, and new).
+  tools() { return this.rpc('tools/list', {}).then(r => (r.tools || []).filter(t => /^weshcraft_/.test(t.name))); }
 
   /** Call a WeshCraft tool; returns its text (errors as text the model can read). */
   async call(name, args, signal) {
@@ -170,32 +168,23 @@ export class Bridge {
 }
 
 // ---- plugin -----------------------------------------------------------------------------------
-const OPEN_TOOL = {
-  name: 'weshcraft_open',
-  description: 'The WeshCraft browser view for this project: clickable prototype or MCP/API catalog, spec builder, front ⇄ back map, parity, publish & sync. Returns the link to give the user.',
-  inputSchema: { type: 'object', properties: {} },
-};
-
 const COMMAND_TEXT = `Use the WeshCraft tools for this project.
-1. Call weshcraft_open and give me the link (it has the design editor, prototype and live specs).
-2. Call weshcraft_status. In at most 8 lines: what the front is (screens, MCP tools, endpoints), the parity result, front ⇄ back links and gaps, and whether git sync is on.
-3. If parity is not ok, call weshcraft_generate, then weshcraft_check, and list what is still out of sync with what to change (the design through design_edit, the OpenAPI document or the MCP server — never the generated sections).
-4. List open questions from the specs (inferred operations or fields, gaps) as numbered questions with a recommended answer.`;
+1. Call weshcraft_status: give me the live link, then in at most 8 lines what the product is (screens, operations, entities, MCP tools), the parity result, what is declared or still suggested (functions, logic, architecture), spec ⇄ code coverage and whether git sync is on.
+2. If parity is not ok, call weshcraft_read {what: "parity"} and list what is out of sync with what to change (the design through weshcraft_edit, the OpenAPI document or the MCP server — never the generated sections).
+3. List open questions (the "next" items, inferred operations or fields, gaps, open transitions) as numbered questions with a recommended answer.`;
 
-/** OpenCode tool definition (JSON Schema input) for a WeshCraft/FigCraft MCP tool. */
+/** OpenCode tool definition (JSON Schema input) for a WeshCraft MCP tool: weshcraft_<name>. */
 function toolDef(bridge, t, hooks = {}) {
-  const [, ns, rest] = /^(weshcraft|figcraft|design)_(.+)$/.exec(t.name);
   const schema = t.inputSchema && typeof t.inputSchema === 'object' ? t.inputSchema : { type: 'object', properties: {} };
   return {
-    name: rest,
+    name: t.name.replace(/^weshcraft_/, ''),
     description: t.description ?? '',
-    input: { type: 'object', properties: {}, ...schema, ...(schema.additionalProperties === undefined && ns !== 'figcraft' ? { additionalProperties: false } : {}) },
-    options: { namespace: ns },
+    input: { type: 'object', properties: {}, ...schema, ...(schema.additionalProperties === undefined ? { additionalProperties: false } : {}) },
+    options: { namespace: 'weshcraft' },
     execute: async (input, context) => {
-      if (t.name === 'weshcraft_open') { await bridge.start(); return { content: `WeshCraft: ${bridge.url()}` }; }
       const content = await bridge.call(t.name, input ?? {}, context?.signal);
-      // A new design brings the design_* editing tools: register them for the next turn.
-      if (t.name === 'design_new' && !content.startsWith('Error:')) await hooks.refresh?.();
+      // A new design: weshcraft_new leaves the list, the tools that edit it are ready next turn.
+      if (t.name === 'weshcraft_new' && !content.startsWith('Error:')) await hooks.refresh?.();
       return { content };
     },
   };
@@ -214,13 +203,11 @@ export function createPlugin(deps = {}) {
       let hasDesign = false;
       const register = async () => {
         bridge ??= deps.bridge ?? new Bridge(dir, cfg, { log, spawnImpl: deps.spawn });
-        let defs = [OPEN_TOOL];
-        try { defs = [OPEN_TOOL, ...(await bridge.tools())]; } catch (e) { log(`could not start WeshCraft: ${e.message}`); }
-        hasDesign = defs.some(t => t.name.startsWith('design_') && t.name !== 'design_new');
+        let defs = [];
+        try { defs = await bridge.tools(); } catch (e) { log(`could not start WeshCraft: ${e.message}`); }
+        hasDesign = defs.length > 0 && !defs.some(t => t.name === 'weshcraft_new');
         await ctx.tool?.transform?.(editor => {
-          editor.namespace({ name: 'weshcraft', description: 'WeshCraft: specs that match the prototype, the MCP server and the API of this project, kept in sync and in git.' });
-          if (defs.some(t => t.name.startsWith('design_'))) editor.namespace({ name: 'design', description: 'Edit this project\'s design (a FigCraft document) the way a designer would: every change regenerates the specs; the user sees it live in WeshCraft.' });
-          if (defs.some(t => t.name.startsWith('figcraft_'))) editor.namespace({ name: 'figcraft', description: 'FigCraft design tools (live FigCraft attached to WeshCraft): edits regenerate the specs.' });
+          editor.namespace({ name: 'weshcraft', description: 'WeshCraft: the design, the product (functions, logic, data, API & MCP, architecture) and specs kept in step, linked to the code, in git. Start with weshcraft_status.' });
           for (const t of defs) editor.add(toolDef(bridge, t, { refresh: async () => { await register(); await ctx.tool?.reload?.(); } }));
         });
       };
@@ -228,16 +215,20 @@ export function createPlugin(deps = {}) {
       else {
         // Nothing to spec yet: no server, one tool to start WeshCraft when the user wants a design.
         await ctx.tool?.transform?.(editor => {
-          editor.namespace({ name: 'weshcraft', description: 'WeshCraft: a spec-oriented FigCraft for this project.' });
+          editor.namespace({ name: 'weshcraft', description: 'WeshCraft: a spec-oriented design tool for this project.' });
           editor.add({
-            name: 'start', description: 'Start WeshCraft in this project, or connect to the one the user opened in OpenChamber. Call it whenever the user talks about a design, screens, a prototype or specs here: then design_new creates the design (or design_* edits the one the user started) and the specs follow every change.',
-            input: { type: 'object', properties: {}, additionalProperties: false }, options: { namespace: 'weshcraft' },
-            execute: async () => {
+            name: 'new', description: 'Start WeshCraft in this project with a new design (design/<name>.figcraft), or connect to the one the user opened in OpenChamber. Call it when the user wants a design, screens, a prototype or specs here; then weshcraft_edit designs and the specs follow every change.',
+            input: { type: 'object', properties: { name: { type: 'string' } }, additionalProperties: false }, options: { namespace: 'weshcraft' },
+            execute: async input => {
               cfg = detectConfig(dir, { ...(ctx.options ?? {}), force: true });
+              bridge ??= deps.bridge ?? new Bridge(dir, cfg, { log, spawnImpl: deps.spawn });
+              await bridge.start();
+              const names = await bridge.tools().then(ts => ts.map(t => t.name)).catch(() => []);
+              const made = names.includes('weshcraft_new') ? await bridge.call('weshcraft_new', { name: input?.name || 'App' }) : 'the project already has a design';
               await register();
               await ctx.tool?.reload?.();
               watchDesign();
-              return { content: `WeshCraft started: ${bridge.url()} — next: design_new {name}` };
+              return { content: `${made} — WeshCraft: ${bridge.url()} — next: weshcraft_status, then weshcraft_edit` };
             },
           });
         });
@@ -264,11 +255,11 @@ export function createPlugin(deps = {}) {
           if (hasDesign) { clearInterval(idleCheck); idleCheck = null; return; }
           if (!bridge || !(await bridge.alive())) return;
           const names = await bridge.tools().then(ts => ts.map(t => t.name)).catch(() => []);
-          if (!names.some(n => n.startsWith('design_') && n !== 'design_new')) return;
+          if (!names.length || names.includes('weshcraft_new')) return;
           clearInterval(idleCheck); idleCheck = null;
           await register();
           await ctx.tool?.reload?.();
-          log('WeshCraft has a design for this project: design tools are ready');
+          log('WeshCraft has a design for this project: its tools are ready');
         }, tick);
         idleCheck.unref?.();
       };

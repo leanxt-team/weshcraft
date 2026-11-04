@@ -12,6 +12,8 @@ import { linksSpec } from './links.mjs';
 import { functionsSpec } from './functions.mjs';
 import { logicSpec, dataSpec, apiOverviewSpec, architectureSpec } from './aspects.mjs';
 import { scanTags, traceOf, graphModule, traceSpec, graphPath, recordedGraphPath } from './trace.mjs';
+import { buildTree, normalize } from '../web/public/spectree.js';
+import { readProjectConfig, updateProjectConfig } from '../design/discover.mjs';
 import { mcpToolSpec, mcpIndexSpec, endpointSpec, apiIndexSpec } from './surface.mjs';
 import { readNotes } from './contract.mjs';
 import { diffManifests, updateChangelog, summaryLine } from './diff.mjs';
@@ -306,6 +308,21 @@ export class Workspace {
     return report;
   }
 
+  /** The specs in their folders (.weshcraft.json specTree), every current spec placed. */
+  specTree() {
+    const jobs = this.plan();
+    return { tree: buildTree(readProjectConfig(this.outDir).specTree, jobs.map(j => j.id)), titles: Object.fromEntries(jobs.map(j => [j.id, { title: j.title, file: j.file }])) };
+  }
+
+  /** Save the folders (the whole tree), then rewrite the index that follows them. */
+  setSpecTree(tree) {
+    updateProjectConfig(this.outDir, { specTree: normalize(tree) });
+    if (this.manifest && this.report) this.writeIndex();
+    const t = this.specTree();
+    this.emit('spectree', t);
+    return t;
+  }
+
   writeIndex() {
     const m = this.manifest;
     const L = [`# ${m.source.name} — specifications`, ''];
@@ -315,6 +332,19 @@ export class Workspace {
     L.push(`- ${m.screens.length ? 'Clickable prototype' : 'Interface catalog'}: [\`prototype/index.html\`](../prototype/index.html)`);
     L.push('- Manifest (machine-readable inventory): [`manifest.json`](manifest.json)');
     L.push('');
+    // The specs in the project's folders (edited in the Specs panel, saved in .weshcraft.json).
+    {
+      const { tree, titles } = this.specTree();
+      L.push('## Specs');
+      L.push('');
+      const link = id => `[${titles[id].title}](${titles[id].file.replace(/^specs\//, '')})`;
+      const walk = (f, depth) => {
+        for (const id of f.items) L.push(`${'  '.repeat(depth)}- ${link(id)}`);
+        for (const sub of f.folders) { L.push(`${'  '.repeat(depth)}- **${sub.name}**`); walk(sub, depth + 1); }
+      };
+      walk(tree, 0);
+      L.push('');
+    }
     L.push('## Front end');
     L.push('');
     if (m.screens.length) {

@@ -1,5 +1,5 @@
 diff --git a/README.md b/README.md
-index 87f05b3..95bf39d 100644
+index 87f05b3..2f2b0df 100644
 --- a/README.md
 +++ b/README.md
 @@ -35,6 +35,9 @@ local code graph and an output squeezer, and drops everything that costs tokens
@@ -18,13 +18,13 @@ index 87f05b3..95bf39d 100644
  
 +## View mode (WeshCraft)
 +
-+`/wesh-plan-view-mode` plans on a visual prototype instead of prose and writes an **advanced spec** (format: `skills/wesh-plan-view-mode/FORMAT.md`): the FigCraft design, a clickable prototype, contract-checked front and back specs, front ⇄ back links and a design changelog, kept in git. Modes: `new`, `update` (what changed in the design since the committed spec), `sync` and `push` (`git`, `github:owner/repo` or `gitlab:group/project`). It needs the WeshCraft MCP server, which wraps FigCraft's MCP:
++`/wesh-plan-view-mode` plans on a visual prototype instead of prose and writes an **advanced spec** (format: `skills/wesh-plan-view-mode/FORMAT.md`): the FigCraft design, a clickable prototype, contract-checked front and back specs, front ⇄ back links and a design changelog, kept in git. Modes: `new`, `update` (what changed in the design since the committed spec), `sync` and `push` (`git`, `github:owner/repo` or `gitlab:group/project`). It needs the WeshCraft MCP server (one small tool set, `weshcraft_*`):
 +
 +```bash
-+npx weshcraft init            # writes .mcp.json: WeshCraft + live FigCraft (figcraft-cli on PATH)
++npx weshcraft init            # writes .mcp.json: WeshCraft on the project's design/*.figcraft
 +```
 +
-+Decisions become FigCraft edits; WeshCraft regenerates front and back specs in parallel, checks them against the prototype (copy, interactions, components, tokens, entities, operations) and shows everything live at the URL it prints. `weshcraft_publish` opens a GitHub PR or GitLab MR with the prototype, the specs and a CI parity check.
++Decisions become design edits (`weshcraft_edit`); WeshCraft regenerates front and back specs in parallel, checks them against the prototype (copy, interactions, components, tokens, entities, operations) and shows everything live at the URL it prints. `weshcraft_sync` keeps a branch in step or opens a GitHub PR or GitLab MR with the prototype, the specs and a CI parity check.
 +
  ## Install
  
@@ -88,7 +88,7 @@ index df06071..ef74e50 100644
  // wesh's own files in a project: they are not the project's code, so the code graph must not index them.
 diff --git a/skills/wesh-plan-view-mode/FORMAT.md b/skills/wesh-plan-view-mode/FORMAT.md
 new file mode 100644
-index 0000000..bc06bcc
+index 0000000..33634aa
 --- /dev/null
 +++ b/skills/wesh-plan-view-mode/FORMAT.md
 @@ -0,0 +1,113 @@
@@ -141,7 +141,7 @@ index 0000000..bc06bcc
 +Each generated markdown file has three parts:
 +
 +1. **Generated sections** (tables, layout tree, acceptance criteria…): facts from the design only. Regenerated; never edit by hand.
-+2. **Notes** between `<!-- weshcraft:notes:start -->` and `<!-- weshcraft:notes:end -->`: the only free-form part (states, edge cases, a11y, analytics, security, open questions). Kept across regenerations; written by humans or agents (`weshcraft_write_notes`, wesh-spec-front/back).
++2. **Notes** between `<!-- weshcraft:notes:start -->` and `<!-- weshcraft:notes:end -->`: the only free-form part (states, edge cases, a11y, analytics, security, open questions). Kept across regenerations; written by humans or agents (`weshcraft_notes`, wesh-spec-front/back).
 +3. **Contract**: an HTML comment `<!-- weshcraft:contract {json} -->` listing exactly which facts the file covers, e.g. for a screen:
 +
 +```json
@@ -161,7 +161,7 @@ index 0000000..bc06bcc
 +
 +`manifest.links.edges[]`: `{rel, node, screen, label, op | field, via?}` with `rel` one of `triggers` (▶ layer calls operation), `submits` (⇢ input is a request field), `lists` (☰ repeated layer filled by a list operation), `displays` (◉ layer shows `Entity.field`; `via` = the operation on that screen that loads it). `manifest.links.gaps[]`: `unloaded-data` (shown, nothing loads it), `unused-operation` (nothing reaches it).
 +
-+Explicit sources in the design (preferred over inference; WeshCraft's editor and `design_bind` / `design_api` write the layer-name and annotation forms): text `{{entity.field[:type]}}`, layer name `@entity.field[:type]`, layer data `pluginData.weshcraft = {"entity","field","type"}` or `{"action":"POST /x","returns":"X"}`, Dev Mode annotation `METHOD /path [→ Entity]` on a trigger layer, or on a screen frame for data the screen loads. Everything else is marked `inferred` and listed under Open questions.
++Explicit sources in the design (preferred over inference; WeshCraft's editor and `weshcraft_edit` (`bind`, `api` ops) write the layer-name and annotation forms): text `{{entity.field[:type]}}`, layer name `@entity.field[:type]`, layer data `pluginData.weshcraft = {"entity","field","type"}` or `{"action":"POST /x","returns":"X"}`, Dev Mode annotation `METHOD /path [→ Entity]` on a trigger layer, or on a screen frame for data the screen loads. Everything else is marked `inferred` and listed under Open questions.
 +
 +## Parity (`weshcraft check`)
 +
@@ -169,7 +169,7 @@ index 0000000..bc06bcc
 +
 +## Lifecycle in git
 +
-+1. **Iterate**: change the design (WeshCraft's Design tab, agents through the `design_*` MCP tools, or FigCraft itself) → specs regenerate in parallel → parity.
++1. **Iterate**: change the design (WeshCraft's Design tab, agents through `weshcraft_edit`, or FigCraft itself) → specs regenerate in parallel → parity.
 +2. **Update**: on an existing spec folder, `weshcraft diff --against <ref>` (or `specs/CHANGES.md`) says what changed in the design; only changed specs are rewritten; Notes survive.
 +3. **Sync**: `weshcraft_sync` / `--sync`: `git` (commit only these paths, current branch, hooks run, optional push) or `github:` / `gitlab:` (commit to a branch through the API; PR/MR opened once, then updated with the latest changelog). Only in-sync states are synced.
 +4. **Gate**: the CI job re-runs `weshcraft check` on every push touching `design/`, `specs/` or `prototype/`.
@@ -189,7 +189,7 @@ index 0000000..bc06bcc
 +
 +Code says what it implements with a tag in a comment next to the symbol: `// @weshcraft scr-sign-up`, `# @weshcraft POST /users`, `/** @weshcraft fn-join, User */`. Refs: a key (`fn-…`, `scr-…`, `cmp-…`, `op-…`), `METHOD /path`, an entity name, an MCP tool name; each spec header gives its element's tag (`Code tag`). Any language; dependencies, build output, `prototype/` and `specs/` are not scanned.
 +
-+From the tags, every run (and `weshcraft trace`, `weshcraft_trace`) writes:
++From the tags, every run (and `weshcraft trace`, `weshcraft_generate`) writes:
 +- `weshcraft.graph.mjs` next to the design file (usually `design/weshcraft.graph.mjs`; `design/` for a service without one): the product as JavaScript that is never imported or run, one exported function per product function (`fn…`), screen (`screen…`), component (`component…`), operation (`op…`), entity (`entity…`) and MCP tool (`tool…`), each documented (purpose, spec link, tag, non-JS code locations) and calling what it is made of: the product its functions in journey order, a function its screens, operations and tools, a screen its components, operations and the entities it shows, an operation the entity it returns, a tool its operation. Each one also imports and calls the exported JavaScript/TypeScript symbols tagged for it; code in other languages is named in its comment. Code graphs index it like the rest of the code: `codegraph explore "how does Sign up work"` returns the function, its screens and operations and the code behind them; `codegraph callers SignUpPage` names the screen it implements; `codegraph impact fetchMe --depth 4` reaches the screens and functions a change touches. Kept out of paths code graphs treat as tests (`specs/`, `test/`).
 +- `specs/TRACE.md` and `specs/trace.json`: per function, each element with its tag and code locations; what has no code yet; tags that name nothing.
 +
@@ -199,15 +199,15 @@ index 0000000..bc06bcc
 +
 +Four overview specs complete `FUNCTIONS.md`, each with a contract (kinds `logic`, `data`, `api-overview`, `architecture`) and a Notes block.
 +
-+- `LOGIC.md`: rules `{name, kind: validation|permission|calculation|policy|event, text, applies}` and lifecycles `{entity, field, states, initial, transitions: [{from (state or *), to, via}]}`. Declared in the design (`pluginData.weshcraft.logic`, edited with `design_logic` or the Logic view) or in `weshcraft.surface.json` (`"logic"`); otherwise inferred and marked so: a validation rule per operation with required request fields (or submitted inputs), a permission rule for the public API's auth, a lifecycle per `status`/`state`/`stage` enum, with the create operation and the operations whose last path segment matches a state (`/void` → `void`); an operation that changes the entity without a matching state is an open transition (warning `logic-open-transition`).
++- `LOGIC.md`: rules `{name, kind: validation|permission|calculation|policy|event, text, applies}` and lifecycles `{entity, field, states, initial, transitions: [{from (state or *), to, via}]}`. Declared in the design (`pluginData.weshcraft.logic`, edited with `weshcraft_edit` or the Logic view) or in `weshcraft.surface.json` (`"logic"`); otherwise inferred and marked so: a validation rule per operation with required request fields (or submitted inputs), a permission rule for the public API's auth, a lifecycle per `status`/`state`/`stage` enum, with the create operation and the operations whose last path segment matches a state (`/void` → `void`); an operation that changes the entity without a matching state is an open transition (warning `logic-open-transition`).
 +- `DATA.md`: per entity its fields, relations (a field typed as another entity, or named `<entity>Id`), the functions that write and read it, the screens that show it, its operations and lifecycle; an `erDiagram`.
 +- `API.md`: operations by function with where they are called from and what they return, the MCP tools with their behaviour and operation, the API's auth.
-+- `ARCHITECTURE.md`: components `{name, kind: client|frontend|interface|service|queue|store|external, tech, description, implements, code}` and links `{from, to, label}`. Declared (`pluginData.weshcraft.architecture`, `design_architecture`, the Architecture view, or `"architecture"` in the surface file) or suggested from the design and the surface (people → front end → back end → database; agents → MCP server; integrations → API).
++- `ARCHITECTURE.md`: components `{name, kind: client|frontend|interface|service|queue|store|external, tech, description, implements, code}` and links `{from, to, label}`. Declared (`pluginData.weshcraft.architecture`, `weshcraft_edit`, the Architecture view, or `"architecture"` in the surface file) or suggested from the design and the surface (people → front end → back end → database; agents → MCP server; integrations → API).
 +
 +Parity: `<kind>-differs` (error) when a spec no longer matches; `logic-unknown-ref`, `architecture-unknown-ref` (a reference to nothing) and `logic-open-transition` (warnings).
 diff --git a/skills/wesh-plan-view-mode/SKILL.md b/skills/wesh-plan-view-mode/SKILL.md
 new file mode 100644
-index 0000000..3bf0cf4
+index 0000000..afeeaa2
 --- /dev/null
 +++ b/skills/wesh-plan-view-mode/SKILL.md
 @@ -0,0 +1,88 @@
@@ -222,8 +222,8 @@ index 0000000..3bf0cf4
 +
 +## 0. Setup and mode
 +- `weshcraft_status` tool missing: tell user to run `npx weshcraft init --client claude` (Claude Code: `.mcp.json`) or `npx weshcraft init --client opencode --global` (OpenCode / OpenChamber plugin; in OpenChamber add the WeshCraft folder in Settings → Extensions for the sync panel and the full interface); `--sync git` keeps this repo in step, restart, rerun. Stop.
-+- `design_*` tools present: you edit the design (the project's `.figcraft`) directly; user edits the same document in the browser's Design tab at the same time (shared undo). `design_new` only: no design yet, start one if the feature has screens. `sourceKind: mcp`: a live FigCraft, use `figcraft_*` instead. Neither, with a surface: the product's front is an MCP server and/or a public API (no screens); `init --surface openapi.yaml` or `--mcp-server "cmd"` sets that up.
-+- Give user the live view URL from `weshcraft_status` (`web`): design editor, prototype, spec builder filling in parallel, Front ⇄ back map, parity. They watch and can adjust by hand; you work.
++- Seven tools: `weshcraft_status`, `weshcraft_read {what}`, `weshcraft_edit {ops}`, `weshcraft_notes`, `weshcraft_generate`, `weshcraft_sync`, and `weshcraft_new` only while the project has no design (start one if the feature has screens). You edit the design (the project's `.figcraft`) with `weshcraft_edit`; user edits the same document in the browser's Design section at the same time (shared undo). A live FigCraft (`sourceKind: mcp`) is read-only here: user edits it in FigCraft. No design, with a surface: the product's front is an MCP server and/or a public API (no screens); `init --surface openapi.yaml` or `--mcp-server "cmd"` sets that up.
++- Give user the live view URL from `weshcraft_status` (`web`): design editor, prototype, spec list filling in parallel, Front ⇄ back map, parity. They watch and can adjust by hand; you work.
 +- Mode from the argument, else from the repo:
 +  - `new` (no `specs/manifest.json`): steps 1-7.
 +  - `update` (an advanced spec exists: `specs/manifest.json`, schema `weshcraft/manifest@*`): step U, then 2-7 for what changed.
@@ -236,44 +236,44 @@ index 0000000..3bf0cf4
 +4. Continue at step 2 for open questions the change raises; else step 5.
 +
 +## 1. Facts first, yourself
-+As `/wesh-plan`: repo entry points, existing API, models, components, `GLOSSARY.md`, ADRs (`codegraph_explore` or `wesh-scout`). Then `design_tree` (ids, layout, links, API annotations; one line per layer) and `weshcraft_manifest` for entities and operations. Never ask user what tree, manifest or repo answers.
++As `/wesh-plan`: repo entry points, existing API, models, components, `GLOSSARY.md`, ADRs (`codegraph_explore` or `wesh-scout`). Then `weshcraft_read {what:"tree"}` (ids, layout, links, API annotations; one line per layer) and `{what:"manifest"}` for entities and operations. Never ask user what tree, manifest or repo answers.
 +
 +## 1b. How the product works
-+`design_functions`: the product's functions (suggested from the prototype until declared). Settle them in the first round: a handful (not one per screen), each a verb phrase the user would say ("Find a trail", "Pay"), a one-line purpose, its screens; API-only operations and MCP tools that no screen reaches go to the function they serve. Declare with `design_functions {functions:[…]}` (or `set` for one). Every later round says which function it changes; a new screen goes into a function in the same batch. `specs/FUNCTIONS.md` is the first thing a reader opens: keep it true.
++`weshcraft_read {what:"functions"}`: the product's functions (suggested from the prototype until declared). Settle them in the first round: a handful (not one per screen), each a verb phrase the user would say ("Find a trail", "Pay"), a one-line purpose, its screens; API-only operations and MCP tools that no screen reaches go to the function they serve. Declare with `weshcraft_edit` ops: `{op:"keepFunctions"}` to keep the suggestion, then `{op:"function", name, rename?, summary, screens, operations?, tools?}` per function. Every later round says which function it changes; a new screen goes into a function in the same batch. `specs/FUNCTIONS.md` is the first thing a reader opens: keep it true.
 +
 +## 1c. Every aspect
 +After the functions, settle what the design cannot show, one round each, only where it matters for the feature:
-+- Logic: `design_logic` lists inferred rules and lifecycles. Declare the real ones: rules with their kind and what they apply to (`rule:{name, kind, text, applies}`), lifecycles of data that changes state (`states:{entity, states, transitions:[{from, to, via}]}`); resolve every open transition. `specs/LOGIC.md`.
++- Logic: `weshcraft_read {what:"logic"}` lists inferred rules and lifecycles. Declare the real ones with `weshcraft_edit`: `{op:"keepLogic"}`, rules with their kind and what they apply to (`{op:"rule", name, kind, text, applies}`), lifecycles of data that changes state (`{op:"lifecycle", entity, states, transitions:[{from, to, via}]}`); resolve every open transition. `specs/LOGIC.md`.
 +- Data: bind layers to data in the design (`bind`), API schemas for services; check `specs/DATA.md` relations and who writes what.
 +- API & MCP: operations come from the design (`api` ops) or the surface; `specs/API.md` shows each by function, where it is called from and what it returns.
-+- Architecture: `design_architecture` shows the suggestion; declare the real components with technologies and links (`keep:true`, then `component` / `link`), and the code folders they live in. `specs/ARCHITECTURE.md`.
++- Architecture: `weshcraft_read {what:"architecture"}` shows the suggestion; declare the real components with technologies and links (`{op:"keepArchitecture"}`, then `{op:"component", name, kind, tech, code}` / `{op:"connect", from, to, label}`), and the code folders they live in. `specs/ARCHITECTURE.md`.
 +
 +## 2. Frontier rounds, answered in the design
 +Same rounds as `/wesh-plan` (numbered, recommended answer, "yes" accepts). Route each settled answer:
-+- Changes what user sees or does (screen, copy, state, flow, field, button) → one `design_edit` per settled round: all its ops in one batch (one undo step for user), `ref` to wire new layers (`{op:"screen",ref:"s"}`, `{op:"create",parent:"s",…}`, `{op:"link",id:…,to:"s"}`). Reuse components (`instance`) and tokens (`useToken`); auto layout (`layout`, `sizing`) over x/y. `design_text` for copy-only rounds. `design_screenshot` (if available) or the live URL so user confirms. Live FigCraft instead: `figcraft_batch`, `figcraft_set_properties`, `figcraft_run_command`.
++- Changes what user sees or does (screen, copy, state, flow, field, button) → one `weshcraft_edit` per settled round: all its ops in one batch (one undo step for user), `ref` to wire new layers (`{op:"screen",ref:"s"}`, `{op:"create",parent:"s",…}`, `{op:"link",id:…,to:"s"}`). Reuse components (`instance`) and tokens (`useToken`); auto layout (`layout`, `sizing`) over x/y. `{op:"text"}` for copy-only rounds. `weshcraft_read {what:"screenshot", id}` (if available) or the live URL so user confirms.
 +- Data a layer shows → `{op:"bind", id, entity:"trail", field:"rating", type:"number"}`. Becomes an explicit entity field.
 +- Back-end call → `{op:"api", id: <button>, method:"POST", path:"/trails", returns:"Trail"}`; data a screen loads → same op on the screen frame (`GET /users/me → User`). Explicit operation, linked to the layers that trigger it, submit to it, show what it returns.
 +- Pass `wait:true` on the last edit of a round: parity, design changes and gaps come back in the reply.
-+- Not visual (rule, limit, perf, security, analytics) → `weshcraft_write_notes` on the owning spec.
-+Every design edit (yours, user's in the browser, FigCraft saving the file) regenerates the specs automatically. Never write a fact into notes that the design contradicts: change the design. User edited by hand meanwhile: `design_tree` again before batching on stale ids.
++- Not visual (rule, limit, perf, security, analytics) → `weshcraft_notes` on the owning spec.
++Every design edit (yours, user's in the browser, FigCraft saving the file) regenerates the specs automatically. Never write a fact into notes that the design contradicts: change the design. User edited by hand meanwhile: `weshcraft_read {what:"tree"}` again before batching on stale ids.
 +
 +No screens (MCP server / API): the source of truth is `design/openapi.yaml`, the MCP tool list (or the server's code) and `weshcraft.surface.json`. Answers land there instead: a tool's name, description, input schema and annotations (`readOnlyHint`, `destructiveHint`…), an endpoint's parameters, body and responses, and `links` from tools to endpoints. Agents are the users of MCP tools: settle descriptions and safety hints as carefully as copy on a screen.
 +
 +## 3. Generate in parallel
-+`weshcraft_generate`. Fan out: one subagent per group, max 6 at once, each told to use `wesh-spec-front` (screens, components, tokens, flows) or `wesh-spec-back` (domain, API, conventions), read with `weshcraft_read_spec`, write only Notes with `weshcraft_write_notes`. Update mode: changed specs only. Headless alternative: `weshcraft serve --agent`.
++`weshcraft_generate`. Fan out: one subagent per group, max 6 at once, each told to use `wesh-spec-front` (screens, components, tokens, flows) or `wesh-spec-back` (domain, API, conventions), read with `weshcraft_read {what:"spec", path}`, write only Notes with `weshcraft_notes`. Update mode: changed specs only. Headless alternative: `weshcraft serve --agent`.
 +
 +## 4. Front ⇄ back links
-+`weshcraft_links` (or `specs/LINKS.md`): layer → operation (▶ triggers, ⇢ submits, ☰ list filled by), layer → entity field (◉ shows, + operation that loads it). Each gap is a question for the next round:
++`weshcraft_read {what:"links"}` (or `specs/LINKS.md`): layer → operation (▶ triggers, ⇢ submits, ☰ list filled by), layer → entity field (◉ shows, + operation that loads it). Each gap is a question for the next round:
 +- field shown, nothing loads it → annotate the loading operation on that screen, or drop the binding.
 +- operation nothing reaches → wire it to a layer or cut it.
 +- inferred operation or field → confirm by binding/annotating in the design.
 +
 +## 4b. Code ⇄ spec (codegraph)
-+Existing code first: `codegraph_explore "how does <function> work"` (the product graph `design/weshcraft.graph.mjs` links functions → screens, components → operations → entities → the code tagged for them), `weshcraft_trace {untraced:true}` for what has no code yet.
-+Writing or changing code from the specs (now, or in a later `/wesh-tdd`, `/wesh-refactor`): put the element's tag in a comment on the symbol that implements it, the `Code tag` from the spec header: `// @weshcraft scr-sign-up` on the screen component, `// @weshcraft POST /users` on the client call and on the route handler, `# @weshcraft User` on the model; several refs: `@weshcraft fn-join, User`. One tag per implementing symbol, in every language of the repo. Then `weshcraft_trace`: it rewrites the product graph and `specs/TRACE.md`; `codegraph sync` and the graph links each element to its code. Before changing shared code: `codegraph impact <symbol> --depth 4` names the screens and functions it touches. A `trace-unknown` warning (a tag naming nothing) after a design change: move the tag to the new key.
++Existing code first: `codegraph_explore "how does <function> work"` (the product graph `design/weshcraft.graph.mjs` links functions → screens, components → operations → entities → the code tagged for them), `weshcraft_read {what:"trace", untraced:true}` for what has no code yet.
++Writing or changing code from the specs (now, or in a later `/wesh-tdd`, `/wesh-refactor`): put the element's tag in a comment on the symbol that implements it, the `Code tag` from the spec header: `// @weshcraft scr-sign-up` on the screen component, `// @weshcraft POST /users` on the client call and on the route handler, `# @weshcraft User` on the model; several refs: `@weshcraft fn-join, User`. One tag per implementing symbol, in every language of the repo. Then `weshcraft_generate`: it rewrites the product graph and `specs/TRACE.md`; `codegraph sync` and the graph links each element to its code. Before changing shared code: `codegraph impact <symbol> --depth 4` names the screens and functions it touches. A `trace-unknown` warning (a tag naming nothing) after a design change: move the tag to the new key.
 +
 +## 5. Parity gate
-+`weshcraft_check` must be `ok`, with no `functions-suggested` or `not-in-a-function` warning left. Stale or missing → `weshcraft_generate`. Drift → design changed: regenerate, never hand-edit generated sections.
++`weshcraft_read {what:"parity"}` must be `ok`, with no `functions-suggested` or `not-in-a-function` warning left. Stale or missing → `weshcraft_generate`. Drift → design changed: regenerate, never hand-edit generated sections.
 +
 +## 6. Spec summary
 +Reply in `/wesh-plan` shape, under ~60 lines, pointing at files instead of restating them:
@@ -294,8 +294,8 @@ index 0000000..3bf0cf4
 +
 +## 7. Sync / push (outward, confirm first)
 +Only an in-sync state is synced. On user yes:
-+- keep in sync: `weshcraft_sync {target: "git" | "github:owner/repo" | "gitlab:group/project", auto: true}`. `git` commits only the spec paths on the current branch, hooks run; `push: true` only when user asked (mode `push`). Remote targets commit to a branch through the API and open/update one PR/MR whose description carries the latest changelog; access is inherited (OpenChamber account, gh/glab login, git credentials), never ask user for a token unless sync reports none.
-+- one-off PR/MR: `weshcraft_publish {provider, repo, branch?, base?}`.
++- keep in sync: `weshcraft_sync {action:"sync", target: "git" | "github:owner/repo" | "gitlab:group/project", auto: true}`. `git` commits only the spec paths on the current branch, hooks run; `push: true` only when user asked (mode `push`). Remote targets commit to a branch through the API and open/update one PR/MR whose description carries the latest changelog; access is inherited (OpenChamber account, gh/glab login, git credentials), never ask user for a token unless sync reports none.
++- one-off PR/MR: `weshcraft_sync {action:"publish", provider, repo, branch?, base?}`.
 +Commit messages come from the changelog (`docs(specs): <name>: <summary>`); do not rewrite them. Give the commit or URL. Later code review: `wesh-review --spec specs/README.md`.
 +
 +Do not implement until user confirms the spec, unless they asked to go straight on.
@@ -326,7 +326,7 @@ index db512ce..0e80fb4 100644
  Diff, then callers of every changed function, functions it calls, tests, README. Signature or behavior changed: find every caller (`codegraph callers <fn>` per changed function when the project has an index, else grep; plus grep for string or dynamic references). The CLI reads the last synced index: run `codegraph sync` first when the answer decides a delete, a rename or "unused". Find the expected load (README, deploy config) and state it.
 diff --git a/skills/wesh-spec-back/SKILL.md b/skills/wesh-spec-back/SKILL.md
 new file mode 100644
-index 0000000..c958708
+index 0000000..ea3d071
 --- /dev/null
 +++ b/skills/wesh-spec-back/SKILL.md
 @@ -0,0 +1,29 @@
@@ -335,15 +335,15 @@ index 0000000..c958708
 +description: Enrich WeshCraft back specs (specs/back/*.md) from a FigCraft prototype: validation, authz, errors, data, open questions. Never invents endpoints. Use for "enrich/complete back spec".
 +---
 +
-+Entities, fields and operations are derived from the prototype (explicit bindings and annotations, or inferred from repeated components and action labels) and contract-checked. Do not add, rename or drop them in prose. You write only the Notes block (`weshcraft_write_notes`).
++Entities, fields and operations are derived from the prototype (explicit bindings and annotations, or inferred from repeated components and action labels) and contract-checked. Do not add, rename or drop them in prose. You write only the Notes block (`weshcraft_notes`).
 +
 +
 +Read `specs/FUNCTIONS.md` first: an operation's function (and the data it reads and writes) frames its validation, authorization and errors.
 +Rules (`specs/LOGIC.md`), entities and relations (`specs/DATA.md`) and components (`specs/ARCHITECTURE.md`) frame validation, transitions, authorization and where the code goes.
-+Existing code for an operation or entity: `weshcraft_trace` (or `specs/TRACE.md`) lists what is tagged `@weshcraft METHOD /path` or `@weshcraft Entity`; `codegraph_explore "<METHOD /path> handler"` shows it with callers. Name the file you would extend.
++Existing code for an operation or entity: `weshcraft_read {what:"trace"}` (or `specs/TRACE.md`) lists what is tagged `@weshcraft METHOD /path` or `@weshcraft Entity`; `codegraph_explore "<METHOD /path> handler"` shows it with callers. Name the file you would extend.
 +
 +## Read first
-+`specs/back/domain.md`, `api.md`, `openapi.json`, `conventions.md`, the public API and MCP specs under `specs/front/api` and `specs/front/mcp` when present, `specs/LINKS.md` (or `weshcraft_links`): which layers trigger, submit to and show each operation's data; the screens each operation cites. Existing back-end code: models, routes, auth, validation library, error format, migrations. Reuse them; name the file you would extend.
++`specs/back/domain.md`, `api.md`, `openapi.json`, `conventions.md`, the public API and MCP specs under `specs/front/api` and `specs/front/mcp` when present, `specs/LINKS.md` (or `weshcraft_read {what:"links"}`): which layers trigger, submit to and show each operation's data; the screens each operation cites. Existing back-end code: models, routes, auth, validation library, error format, migrations. Reuse them; name the file you would extend.
 +
 +## Write, only what applies
 +- `### Validation`: per request field (its input `#id`): required, type, length, format, server-side rule, error message the screen shows.
@@ -361,7 +361,7 @@ index 0000000..c958708
 +- Under 60 lines per spec. No preamble.
 diff --git a/skills/wesh-spec-front/SKILL.md b/skills/wesh-spec-front/SKILL.md
 new file mode 100644
-index 0000000..37e38df
+index 0000000..c043b46
 --- /dev/null
 +++ b/skills/wesh-spec-front/SKILL.md
 @@ -0,0 +1,35 @@
@@ -370,15 +370,15 @@ index 0000000..37e38df
 +description: Enrich WeshCraft front specs (specs/front/*.md) from a FigCraft prototype: states, a11y, analytics, open questions. Never changes generated facts. Use for "enrich/complete front spec".
 +---
 +
-+Spec facts (layout, copy, typography, colours, interactions, components, sizes) are generated from the prototype and contract-checked. Do not restate, reword or "fix" them. You write only the Notes block (`weshcraft_write_notes`, or between the `weshcraft:notes` markers when editing files).
++Spec facts (layout, copy, typography, colours, interactions, components, sizes) are generated from the prototype and contract-checked. Do not restate, reword or "fix" them. You write only the Notes block (`weshcraft_notes`, or between the `weshcraft:notes` markers when editing files).
 +
 +
 +Read the screen's function in `specs/FUNCTIONS.md` first: its purpose frames the screen's states, empty cases and acceptance criteria.
 +Rules and lifecycles that touch the screen are in `specs/LOGIC.md` (what it applies to): states and errors follow them.
-+Existing code for the screen: `weshcraft_trace` (or `specs/TRACE.md`) lists what is tagged `@weshcraft <key>`; `codegraph_explore "<screen name> screen"` shows it with its calls. Notes that name code cite `file:symbol`.
++Existing code for the screen: `weshcraft_read {what:"trace"}` (or `specs/TRACE.md`) lists what is tagged `@weshcraft <key>`; `codegraph_explore "<screen name> screen"` shows it with its calls. Notes that name code cite `file:symbol`.
 +
 +## Read first
-+The spec (`weshcraft_read_spec`), the screens it links, `weshcraft_manifest {screen}` for ids. Existing code for the same screen or component, when the repo has it: match its patterns.
++The spec (`weshcraft_read {what:"spec", path}`), the screens it links, `weshcraft_read {what:"manifest", screen}` for ids. Existing code for the same screen or component, when the repo has it: match its patterns.
 +
 +## Write, only what applies, under these headings
 +- `### States`: loading, empty, error, disabled, offline, permission denied, long content (copy 2× longer, 1 item, 0 items, 1 000 items). Tie each to its back-end link from §Front ⇄ back links: loading/empty/error of the operation that loads a ◉ field or fills a ☰ list; pending/failure of the operation a ▶ layer triggers. Say what the prototype shows; where it shows nothing, it is an open question, not your invention.

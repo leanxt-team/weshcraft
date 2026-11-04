@@ -53,114 +53,60 @@
         {
           "match": "weshcraft_status",
           "name": "WeshCraft",
-          "icon": "pulse-line",
+          "icon": "openchamber/icon.svg",
           "title": "Status",
           "output": "json"
         },
         {
-          "match": "weshcraft_check",
+          "match": "weshcraft_read",
           "name": "WeshCraft",
-          "icon": "shield-check-line",
-          "title": "Parity check",
-          "output": "json"
+          "icon": "eye-line",
+          "title": "Read {input.what}",
+          "subtitle": "{input.query}{input.path}{input.screen}",
+          "output": "auto"
         },
         {
-          "match": "weshcraft_read_spec",
+          "match": "weshcraft_edit",
           "name": "WeshCraft",
-          "icon": "file-text-line",
-          "title": "{input.path}",
-          "output": "markdown"
-        },
-        {
-          "match": "weshcraft_sync",
-          "name": "WeshCraft",
-          "icon": "git-branch-line",
-          "title": "Sync",
-          "subtitle": "{input.target}",
-          "output": "json"
-        },
-        {
-          "match": "weshcraft_open",
-          "name": "WeshCraft",
-          "icon": "external-link-line",
-          "title": "Open WeshCraft",
-          "output": "markdown"
-        },
-        {
-          "match": "design_tree",
-          "name": "WeshCraft design",
-          "icon": "node-tree",
-          "title": "Layers",
-          "subtitle": "{input.root}",
-          "output": "text"
-        },
-        {
-          "match": "design_edit",
-          "name": "WeshCraft design",
           "icon": "pencil-ruler-2-line",
           "title": "Edit design",
           "subtitle": "{input.label}",
           "output": "json"
         },
         {
-          "match": "design_text",
-          "name": "WeshCraft design",
-          "icon": "text",
-          "title": "Edit copy",
+          "match": "weshcraft_notes",
+          "name": "WeshCraft",
+          "icon": "sticky-note-line",
+          "title": "Notes",
+          "subtitle": "{input.path}",
           "output": "json"
         },
         {
-          "match": "design_api",
-          "name": "WeshCraft design",
-          "icon": "exchange-line",
-          "title": "{input.method} {input.path}",
+          "match": "weshcraft_generate",
+          "name": "WeshCraft",
+          "icon": "refresh-line",
+          "title": "Regenerate specs",
           "output": "json"
         },
         {
-          "match": "design_bind",
-          "name": "WeshCraft design",
-          "icon": "database-2-line",
-          "title": "Bind {input.entity}.{input.field}",
+          "match": "weshcraft_sync",
+          "name": "WeshCraft",
+          "icon": "git-branch-line",
+          "title": "Git: {input.action}",
+          "subtitle": "{input.target}{input.repo}",
           "output": "json"
         },
         {
-          "match": "design_link",
-          "name": "WeshCraft design",
-          "icon": "link",
-          "title": "Prototype link",
-          "output": "json"
-        },
-        {
-          "match": "design_screen",
-          "name": "WeshCraft design",
-          "icon": "smartphone-line",
-          "title": "New screen {input.name}",
-          "output": "json"
-        },
-        {
-          "match": "design_functions",
-          "name": "WeshCraft functions",
-          "icon": "organization-chart",
-          "title": "Product functions",
-          "subtitle": "{input.set.name}",
-          "output": "json"
-        },
-        {
-          "match": "design_*",
-          "name": "WeshCraft design",
-          "icon": "openchamber/icon.svg",
+          "match": "weshcraft_new",
+          "name": "WeshCraft",
+          "icon": "add-box-line",
+          "title": "New design {input.name}",
           "output": "auto"
         },
         {
           "match": "weshcraft_*",
           "name": "WeshCraft",
           "icon": "openchamber/icon.svg",
-          "output": "auto"
-        },
-        {
-          "match": "figcraft_*",
-          "name": "FigCraft",
-          "icon": "pen-nib-line",
           "output": "auto"
         }
       ]

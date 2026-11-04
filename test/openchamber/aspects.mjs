@@ -28,11 +28,11 @@ try {
     return { p, f, fr: () => p.frames().find(x => x.url().includes('guest-files')) };
   };
   let { p, f, fr } = await open(1280, 860, 'light');
-  ok('tabs: Functions · Logic · Data · API & MCP · Architecture', (await f.locator('.top .tab').allInnerTexts()).slice(0, 5).join('|') === 'Functions|Logic|Data|API & MCP|Architecture', (await f.locator('.top .tab').allInnerTexts()).join('|'));
+  ok('tabs: Functions · Logic · Data · API & MCP · Architecture', (await f.locator('.rail .tab').allInnerTexts()).slice(0, 5).join('|') === 'Functions|Logic|Data|API & MCP|Architecture', (await f.locator('.rail .tab').allInnerTexts()).join('|'));
   ok('specs: the product group lists the five', (await f.locator('.job').allTextContents()).filter(t => /^(Functions|Logic|Data|API & MCP|Architecture)/.test(t.trim())).length === 5);
 
   // ---- Logic
-  await f.locator('.top .tab[data-tab="logic"]').click(); await sleep(600);
+  await f.locator('.rail .tab[data-tab="logic"]').click(); await sleep(600);
   ok('logic: inferred rule shown', /POST \/users submits/.test(await f.locator('#logicview').innerText()));
   await f.locator('#lgKeep').click();
   ok('logic: kept into the design', await until(() => stored('logic')?.rules?.length >= 1), JSON.stringify(stored('logic')));
@@ -66,7 +66,7 @@ try {
   ok('logic: LOGIC.md follows', await until(() => /### User\.status[\s\S]*invited[\s\S]*Only the owner can edit a profile/.test(spec('LOGIC.md'))));
 
   // ---- Data
-  await f.locator('.top .tab[data-tab="data"]').click(); await sleep(600);
+  await f.locator('.rail .tab[data-tab="data"]').click(); await sleep(600);
   ok('data: one card per entity', await f.locator('#dataview .dt-card').count() === 2);
   await f.locator('#dataview .dt-card[data-e="User"]').click(); await sleep(400);
   ok('data: detail says who writes it', /Written by[\s\S]*Sign up/.test(await f.locator('#dtDetail').innerText()), await f.locator('#dtDetail').innerText());
@@ -74,7 +74,7 @@ try {
   await p.screenshot({ path: `${OUT}/x-data.png` });
 
   // ---- API
-  await f.locator('.top .tab[data-tab="api"]').click(); await sleep(600);
+  await f.locator('.rail .tab[data-tab="api"]').click(); await sleep(600);
   ok('api: one row per operation', await f.locator('#apiview .api-row').count() === 3);
   await f.locator('#apiFilter').fill('users/me'); await sleep(300);
   ok('api: filter', await f.locator('#apiview .api-row').count() === 2);
@@ -84,7 +84,7 @@ try {
   await p.screenshot({ path: `${OUT}/x-api.png` });
 
   // ---- Architecture
-  await f.locator('.top .tab[data-tab="architecture"]').click(); await sleep(700);
+  await f.locator('.rail .tab[data-tab="architecture"]').click(); await sleep(700);
   ok('architecture: suggested layers', (await f.locator('#archview .ar-card .av-title').allInnerTexts()).join('|') === 'People|Front end|Back end|Database', (await f.locator('#archview .ar-card .av-title').allInnerTexts()).join('|'));
   ok('architecture: wires drawn', await f.locator('#archview .ar-wires path.w').count() === 3);
   await f.locator('#arKeep').click();

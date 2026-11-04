@@ -62,7 +62,7 @@ export function createFunctionsView({ root, getManifest, getTrace = () => null, 
     const u = F.unassigned;
     const loose = u.screens.length + u.operations.length + u.tools.length;
     root.innerHTML = `${productNav('functions')}
-      ${!F.declared ? `<div class="fn-banner"><div><strong>Suggested functions.</strong> Grouped from the prototype (flows, sections, navigation, API tags). ${editable ? 'Keep them, then rename them and give each a purpose.' : 'Name them with the agent (design_functions)' + (m.screens.length ? '' : ' or in weshcraft.surface.json (functions)') + '.'}</div>${editable ? '<button type="button" class="btn primary small" id="fnKeep">Keep these functions</button>' : ''}</div>` : ''}
+      ${!F.declared ? `<div class="fn-banner"><div><strong>Suggested functions.</strong> Grouped from the prototype (flows, sections, navigation, API tags). ${editable ? 'Keep them, then rename them and give each a purpose.' : 'Name them with the agent (weshcraft_edit)' + (m.screens.length ? '' : ' or in weshcraft.surface.json (functions)') + '.'}</div>${editable ? '<button type="button" class="btn primary small" id="fnKeep">Keep these functions</button>' : ''}</div>` : ''}
       <div class="fn-cols">
         <div class="fn-col fn-who"><h4>Who</h4>${actors.map(a => `<div class="fn-actor" data-a="${a}">${ACTOR_ICON[a]}<span>${ACTORS[a]}</span></div>`).join('') || '<p class="empty">—</p>'}</div>
         <div class="fn-col fn-fns"><h4>Functions <span>${F.items.length}</span></h4>${F.items.map(card).join('')}${editable ? '<button type="button" class="fn-add" id="fnAdd">+ Function</button>' : ''}</div>

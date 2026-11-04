@@ -129,7 +129,7 @@ try {
   ok('page: live events update the spec builder', !!await waitFor(async () => (await o.f.locator('#log').innerText()) !== logBefore && /Run \d+:|Synced to/.test(await o.f.locator("#log").innerText()), 15000), await o.f.locator('#log').innerText());
   // agent edit arrives live
   const info = (await svc('/info', { directory: P1 })).json;
-  await fetch(`${info.base}/mcp`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/call', params: { name: 'design_text', arguments: { edits: [{ id: Number(title), text: 'Agent was here' }] } } }) });
+  await fetch(`${info.base}/mcp`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/call', params: { name: 'weshcraft_edit', arguments: { ops: [{ op: 'text', id: Number(title), text: 'Agent was here' }] } } }) });
   ok('page: an agent edit shows on the canvas (event stream)', !!await waitFor(async () => (await o.f.locator('#edScreen').innerText()).includes('Agent was here'), 15000));
   await o.p.keyboard.press('Control+z');
   ok('page: undo from the page', !!await waitFor(async () => !(await o.f.locator('#edScreen').innerText()).includes('Agent was here')));

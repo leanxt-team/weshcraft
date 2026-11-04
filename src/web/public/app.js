@@ -3,6 +3,7 @@
 import { createEditor } from '/app/editor.js';
 import { createFunctionsView } from '/app/functions.js';
 import { createLogicView, createDataView, createApiView, createArchitectureView } from '/app/aspects.js';
+import { buildTree, folderAt, countItems, allFolders, addFolder, renameFolder, removeFolder, moveItem, moveFolder } from '/app/spectree.js';
 
 const $ = s => document.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -70,12 +71,6 @@ function markdown(md) {
 }
 
 // ---- builder list ----------------------------------------------------------------------------
-const GROUPS = [
-  ['product', 'Product', j => j.group === 'product'],
-  ['front', 'Front end', j => j.group === 'front'],
-  ['back', 'Back end', j => j.group === 'back'],
-  ['links', 'Front ⇄ back', j => j.group === 'links'],
-];
 function since(j) {
   if (j.status === 'queued') return 'queued';
   if (j.status === 'unchanged') return 'unchanged';
@@ -91,18 +86,194 @@ function renderJobs() {
   $('#count').textContent = jobs.length ? `${done}/${jobs.length}` : '';
   $('#bar').style.width = jobs.length ? `${(done / jobs.length) * 100}%` : '0';
   if (!jobs.length) return;
-  $('#groups').innerHTML = GROUPS.map(([key, label, f]) => {
-    const list = jobs.filter(f);
-    return `<div class="group"><h3>${label} <span>${list.length}</span></h3>${list.map(j => `<button type="button" class="job" data-id="${esc(j.id)}" aria-current="${state.current === j.id}"><span class="dot ${esc(j.status)}" title="${esc(j.status)}"></span><span class="title">${esc(j.title)}</span><span class="meta">${esc(since(j))}</span></button>`).join('')}</div>`;
-  }).join('');
+  renderTree();
 }
+
+// ---- spec folders: the project's own organisation of the list --------------------------------
+// Folders and subfolders, made, renamed, removed (what they hold moves up) and filled by dragging
+// a spec or a folder, or with the ⋯ menu. Saved in .weshcraft.json (specTree), shared with specs/README.md.
+const FOLD_KEY = 'weshcraft.folds.v1';
+const folds = (() => { try { return new Set(JSON.parse(localStorage.getItem(FOLD_KEY) || '[]')); } catch { return new Set(); } })();
+const saveFolds = () => { try { localStorage.setItem(FOLD_KEY, JSON.stringify([...folds])); } catch { /* private window */ } };
+const pathStr = p => p.join('.');
+const pathOf = s => (s ? s.split('.').map(Number) : []);
+const ICON = {
+  caret: '<svg viewBox="0 0 16 16" width="10" height="10" aria-hidden="true"><path d="M6 4l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  folder: '<svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M1.75 4.25c0-.83.67-1.5 1.5-1.5h3l1.5 1.5h5c.83 0 1.5.67 1.5 1.5v6c0 .83-.67 1.5-1.5 1.5h-9.5c-.83 0-1.5-.67-1.5-1.5z" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg>',
+  add: '<svg viewBox="0 0 16 16" width="12" height="12" aria-hidden="true"><path d="M8 3v10M3 8h10" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>',
+  edit: '<svg viewBox="0 0 16 16" width="12" height="12" aria-hidden="true"><path d="M10.5 2.5l3 3L6 13H3v-3z" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>',
+  del: '<svg viewBox="0 0 16 16" width="12" height="12" aria-hidden="true"><path d="M3 4.5h10M6.5 4.5V3h3v1.5M4.5 4.5l.6 8.5h5.8l.6-8.5" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>',
+  more: '<svg viewBox="0 0 16 16" width="12" height="12" aria-hidden="true"><circle cx="3.5" cy="8" r="1.3" fill="currentColor"/><circle cx="8" cy="8" r="1.3" fill="currentColor"/><circle cx="12.5" cy="8" r="1.3" fill="currentColor"/></svg>',
+};
+let stored = null; // the saved folders, before current specs are placed
+let renaming = null; // path string of the folder being renamed
+let rendering = false;
+function currentTree() { return buildTree(stored, [...state.jobs.keys()]); }
+async function loadSpecTree() {
+  try { const r = await fetch('/api/spec-tree'); if (r.ok) { stored = (await r.json()).tree; renderTree(); } } catch { /* offline: defaults */ }
+}
+async function saveTree(tree, what) {
+  stored = tree;
+  renderTree();
+  try {
+    const r = await fetch('/api/spec-tree', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ tree }) });
+    if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || r.statusText);
+    stored = (await r.json()).tree;
+  } catch (e) { log({ level: 'error', at: Date.now(), message: `Spec folders not saved (${what}): ${e.message}` }); loadSpecTree(); }
+}
+function jobRow(id) {
+  const j = state.jobs.get(id);
+  if (!j) return '';
+  return `<div class="trow item" draggable="true" data-id="${esc(id)}"><button type="button" class="job" data-id="${esc(id)}" aria-current="${state.current === id}"><span class="dot ${esc(j.status)}" title="${esc(j.status)}"></span><span class="title">${esc(j.title)}</span><span class="meta">${esc(since(j))}</span></button><button type="button" class="t-act t-more" data-move="${esc(id)}" title="Move to a folder" aria-label="Move ${esc(j.title)} to a folder">${ICON.more}</button></div>`;
+}
+function folderHtml(f, path, names) {
+  const key = names.join('/');
+  const open = !folds.has(key);
+  const ps = pathStr(path);
+  const name = renaming === ps
+    ? `<input class="t-rename" data-rename="${ps}" value="${esc(f.name)}" aria-label="Folder name" maxlength="60">`
+    : `<span class="t-name" title="Double-click to rename">${esc(f.name)}</span>`;
+  return `<div class="tfolder" data-path="${ps}" style="--depth:${path.length - 1}">
+<div class="trow head" draggable="${renaming === ps ? 'false' : 'true'}" data-path="${ps}"><button type="button" class="t-fold" data-fold="${esc(key)}" aria-expanded="${open}" aria-label="${open ? 'Fold' : 'Unfold'} ${esc(f.name)}">${ICON.caret}</button><span class="t-ico">${ICON.folder}</span>${name}<span class="t-count">${countItems(f)}</span><span class="t-acts"><button type="button" class="t-act" data-sub="${ps}" title="New subfolder" aria-label="New subfolder in ${esc(f.name)}">${ICON.add}</button><button type="button" class="t-act" data-ren="${ps}" title="Rename" aria-label="Rename ${esc(f.name)}">${ICON.edit}</button><button type="button" class="t-act" data-del="${ps}" title="Remove the folder (what it holds moves up)" aria-label="Remove ${esc(f.name)}">${ICON.del}</button></span></div>
+${open ? `<div class="tkids">${f.folders.map((x, i) => folderHtml(x, [...path, i], [...names, x.name])).join('')}${f.items.map(jobRow).join('')}${!f.folders.length && !f.items.length ? '<div class="t-empty">Empty — drag specs here</div>' : ''}</div>` : ''}
+</div>`;
+}
+function renderTree() {
+  if (!state.jobs.size) return;
+  const t = currentTree();
+  const old = $('#groups .t-rename');
+  const keep = old && { v: old.value, s: old.selectionStart, e: old.selectionEnd, focused: document.activeElement === old };
+  rendering = true;
+  $('#groups').innerHTML = `${t.folders.map((f, i) => folderHtml(f, [i], [f.name])).join('')}<div class="troot" data-path="">${t.items.map(jobRow).join('')}<div class="t-drop-root">Drop here for the top level</div></div>`;
+  rendering = false;
+  const inp = $('#groups .t-rename');
+  if (!inp) return;
+  if (!keep) { inp.focus(); inp.select(); return; }
+  inp.value = keep.v;
+  if (keep.focused) { inp.focus(); inp.setSelectionRange(keep.s, keep.e); }
+}
+function commitRename(input) {
+  const path = pathOf(input.dataset.rename);
+  const name = input.value.trim();
+  renaming = null;
+  const t = currentTree();
+  if (!name || name === folderAt(t, path)?.name) return renderTree();
+  try { saveTree(renameFolder(t, path, name), 'rename'); } catch (e) { log({ level: 'warn', at: Date.now(), message: e.message }); renderTree(); }
+}
+function moveMenu(btn) {
+  closeMoveMenu();
+  const id = btn.dataset.move;
+  const t = currentTree();
+  const here = allFolders(t).find(([p]) => folderAt(t, p).items.includes(id))?.[0];
+  const opts = [[[], ['Top level']], ...allFolders(t)];
+  const m = document.createElement('div');
+  m.className = 'menu t-menu';
+  m.setAttribute('role', 'menu');
+  m.innerHTML = `<div class="t-menu-h">Move to</div>${opts.map(([p, names]) => `<button type="button" role="menuitem" data-to="${pathStr(p)}" style="padding-left:${10 + (p.length ? (p.length - 1) * 14 : 0)}px" ${pathStr(p) === pathStr(here ?? (t.items.includes(id) ? [] : [-1])) ? 'aria-current="true"' : ''}>${esc(names.at(-1))}</button>`).join('')}<hr><button type="button" role="menuitem" data-to-new="1">${ICON.add} New folder…</button>`;
+  document.body.append(m);
+  const r = btn.getBoundingClientRect();
+  m.style.top = `${Math.min(r.bottom + 4, innerHeight - m.offsetHeight - 8)}px`;
+  m.style.left = `${Math.max(8, Math.min(r.left, innerWidth - m.offsetWidth - 8))}px`;
+  m.addEventListener('click', e => {
+    const b = e.target.closest('button');
+    if (!b) return;
+    closeMoveMenu();
+    if (b.dataset.toNew) {
+      const { tree, path } = addFolder(t, []);
+      renaming = pathStr(path);
+      saveTree(moveItem(tree, id, path), 'move');
+    } else saveTree(moveItem(t, id, pathOf(b.dataset.to)), 'move');
+  });
+  m.querySelector('button')?.focus();
+}
+function closeMoveMenu() { document.querySelectorAll('.t-menu').forEach(x => x.remove()); }
+document.addEventListener('pointerdown', e => { if (!e.target.closest('.t-menu, .t-more')) closeMoveMenu(); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeMoveMenu(); });
+
+$('#addFolder').addEventListener('click', () => {
+  const { tree, path } = addFolder(currentTree(), []);
+  renaming = pathStr(path);
+  saveTree(tree, 'new folder');
+});
+$('#groups').addEventListener('click', e => {
+  const t = e.target.closest('[data-fold],[data-sub],[data-ren],[data-del],[data-move]');
+  if (!t) return;
+  e.stopPropagation();
+  const d = t.dataset;
+  if (d.fold != null) { if (folds.has(d.fold)) folds.delete(d.fold); else folds.add(d.fold); saveFolds(); renderTree(); }
+  else if (d.sub != null) {
+    const { tree, path } = addFolder(currentTree(), pathOf(d.sub));
+    const names = path.slice(0, -1).reduce((a, i, k) => [...a, folderAt(tree, path.slice(0, k + 1)).name], []);
+    folds.delete(names.join('/')); saveFolds();
+    renaming = pathStr(path);
+    saveTree(tree, 'new subfolder');
+  } else if (d.ren != null) { renaming = d.ren; renderTree(); }
+  else if (d.del != null) saveTree(removeFolder(currentTree(), pathOf(d.del)), 'remove folder');
+  else if (d.move != null) moveMenu(t);
+}, true);
+$('#groups').addEventListener('dblclick', e => { const n = e.target.closest('.t-name'); if (n) { renaming = n.closest('.trow').dataset.path; renderTree(); } });
+$('#groups').addEventListener('keydown', e => {
+  const inp = e.target.closest('.t-rename');
+  if (!inp) return;
+  if (e.key === 'Enter') { e.preventDefault(); commitRename(inp); }
+  else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); renaming = null; renderTree(); }
+});
+$('#groups').addEventListener('focusout', e => { const inp = e.target.closest?.('.t-rename'); if (!rendering && inp && renaming === inp.dataset.rename) commitRename(inp); });
+// drag & drop: a spec onto a folder (end of it) or onto a spec (just before it); a folder onto a folder
+let drag = null;
+$('#groups').addEventListener('dragstart', e => {
+  const row = e.target.closest('.trow');
+  if (!row) return;
+  drag = row.classList.contains('item') ? { id: row.dataset.id } : { path: row.dataset.path };
+  e.dataTransfer.effectAllowed = 'move';
+  e.dataTransfer.setData('text/plain', drag.id ?? drag.path);
+  requestAnimationFrame(() => row.classList.add('dragging'));
+});
+const dropTarget = e => {
+  if (!drag) return null;
+  const row = e.target.closest('.trow, .t-drop-root, .t-empty');
+  if (!row) return null;
+  if (row.classList.contains('t-drop-root')) return { el: row, path: [] };
+  if (row.classList.contains('t-empty')) return { el: row, path: pathOf(row.closest('.tfolder').dataset.path) };
+  if (row.classList.contains('head')) {
+    const p = pathOf(row.dataset.path);
+    if (drag.path != null) { const from = pathOf(drag.path); if (p.length >= from.length && from.every((v, i) => p[i] === v)) return null; }
+    return { el: row, path: p };
+  }
+  if (drag.path != null) return null; // folders go into folders
+  if (row.dataset.id === drag.id) return null;
+  const folder = row.closest('.tfolder');
+  return { el: row, path: folder ? pathOf(folder.dataset.path) : [], before: row.dataset.id };
+};
+$('#groups').addEventListener('dragover', e => {
+  const t = dropTarget(e);
+  document.querySelectorAll('#groups .drop-into, #groups .drop-before').forEach(x => x.classList.remove('drop-into', 'drop-before'));
+  if (!t) return;
+  e.preventDefault();
+  t.el.classList.add(t.before ? 'drop-before' : 'drop-into');
+});
+$('#groups').addEventListener('dragleave', e => { if (!e.relatedTarget || !$('#groups').contains(e.relatedTarget)) document.querySelectorAll('#groups .drop-into, #groups .drop-before').forEach(x => x.classList.remove('drop-into', 'drop-before')); });
+$('#groups').addEventListener('drop', e => {
+  const t = dropTarget(e);
+  const d = drag;
+  drag = null;
+  if (!t) return;
+  e.preventDefault();
+  try {
+    if (d.id) saveTree(moveItem(currentTree(), d.id, t.path, t.before ?? null), 'move');
+    else saveTree(moveFolder(currentTree(), pathOf(d.path), t.path), 'move folder');
+  } catch (err) { log({ level: 'warn', at: Date.now(), message: err.message }); renderTree(); }
+});
+$('#groups').addEventListener('dragend', () => { drag = null; renderTree(); });
+$('#groups').classList.add('tree');
 
 function renderParity() {
   const r = state.report;
   const el = $('#parity');
   if (!r) return;
   el.className = `parity ${r.ok ? 'ok' : 'bad'}`;
-  el.textContent = r.ok ? `In sync · ${r.checks} checks` : `${r.errors} parity error${r.errors === 1 ? '' : 's'} · ${r.score}%`;
+  // The detail after the dot folds away when the section line is short (CSS).
+  el.innerHTML = r.ok ? `In sync<span class="p-more"> · ${r.checks} checks</span>` : `${r.errors} parity error${r.errors === 1 ? '' : 's'}<span class="p-more"> · ${r.score}%</span>`;
   // What is wrong, without opening anything; a click opens the first error's spec.
   const errs = r.issues.filter(i => i.level === 'error');
   el.title = errs.length ? `${errs.slice(0, 5).map(i => `${i.file}: ${i.message}`).join('\n')}${errs.length > 5 ? `\n… ${errs.length - 5} more (Parity, in the spec list)` : ''}\nClick to open it.` : `${r.warnings} warning${r.warnings === 1 ? '' : 's'}`;
@@ -293,7 +464,8 @@ document.addEventListener('weshcraft:screen', e => {
 
 // ---- product functions -----------------------------------------------------------------------
 // Logic, Data, API & MCP, Architecture: the product's other aspects.
-const aspectOpts = { getManifest: () => state.manifest, getTrace: () => state.trace, isEditable: () => !!state.editable, openFile: f => { openFile(f); if (phone.matches) setPhoneView('read'); }, log };
+const showSpec = () => { if (!phone.matches && !panelState().right) setPanel('right', true); };
+const aspectOpts = { getManifest: () => state.manifest, getTrace: () => state.trace, isEditable: () => !!state.editable, openFile: f => { openFile(f); if (phone.matches) setPhoneView('read'); else showSpec(); }, log };
 const aspects = {
   logic: createLogicView({ ...aspectOpts, root: $('#logicview') }),
   data: createDataView({ ...aspectOpts, root: $('#dataview') }),
@@ -314,7 +486,7 @@ const fnView = createFunctionsView({
   getTrace: () => state.trace,
   isEditable: () => !!state.editable,
   // Opening a spec from the diagram shows it in the reader without leaving the diagram.
-  openFile: (f, { quiet } = {}) => { if (quiet && phone.matches) return; openFile(f); if (!quiet && phone.matches) setPhoneView('read'); },
+  openFile: (f, { quiet } = {}) => { if (quiet && phone.matches) return; openFile(f); if (!quiet && phone.matches) setPhoneView('read'); else if (!quiet) showSpec(); },
   showScreen: key => { if (phone.matches) setPhoneView('proto'); else selectTab('proto'); state.protoScreen = key; protoPost({ weshcraft: 'show', key }); },
   log,
 });
@@ -491,8 +663,8 @@ function applySummary(s) {
   state.summary = s;
   // A service with no screens: the "prototype" is its MCP/API catalog.
   const label = s.screens.length ? 'Prototype' : 'Catalog';
-  const tab = document.querySelector('.tab[data-tab="proto"]');
-  if (tab && tab.textContent !== label) tab.textContent = label;
+  const tab = document.querySelector('.tab[data-tab="proto"] span');
+  if (tab && tab.textContent !== label) { tab.textContent = label; tab.parentElement.title = label; }
   const pb = document.querySelector('.phonebar [data-view="proto"] span');
   if (pb) pb.textContent = label;
   $('#hash').textContent = s.hash;
@@ -526,6 +698,7 @@ function connect() {
   });
   es.addEventListener('manifest', e => applySummary(JSON.parse(e.data).summary));
   es.addEventListener('trace', () => loadTrace());
+  es.addEventListener('spectree', e => { stored = JSON.parse(e.data).tree; renderTree(); });
   es.addEventListener('prototype', e => { reloadProto(JSON.parse(e.data).hash); editor?.onRegenerated(); });
   es.addEventListener('design', e => editor?.onDesign(JSON.parse(e.data)));
   es.addEventListener('source', e => {
@@ -549,6 +722,7 @@ async function init() {
   state.report = st.report;
   if (st.summary) { applySummary(st.summary); reloadProto(st.summary.hash); }
   renderJobs();
+  loadSpecTree();
   renderParity();
   (st.log || []).slice(-1).forEach(log);
   state.tokens = st.tokens;
@@ -574,11 +748,12 @@ async function run(force) {
 }
 
 // ---- wiring ----------------------------------------------------------------------------------
-$('#groups').addEventListener('click', e => { const b = e.target.closest('.job'); if (b) openJob(b.dataset.id); });
+$('#groups').addEventListener('click', e => { const b = e.target.closest('button.job'); if (b) { openJob(b.dataset.id); if (!panelState().right) setPanel('right', true); } });
 $('#issues').addEventListener('click', e => {
   const li = e.target.closest('li[data-file]');
   if (!li) return;
   openFile(li.dataset.file);
+  if (/^specs\//.test(li.dataset.file) && !phone.matches && !panelState().right) setPanel('right', true);
   if (li.dataset.node) protoPost({ weshcraft: 'highlight', node: li.dataset.node });
 });
 $('#doc').addEventListener('click', e => {
@@ -596,8 +771,53 @@ $('#doc').addEventListener('click', e => {
   }
 });
 document.querySelectorAll('.reader .segbtn').forEach(b => b.addEventListener('click', () => setView(b.dataset.view)));
+// ---- sections (the rail on the right) and their side panels ---------------------------------------
+// Each section remembers which side panels it shows: the spec list (left), the spec (right), and in
+// Design the editor's screens & layers and its inspector. « / » on the section's head and toolbar.
+const PANEL_KEY = 'weshcraft.panels.v2';
+// Until someone chooses: the editor has its own screens and layers, so the spec list starts folded
+// there; the product diagrams need room, so it starts folded there too unless the window is wide.
+const PRODUCT_SECTIONS = ['functions', 'logic', 'data', 'api', 'architecture'];
+const panelDefaults = sec => (sec === 'design' ? { left: false } : PRODUCT_SECTIONS.includes(sec) && innerWidth < 1400 ? { left: false } : {});
+let panelPrefs = {};
+try { panelPrefs = JSON.parse(localStorage.getItem(PANEL_KEY) || '{}'); } catch { /* storage blocked */ }
+const section = () => document.body.dataset.section || 'proto';
+const panelState = (sec = section()) => ({ left: true, right: true, edl: true, edr: true, ...panelDefaults(sec), ...(panelPrefs[sec] ?? {}) });
+const PANEL_LABEL = { left: 'the spec list', right: 'the spec', edl: 'screens and layers', edr: 'the inspector' };
+function applyPanels() {
+  const st = panelState();
+  for (const k of ['left', 'right', 'edl', 'edr']) {
+    if (document.body.classList.contains(`no-${k}`) !== !st[k]) document.body.classList.toggle(`no-${k}`, !st[k]);
+    document.querySelectorAll(`.pane-toggle[data-panel="${k}"]`).forEach(b => {
+      b.setAttribute('aria-expanded', String(st[k]));
+      const label = `${st[k] ? 'Hide' : 'Show'} ${PANEL_LABEL[k]}`;
+      b.setAttribute('aria-label', label); b.title = label;
+    });
+  }
+}
+function setPanel(k, open, sec = section()) {
+  panelPrefs = { ...panelPrefs, [sec]: { ...(panelPrefs[sec] ?? {}), [k]: open } };
+  try { localStorage.setItem(PANEL_KEY, JSON.stringify(panelPrefs)); } catch { /* storage blocked */ }
+  applyPanels();
+  requestAnimationFrame(() => window.dispatchEvent(new Event('resize')));
+}
+document.addEventListener('click', e => { const b = e.target.closest('.pane-toggle'); if (b) setPanel(b.dataset.panel, !panelState()[b.dataset.panel]); });
+window.__wcPanels = { set: setPanel, get: panelState };
+// Preferences arriving later (another tab, or OpenChamber's extension storage): apply them.
+window.addEventListener('storage', e => {
+  if (e.key && e.key !== PANEL_KEY && e.key !== FOLD_KEY) return;
+  try { panelPrefs = JSON.parse(localStorage.getItem(PANEL_KEY) || '{}'); } catch { /* storage blocked */ }
+  try { folds.clear(); for (const k of JSON.parse(localStorage.getItem(FOLD_KEY) || '[]')) folds.add(k); } catch { /* storage blocked */ }
+  applyPanels(); renderTree();
+  requestAnimationFrame(() => window.dispatchEvent(new Event('resize')));
+});
+
 function selectTab(t) {
   document.querySelectorAll('.tab').forEach(b => b.setAttribute('aria-selected', String(b.dataset.tab === t)));
+  document.body.dataset.section = t;
+  const sb = document.querySelector(`.tab[data-tab="${t}"] span`);
+  if (sb) $('#sectionTitle').textContent = sb.textContent;
+  applyPanels();
   document.querySelectorAll('.tabpanel').forEach(p => {
     const show = p.dataset.panel === t;
     if (show && p.hidden) { p.hidden = false; fadeIn(p); } else p.hidden = !show;
@@ -792,7 +1012,6 @@ function thumbFor(container, isOn) {
   requestAnimationFrame(place);
   return place;
 }
-thumbFor($('.stage .tabs'), c => c.getAttribute('aria-selected') === 'true');
 thumbFor($('.reader .seg'), c => c.getAttribute('aria-pressed') === 'true');
 thumbFor(document.querySelector('.phonebar'), c => c.getAttribute('aria-current') === 'true');
 const providerThumb = thumbFor(document.querySelector('#publishForm fieldset.seg'), c => !!c.querySelector('input:checked'));

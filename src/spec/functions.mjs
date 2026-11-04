@@ -55,7 +55,7 @@ export function functionsSpec(manifest, { notes } = {}) {
   L.push(`${f.items.length} function${f.items.length === 1 ? '' : 's'}: ${f.items.map(x => `[${mdEscape(x.name)}](#${x.key})`).join(' · ') || '—'}. Who uses each one, the data it reads and writes, and where it leads. The screen, API and map specs refer to these functions.`);
   L.push('');
   if (!f.declared) {
-    L.push('**Suggested.** These functions are grouped from the prototype (flows, sections, navigation, API tags). Name them and give each a purpose (`design_functions`, or the Functions view) to make them the product\'s.');
+    L.push('**Suggested.** These functions are grouped from the prototype (flows, sections, navigation, API tags). Name them and give each a purpose (the Functions view, or `weshcraft_edit` {op:"function"}) to make them the product\'s.');
     L.push('');
   }
   if (f.items.length) {

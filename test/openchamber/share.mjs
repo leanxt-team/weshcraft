@@ -23,7 +23,7 @@ try {
   const f = p.frameLocator('#f');
   await f.locator('#edScreen [data-node]').first().waitFor({ timeout: 30000 });
   for (let i = 0; i < 60 && !/In sync/.test(await f.locator('#parity').innerText()); i++) await sleep(300);
-  await f.locator('.top .tab[data-tab="proto"]').click(); await sleep(500);
+  await f.locator('.rail .tab[data-tab="proto"]').click(); await sleep(500);
   await f.locator('#openProto').click(); await sleep(800);
   await f.locator('#more').click(); await sleep(300); await f.locator('#moreDlg [data-act="zip"]').click(); await sleep(600);
   const urls = (await p.evaluate(() => window.__calls)).filter(c => c.type === 'open-url').map(c => c.payload?.url);

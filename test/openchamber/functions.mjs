@@ -28,7 +28,7 @@ try {
   };
   // wide
   let { p, f } = await open(1280, 820, 'light');
-  await f.locator('.top .tab[data-tab="functions"]').click(); await sleep(700);
+  await f.locator('.rail .tab[data-tab="functions"]').click(); await sleep(700);
   ok('wide: Functions tab in the header', true);
   ok('wide: suggested, with Keep', await f.locator('#fnKeep').isVisible());
   ok('wide: diagram drawn (wires)', await f.locator('.fn-wires path.w').count() >= 2, String(await f.locator('.fn-wires path.w').count()));
@@ -54,9 +54,9 @@ try {
   await f.locator('.fn-card[data-f="fn-join"]').click(); await sleep(700);
   ok('wide: picking a function opens it in the spec', /How the product works/.test(await f.locator('#doc').innerText()));
   await p.screenshot({ path: `${OUT}/f-wide-declared.png` });
-  await f.locator('.top .tab[data-tab="links"]').click(); await sleep(600);
+  await f.locator('.rail .tab[data-tab="links"]').click(); await sleep(600);
   ok('wide: the map labels screens with their function', /Join/.test(await f.locator('#linkmap .lfn').first().innerText().catch(() => '')));
-  await f.locator('.top .tab[data-tab="design"]').click(); await sleep(1200);
+  await f.locator('.rail .tab[data-tab="design"]').click(); await sleep(1200);
   ok('wide: editor groups screens by function', (await f.locator('#edScreens .ed-group').allInnerTexts()).join() === 'JOIN,MANAGE PROFILE' || (await f.locator('#edScreens .ed-group').allInnerTexts()).join().toLowerCase() === 'join,manage profile', (await f.locator('#edScreens .ed-group').allInnerTexts()).join());
   ok('wide: parity in sync', /In sync/.test(await f.locator('#parity').innerText()), await f.locator('#parity').innerText());
   await p.close();

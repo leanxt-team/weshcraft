@@ -73,7 +73,7 @@ export function linksSpec(manifest, { notes } = {}) {
   }
   L.push('## Operations → front end');
   L.push('');
-  if (!ops.length) L.push('No operations. Give a layer an API call (WeshCraft: Spec section › Calls, or `design_api`; FigCraft: a `METHOD /path` annotation) to add one.');
+  if (!ops.length) L.push('No operations. Give a layer an API call (WeshCraft: Spec section › Calls, or `weshcraft_edit` {op:"api"}; FigCraft: a `METHOD /path` annotation) to add one.');
   for (const o of ops) {
     const mine = edges.filter(e => e.op === o.key);
     L.push(`### [\`${o.method} ${o.path}\`](back/api.md#${o.key}) — ${mdEscape(o.name)}`);
@@ -89,7 +89,7 @@ export function linksSpec(manifest, { notes } = {}) {
   }
   L.push('## Domain → front end');
   L.push('');
-  if (!manifest.domain.entities.length) L.push('No entity is shown. Bind a layer to data (WeshCraft: Spec section › Shows, or `design_bind`; FigCraft: `{{entity.field}}` in text) to add one.');
+  if (!manifest.domain.entities.length) L.push('No entity is shown. Bind a layer to data (WeshCraft: Spec section › Shows, or `weshcraft_edit` {op:"bind"}; FigCraft: `{{entity.field}}` in text) to add one.');
   for (const ent of manifest.domain.entities) {
     L.push(`### [${ent.name}](back/domain.md#${entityAnchor(ent.name)})`);
     L.push('');

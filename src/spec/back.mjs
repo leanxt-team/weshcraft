@@ -30,7 +30,7 @@ export function domainSpec(manifest, { notes } = {}) {
   L.push('Entities and fields the prototype displays or edits. Types come from explicit bindings; inferred fields default to `string` until confirmed.');
   L.push('');
   if (!entities.length) {
-    L.push('No data-bearing elements were found. Bind layers to data (WeshCraft: Spec section › Shows, or `design_bind`; FigCraft: the conventions below) to make them part of the contract:');
+    L.push('No data-bearing elements were found. Bind layers to data (WeshCraft: Spec section › Shows, or `weshcraft_edit` {op:"bind"}; FigCraft: the conventions below) to make them part of the contract:');
     L.push('');
     L.push('- text content `{{trail.name}}` or `{{trail.distance:number}}`');
     L.push('- a layer name `@trail.rating:number`');

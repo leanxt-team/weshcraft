@@ -29,6 +29,35 @@ host.onReady(ctx => {
     if (brand && directory && !brand.querySelector('.oc-project')) { const s = document.createElement('span'); s.className = 'oc-project'; s.textContent = directory.split(/[\\/]/).filter(Boolean).pop(); s.title = directory; brand.append(s); }
   }
 });
+// The page's origin is opaque: the browser refuses localStorage. The interface's own preferences
+// (folded panels and folders per section) go to the extension's storage instead, on this device
+// when the host can, else on the server. Read once at start, then written behind a short delay.
+(() => {
+  try { window.localStorage.getItem('x'); return; } catch { /* opaque origin */ }
+  const KEY = 'ui-prefs';
+  const mem = new Map();
+  let opts;
+  let timer = 0;
+  const save = () => { clearTimeout(timer); timer = setTimeout(() => host.storage.set(KEY, Object.fromEntries(mem), opts).catch(() => {}), 300); };
+  const shim = {
+    getItem: k => (mem.has(String(k)) ? mem.get(String(k)) : null),
+    setItem: (k, v) => { mem.set(String(k), String(v)); save(); },
+    removeItem: k => { mem.delete(String(k)); save(); },
+    clear: () => { mem.clear(); save(); },
+    key: i => [...mem.keys()][i] ?? null,
+    get length() { return mem.size; },
+  };
+  try { Object.defineProperty(window, 'localStorage', { value: shim, configurable: true }); } catch { return; }
+  ready.then(async () => {
+    const ctx = await new Promise(r => { const off = host.onReady(c => { r(c); setTimeout(() => off?.(), 0); }); });
+    opts = ctx?.features?.deviceStorage ? { scope: 'device' } : undefined;
+    const saved = await Promise.race([host.storage.get(KEY, opts), new Promise(r => setTimeout(() => r(undefined), 3000))]).catch(() => undefined);
+    if (!saved || typeof saved !== 'object') return;
+    for (const [k, v] of Object.entries(saved)) if (!mem.has(k) && typeof v === 'string') mem.set(k, v);
+    window.dispatchEvent(new StorageEvent('storage', { key: null }));
+  });
+})();
+
 // Another project in the same window: start over with its WeshCraft.
 host.onDirectory(d => {
   if (!readyAt || !d || d === directory) return;
@@ -220,15 +249,26 @@ document.addEventListener('keydown', e => {
   submitForm(t.form, t.form.querySelector('button[type="submit"], button:not([type]), input[type="submit"]'));
 }, true);
 
-// In OpenChamber the header is one line: name · project, the main views, parity, and a menu.
-// Sync is driven from the ⋯ menu, so the sync pill, source and hash move out of the way (source and
-// hash stay in the menu). After the app has wired its tabs (it measures them on load).
+// In OpenChamber there is no header: OpenChamber already names the panel. The sections are on the
+// rail at the right; parity and the ⋯ menu (actions, source, hash) sit at the end of each section's
+// head line, next to its » toggle. Sync is driven from the ⋯ menu.
 setTimeout(() => {
-  const top = document.querySelector('.top');
-  const tabs = document.querySelector('.stage > .tabs');
-  if (top && tabs) { tabs.classList.add('oc-tabs'); top.querySelector('.brand')?.after(tabs); }
+  const head = document.querySelector('.stage-head');
+  const right = head?.querySelector('.pane-toggle.right');
+  const parity = document.getElementById('parity');
   const more = document.getElementById('more');
-  if (more) { more.title = 'Actions'; top?.append(more); }
+  const top = document.querySelector('.top');
+  const box = document.createElement('div'); box.className = 'oc-headtools';
+  if (head) right ? right.before(box) : head.append(box);
+  // A narrow panel shows one view at a time: parity and ⋯ stay in a slim top line there.
+  const narrow = matchMedia('(max-width: 720px)');
+  const place = () => {
+    if (narrow.matches || !head) top?.append(...[parity, more].filter(Boolean));
+    else box.append(...[parity, more].filter(Boolean));
+  };
+  narrow.addEventListener('change', place);
+  place();
+  if (more) more.title = 'Actions';
   // The menu opens under its button, not as a phone sheet.
   more?.addEventListener('click', () => requestAnimationFrame(() => {
     const d = document.getElementById('moreDlg');
@@ -239,83 +279,6 @@ setTimeout(() => {
            const off = Math.round(document.documentElement.clientWidth - d.getBoundingClientRect().right) - want; // dialog margins vary by browser
            if (off) d.style.right = `${want - off}px`;
   }));
-}, 0);
-
-// ---- panel toggles: the spec list and the spec reader, shown or hidden from the header ----
-// The spec is a main element: one button in the header, always in the same place; picking a spec
-// anywhere shows it. Choices are remembered for this panel (best effort).
-setTimeout(() => {
-  const top = document.querySelector('.top');
-  if (!top) return;
-  const KEY = 'weshcraft.oc.panels';
-  // The spec list is on by default, but not while designing (the editor has its screens and layers).
-  let pref = { list: true, spec: true, listDesign: false };
-  try { pref = { ...pref, ...JSON.parse(localStorage.getItem(KEY) || '{}') }; } catch { /* storage blocked */ }
-  const ICON = {
-    list: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6h11M9 12h11M9 18h11"/><circle cx="4.5" cy="6" r="1"/><circle cx="4.5" cy="12" r="1"/><circle cx="4.5" cy="18" r="1"/></svg>',
-    spec: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h9l4 4v14H6z"/><path d="M14 3v5h5M9 13h7M9 17h5"/></svg>',
-  };
-  // One "Specs" menu in the header: tick the spec list and/or the spec panel.
-  const group = document.createElement('div');
-  group.className = 'oc-panels';
-  const button = document.createElement('button');
-  button.type = 'button'; button.id = 'ocSpecs'; button.title = 'Show the spec list and/or the spec';
-  button.setAttribute('aria-haspopup', 'menu'); button.setAttribute('aria-expanded', 'false');
-  button.innerHTML = `${ICON.spec}<span>Specs</span><svg class="oc-chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 10l5 5 5-5"/></svg>`;
-  const menu = document.createElement('div');
-  menu.className = 'oc-panels-menu'; menu.id = 'ocSpecsMenu'; menu.setAttribute('role', 'menu'); menu.hidden = true;
-  const make = (key, label) => {
-    const b = document.createElement('button');
-    b.type = 'button'; b.id = `ocToggle-${key}`; b.dataset.panel = key; b.setAttribute('role', 'menuitemcheckbox');
-    b.innerHTML = `<span class="oc-tick" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span>${ICON[key]}<span>${label}</span>`;
-    b.addEventListener('click', () => { const k = slot(key); set(k, !pref[k]); });
-    menu.append(b);
-  };
-  make('list', 'Spec list');
-  make('spec', 'Spec panel');
-  group.append(button);
-  document.body.append(menu);
-  const parity = top.querySelector('.parity');
-  (parity || top.querySelector('.more'))?.before(group);
-  const close = () => { if (menu.hidden) return; menu.hidden = true; button.setAttribute('aria-expanded', 'false'); };
-  button.addEventListener('click', () => {
-    if (!menu.hidden) return close();
-    const r = button.getBoundingClientRect();
-    menu.hidden = false; button.setAttribute('aria-expanded', 'true');
-    menu.style.top = `${Math.round(r.bottom + 6)}px`;
-    menu.style.left = `${Math.round(Math.max(8, Math.min(r.left, document.documentElement.clientWidth - menu.offsetWidth - 8)))}px`;
-    menu.querySelector('button')?.focus({ preventScroll: true });
-  });
-  document.addEventListener('pointerdown', e => { if (!menu.hidden && !menu.contains(e.target) && !button.contains(e.target)) close(); }, true);
-  document.addEventListener('keydown', e => { if (e.key === 'Escape' && !menu.hidden) { close(); button.focus(); } });
-  addEventListener('resize', close);
-  const slot = key => (key === 'list' && document.body.classList.contains('editing') ? 'listDesign' : key);
-  function apply() {
-    const cl = document.body.classList;
-    const noList = !pref[slot('list')], noSpec = !pref.spec;
-    if (cl.contains('oc-no-list') !== noList) cl.toggle('oc-no-list', noList);
-    if (cl.contains('oc-no-spec') !== noSpec) cl.toggle('oc-no-spec', noSpec);
-    for (const b of menu.querySelectorAll('button')) {
-      const v = String(!!pref[slot(b.dataset.panel)]);
-      if (b.getAttribute('aria-checked') !== v) b.setAttribute('aria-checked', v);
-    }
-    const any = String(!noList || !noSpec);
-    if (button.getAttribute('aria-pressed') !== any) button.setAttribute('aria-pressed', any);
-  }
-  new MutationObserver(apply).observe(document.body, { attributes: true, attributeFilter: ['class'] });
-  function set(key, on) {
-    if (pref[key] === on) return;
-    pref[key] = on;
-    try { localStorage.setItem(KEY, JSON.stringify(pref)); } catch { /* storage blocked */ }
-    apply();
-  }
-  window.__wc = Object.assign(window.__wc || {}, { panels: { set, get: () => ({ ...pref }) } });
-  apply();
-  // Picking a spec shows it.
-  const showSpec = () => set('spec', true);
-  document.getElementById('groups')?.addEventListener('click', e => { if (e.target.closest('.job')) showSpec(); });
-  document.getElementById('issues')?.addEventListener('click', e => { if (e.target.closest('li[data-file]')) showSpec(); });
-  document.getElementById('linkmap')?.addEventListener('click', e => { if (e.target.closest('[data-key], button, a')) showSpec(); });
 }, 0);
 
 // ---- dividers between the blocks: drag to resize them (for this visit), double-click to reset ----

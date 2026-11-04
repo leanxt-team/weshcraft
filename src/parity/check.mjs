@@ -39,7 +39,7 @@ export function checkParity(manifest, outDir, { graphFile } = {}) {
       checks++;
       if (allNodes.has(id)) continue;
       // Notes survive regeneration: a layer deleted later leaves them pointing at nothing.
-      if (notes.includes(`\`#${id}\``)) err('dangling-ref', rel(file), `its Notes cite \`#${id}\`, a layer no longer in the design: update the Notes (Edit notes, or weshcraft_write_notes), or undo the deletion`, id);
+      if (notes.includes(`\`#${id}\``)) err('dangling-ref', rel(file), `its Notes cite \`#${id}\`, a layer no longer in the design: update the Notes (Edit notes, or weshcraft_notes), or undo the deletion`, id);
       else err('dangling-ref', rel(file), `cites \`#${id}\`, which is not in the prototype`, id);
     }
     return { md, c, visible: visibleText(md) };
@@ -103,7 +103,7 @@ export function checkParity(manifest, outDir, { graphFile } = {}) {
     const fns = manifest.functions;
     const scr = new Map(manifest.screens.map(x => [x.key, x]));
     const opn = new Map(manifest.domain.operations.map(o => [o.key, `${o.method} ${o.path}`]));
-    if (!fns.declared && fns.items.length) warn('functions-suggested', 'specs/FUNCTIONS.md', `${fns.items.length === 1 ? 'the function is' : `the ${fns.items.length} functions are`} suggested from the prototype: name them and give each a purpose (design_functions or the Functions view)`);
+    if (!fns.declared && fns.items.length) warn('functions-suggested', 'specs/FUNCTIONS.md', `${fns.items.length === 1 ? 'the function is' : `the ${fns.items.length} functions are`} suggested from the prototype: name them and give each a purpose (the Functions view, or weshcraft_edit)`);
     for (const k of fns.unassigned.screens) { checks++; warn('not-in-a-function', 'specs/FUNCTIONS.md', `screen ${scr.get(k).name} is in no function`, scr.get(k).id); }
     for (const k of fns.unassigned.operations) { checks++; warn('not-in-a-function', 'specs/FUNCTIONS.md', `operation ${opn.get(k)} is in no function`); }
     for (const t of fns.unassigned.tools) { checks++; warn('not-in-a-function', 'specs/FUNCTIONS.md', `MCP tool ${t} is in no function`); }
@@ -127,7 +127,7 @@ export function checkParity(manifest, outDir, { graphFile } = {}) {
   }
   for (const x of manifest.logic?.missing ?? []) { checks++; warn('logic-unknown-ref', 'specs/LOGIC.md', `${x.owner} refers to ${x.ref}, which is not in the product`); }
   for (const x of manifest.architecture?.missing ?? []) { checks++; warn('architecture-unknown-ref', 'specs/ARCHITECTURE.md', `${x.owner} refers to ${x.ref}, which is not in the product`); }
-  for (const x of manifest.logic?.machines ?? []) for (const u of x.unresolved ?? []) { checks++; warn('logic-open-transition', 'specs/LOGIC.md', `${u.via} changes ${x.entity} but no ${x.field} says to what: declare the transition (design_logic)`); }
+  for (const x of manifest.logic?.machines ?? []) for (const u of x.unresolved ?? []) { checks++; warn('logic-open-transition', 'specs/LOGIC.md', `${u.via} changes ${x.entity} but no ${x.field} says to what: declare the transition (Logic view, or weshcraft_edit {op:"lifecycle"})`); }
 
   // Spec ⇄ code: tags that point at nothing, and a product graph that no longer matches design and code.
   if (manifest.screens.length || manifest.domain.operations.length || manifest.surface?.mcp?.tools?.length) {

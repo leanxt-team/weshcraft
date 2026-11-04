@@ -1,7 +1,6 @@
-// WeshCraft's MCP server. An agent designs with the `design_*` tools (WeshCraft edits the .figcraft
-// document itself: no FigCraft app needed), or through the proxied `figcraft_*` tools when a live
-// FigCraft is attached, and works with specs through the `weshcraft_*` tools. Every design change
-// triggers a debounced spec run, so specs follow the design live.
+// WeshCraft's MCP server: one light set of tools for the whole product (toolset.mjs): status, read,
+// edit, notes, generate, sync (and new). WeshCraft edits the .figcraft document itself: no FigCraft app
+// and no second set of tools. Every design change triggers a debounced spec run, so specs follow live.
 // Transports: newline-delimited JSON-RPC over stdio, and Streamable HTTP (POST /mcp) in `serve`.
 import fs from 'node:fs';
 import path from 'node:path';
@@ -10,9 +9,9 @@ import { readNotes } from '../spec/contract.mjs';
 import { collectFiles, prBody, publish } from '../publish/git.mjs';
 import { parseTarget } from '../publish/sync.mjs';
 import { resolveToken } from '../publish/credentials.mjs';
-import { DESIGN_TOOLS, NEW_DESIGN_TOOL, callDesignTool } from '../design/tools.mjs';
+import { callDesignTool } from '../design/tools.mjs';
+import { PUBLIC_TOOLS, NEW_TOOL, callPublic } from './toolset.mjs';
 
-const READ_ONLY = new Set(['list_commands', 'inspect_document', 'get_node', 'export', 'screenshot', 'inspect_ui', 'wait_for_changes', 'list_documents']);
 const PROTOCOL = '2025-06-18';
 
 const text = (t, isError = false) => ({ content: [{ type: 'text', text: typeof t === 'string' ? t : JSON.stringify(t, null, 1) }], isError });
@@ -23,6 +22,7 @@ const SPEC_TOOLS = [
   { name: 'weshcraft_check', description: 'Check that specs and prototype match the current design exactly. Returns issues with file, node and fix hint.', inputSchema: { type: 'object', properties: {} } },
   { name: 'weshcraft_manifest', description: 'The proto manifest (screens, texts, interactions, components, tokens, flows, domain, operations), or one screen of it.', inputSchema: { type: 'object', properties: { screen: { type: 'string', description: 'screen key, e.g. scr-home' } } } },
   { name: 'weshcraft_trace', description: 'Spec ⇄ code: which code implements each function, screen, component, operation, entity and MCP tool, found from `@weshcraft <ref>` tags in comments next to the symbol (`// @weshcraft scr-sign-up`, `# @weshcraft POST /users`; the ref is in each spec header). Rescans the code and rewrites design/weshcraft.graph.mjs (the product graph codegraph indexes: codegraph explore "how does <function> work", codegraph impact <symbol>) and specs/TRACE.md. Call it after implementing or moving code. Filter with function (key or name) or untraced:true for what has no code yet.', inputSchema: { type: 'object', properties: { function: { type: 'string' }, untraced: { type: 'boolean' } } } },
+  { name: 'weshcraft_spec_folders', description: 'The specs in folders (the Specs panel, specs/README.md, saved in .weshcraft.json). Without arguments: the folder tree with each spec\'s id and title. With tree: {folders: [{name, folders, items: [spec ids]}], items: [spec ids]} replaces it (specs left out go back to their default folder).', inputSchema: { type: 'object', properties: { tree: { type: 'object' } } } },
   { name: 'weshcraft_links', description: 'Front ⇄ back links: which layers trigger or submit to which operation, which layers show which entity field and which operation loads it, plus gaps. Filter by screen key, operation key or Entity.field.', inputSchema: { type: 'object', properties: { screen: { type: 'string' }, op: { type: 'string' }, field: { type: 'string' } } } },
   { name: 'weshcraft_read_spec', description: 'Read a generated file, e.g. specs/front/screens/scr-home.md or specs/back/api.md.', inputSchema: { type: 'object', properties: { path: { type: 'string' } }, required: ['path'] } },
   { name: 'weshcraft_write_notes', description: 'Replace the Notes block of one spec (states, edge cases, a11y, analytics, open questions). Generated sections are not editable: change the design instead (design_* tools). Cite layers as `#id`.', inputSchema: { type: 'object', properties: { path: { type: 'string' }, notes: { type: 'string' } }, required: ['path', 'notes'] } },
@@ -42,17 +42,9 @@ export class WeshCraftMcp {
     this.syncer = o.syncer ?? null;
   }
 
+  /** One light set of tools (toolset.mjs); the finer ones behind it answer by name but are not listed. */
   async tools() {
-    const out = [...SPEC_TOOLS];
-    if (this.ws.source?.store) out.push(...DESIGN_TOOLS);
-    else if (!this.ws.source) out.push(NEW_DESIGN_TOOL);
-    if (this.ws.source?.kind === 'mcp') {
-      if (!this.figcraftTools) {
-        try { this.figcraftTools = await this.ws.source.tools(); } catch (e) { this.figcraftTools = []; this.ws.emit('log', { level: 'warn', message: `FigCraft tools unavailable: ${e.message}` }); }
-      }
-      for (const t of this.figcraftTools) out.push({ ...t, name: `figcraft_${t.name}`, description: `[FigCraft] ${t.description ?? ''}` });
-    }
-    return out;
+    return this.ws.source ? [...PUBLIC_TOOLS] : [...PUBLIC_TOOLS, NEW_TOOL];
   }
 
   scheduleRun() {
@@ -68,16 +60,11 @@ export class WeshCraftMcp {
     return abs;
   }
 
-  async callTool(name, args = {}) {
+  /** `internal`: the finer tool of that name, not the public one (the public ones call them). */
+  async callTool(name, args = {}, { internal = false } = {}) {
     try {
+      if (!internal) { const pub = await callPublic(this, name, args); if (pub) return pub; }
       if (name.startsWith('design_')) return await callDesignTool(this.ws, name, args);
-      if (name.startsWith('figcraft_')) {
-        if (this.ws.source?.kind !== 'mcp') return text('FigCraft tools need a live FigCraft: start WeshCraft with --mcp or --attach <port>.', true);
-        const inner = name.slice('figcraft_'.length);
-        const r = await this.ws.source.call(inner, args);
-        if (!READ_ONLY.has(inner) && !(inner === 'run_command' && /^(inspect|variable\.export|template\.list|help)\b/.test(args.command ?? ''))) this.scheduleRun();
-        return r;
-      }
       switch (name) {
         case 'weshcraft_status': return text({ ...this.ws.state(), log: undefined, jobs: this.ws.state().jobs.map(({ preview, ...j }) => j), web: this.webUrl, sync: this.syncer?.status() ?? null });
         case 'weshcraft_generate': {
@@ -111,6 +98,12 @@ export class WeshCraftMcp {
             elements: els.map(e => ({ kind: e.kind, name: e.name, tag: `@weshcraft ${e.kind === 'operation' ? e.refs[1] : e.refs[0]}`, spec: e.spec, code: e.code.map(t => `${t.file}:${t.line}${t.symbol ? ` ${t.symbol}` : ''}`) })),
             ...(tr.unknown.length ? { tagsPointingNowhere: tr.unknown.map(t => `${t.file}:${t.line} @weshcraft ${t.ref}`) } : {}),
           });
+        }
+        case 'weshcraft_spec_folders': {
+          if (!this.ws.manifest) await this.ws.run();
+          const r = args.tree ? this.ws.setSpecTree(args.tree) : this.ws.specTree();
+          const show = f => ({ ...(f.name ? { name: f.name } : {}), ...(f.items.length ? { items: f.items.map(id => `${id} (${r.titles[id].title})`) } : {}), ...(f.folders.length ? { folders: f.folders.map(show) } : {}) });
+          return text(show(r.tree));
         }
         case 'weshcraft_links': {
           if (!this.ws.manifest) await this.ws.snapshot();
@@ -181,15 +174,14 @@ export class WeshCraftMcp {
           capabilities: { tools: { listChanged: false } },
           serverInfo: { name: 'weshcraft', version: '0.1.0' },
           instructions: [
-            'WeshCraft keeps front-end and back-end specs in lockstep with a FigCraft prototype.',
-            this.ws.source?.store
-              ? 'Design with the design_* tools: design_tree first (ids), then design_edit to batch changes (one undo step; refs link new layers), design_text for copy, design_bind / design_api to tie layers to data and API calls, design_link for prototype links. Specs regenerate automatically after each change; pass wait:true to get parity back. The user edits the same design in the browser at the same time.'
-              : this.ws.source?.kind === 'mcp' ? 'Design with the figcraft_* tools (the full FigCraft MCP); after edits, specs regenerate automatically.'
-              : 'No design yet: design_new starts one (or the project front is an API / MCP server only).',
-            'Start from how the product works: design_functions lists its functions (suggested from the prototype until declared). Declare them early: a handful, each with a one-line purpose and its screens; specs/FUNCTIONS.md, the screen specs and the maps follow them.',
-            'Every aspect has its spec and its tool: logic (rules, lifecycles: design_logic → specs/LOGIC.md), data (specs/DATA.md, from bound layers and API schemas), API & MCP (specs/API.md), architecture (components, technologies, links: design_architecture → specs/ARCHITECTURE.md). Inferred or suggested until declared: declare what the design cannot show.',
-            'Use weshcraft_status / weshcraft_check to see parity, weshcraft_links for front ⇄ back links, weshcraft_trace for which code implements what (tag code with `// @weshcraft <ref>` from the spec header; design/weshcraft.graph.mjs makes the product explorable with codegraph), weshcraft_write_notes to add states, edge cases and questions, weshcraft_publish to open a PR/MR, weshcraft_sync to keep a GitHub/GitLab branch or the local git repository in step.',
-            'Facts in specs (copy, sizes, colours, interactions, operations) come from the design only: to change them, change the design.',
+            'WeshCraft: a design, the product it describes (functions, logic, data, API & MCP, architecture) and specs kept in step with both, linked to the code. Seven tools:',
+            '- weshcraft_status first: where things stand, what to do next.',
+            '- weshcraft_read {what}: tree / find / layer / tokens / screenshot of the design; functions, logic, data, api, architecture, links, trace of the product; spec, folders, manifest, parity.',
+            this.ws.source?.store ? '- weshcraft_edit {ops}: every change in one batch and one undo step (layers, copy, links, bindings, API calls, tokens; functions, rules, lifecycles, components; spec folders). Read the tree for ids first; wait:true returns parity.'
+              : this.ws.source ? '- The design is not editable here (live FigCraft or --read-only): read only.'
+              : '- weshcraft_new starts a design (or the project is an API / MCP service only), then weshcraft_edit.',
+            '- weshcraft_notes for what the design cannot say; weshcraft_generate to regenerate now (also after code changes); weshcraft_sync for git, GitHub and GitLab.',
+            'Facts in specs come from the design: change the design, not the specs. Declare what is suggested or inferred (functions, logic, architecture). Tag code with `// @weshcraft <ref>` (each spec header gives it).',
             this.webUrl ? `Live view: ${this.webUrl}` : '',
           ].filter(Boolean).join('\n'),
         });

@@ -100,7 +100,9 @@ export async function callDesignTool(ws, name, args = {}) {
     return out({ created: path.relative(ws.outDir, file), next: 'design_screen to add the first screen' });
   }
   const store = ws.source?.store;
-  if (!store) return out(ws.source?.kind === 'mcp' ? 'The design lives in a live FigCraft: use the figcraft_* tools.' : ws.source ? 'This WeshCraft is read-only (--read-only): the design cannot be edited here.' : 'No editable design: start with design_new, or serve a .figcraft file.', true);
+  // Reading the product needs no editable design (a service, a live FigCraft, --read-only).
+  const reading = { design_functions: ['functions', 'set', 'remove'], design_logic: ['rule', 'removeRule', 'states', 'removeStates', 'keep'], design_architecture: ['component', 'removeComponent', 'link', 'removeLink', 'keep'] }[name];
+  if (!store && !(reading && reading.every(k => args[k] == null))) return out(ws.source?.kind === 'mcp' ? 'The design lives in a live FigCraft: use the figcraft_* tools.' : ws.source ? 'This WeshCraft is read-only (--read-only): the design cannot be edited here.' : 'No editable design: start with design_new, or serve a .figcraft file.', true);
   const keys = screenKeys(ws);
   const resolve = x => store.resolve(x);
   const done = async (summary, ops) => {

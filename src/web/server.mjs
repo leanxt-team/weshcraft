@@ -125,6 +125,14 @@ export function startServer(o) {
         const r = await designApi(ws, req, url, () => readBody(req, 8 * 1024 * 1024), { watchFile });
         return send(res, r.status ?? 200, r.body);
       }
+      if (p === '/api/spec-tree') {
+        if (req.method === 'GET') return send(res, 200, ws.specTree());
+        if (req.method === 'POST') {
+          const body = JSON.parse((await readBody(req)).toString() || '{}');
+          if (!body.tree || !Array.isArray(body.tree.folders)) return send(res, 400, { error: 'tree: {folders, items}' });
+          return send(res, 200, ws.setSpecTree(body.tree));
+        }
+      }
       if (p === '/api/run' && req.method === 'POST') {
         const body = JSON.parse((await readBody(req)).toString() || '{}');
         ws.run({ force: !!body.force }).catch(e => ws.emit('log', { level: 'error', message: e.message }));

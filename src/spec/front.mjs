@@ -292,7 +292,7 @@ export function tokensSpec(manifest, { notes } = {}) {
   const { collections, variables } = manifest.tokens;
   const L = ['# Design tokens', ''];
   if (!variables.length) {
-    L.push('The prototype defines no variables. Raw colours per screen are listed in each screen spec; consider creating tokens (WeshCraft: Tokens panel or `design_tokens`; FigCraft: `variable.create`) so code and design share names.');
+    L.push('The prototype defines no variables. Raw colours per screen are listed in each screen spec; consider creating tokens (WeshCraft: Tokens panel or `weshcraft_edit` {op:"token"}; FigCraft: `variable.create`) so code and design share names.');
   } else {
     for (const c of collections) {
       L.push(`## ${c.name}`);

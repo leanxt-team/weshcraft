@@ -4,5 +4,5 @@
 
 | Level | Check | File | Detail |
 |---|---|---|---|
-| warning | functions-suggested | `specs/FUNCTIONS.md` | the function is suggested from the prototype: name them and give each a purpose (design_functions or the Functions view) |
+| warning | functions-suggested | `specs/FUNCTIONS.md` | the function is suggested from the prototype: name them and give each a purpose (the Functions view, or weshcraft_edit) |
 | warning | gap-unloaded-data | `specs/LINKS.md` | Subscription.plan is shown on scr-profile but no operation on that screen loads Subscription (`#14`) |

@@ -1,7 +1,7 @@
 // Product functions: how the product works at a glance. A handful of functions (Sign up, Find a
 // trail, Pay…), each with its purpose, who uses it, the screens, operations and tools that make it,
 // the data it reads and writes, and where it leads. Declared in the design (the first page's
-// pluginData.weshcraft.functions, edited with design_functions or the Functions view) or, until
+// pluginData.weshcraft.functions, edited with weshcraft_edit or the Functions view) or, until
 // then, suggested from the prototype: flows, sections, navigation and API tags.
 import { slug } from '../util/common.mjs';
 
