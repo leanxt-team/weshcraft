@@ -31,15 +31,35 @@ try {
         top: r(top), oneLine: [...top.children].filter(c => c.getBoundingClientRect().width).every(c => c.getBoundingClientRect().top < top.getBoundingClientRect().top + 30),
         tabsInTop: !!top.querySelector('.tabs [data-tab="proto"]'), syncHidden: !vis('#syncPill') && !vis('#source') && !vis('.top .actions'),
         reader: vis('.reader'), builder: vis('.builder'), canvas: r(document.querySelector('#edCanvas')), stage: r(document.querySelector('.stage')),
-        specBtn: vis('#ocToggle-spec'), specPressed: document.querySelector('#ocToggle-spec')?.getAttribute('aria-pressed'),
+        specBtn: vis('#ocSpecs'), specPressed: document.querySelector('#ocToggle-spec')?.getAttribute('aria-checked'),
       };
     });
+    // the Specs menu: tick the spec list and/or the spec panel
+    const tick = async key => {
+      if (!(await f.locator('#ocSpecsMenu').isVisible())) { await f.locator('#ocSpecs').click(); await sleep(150); }
+      await f.locator(`#ocToggle-${key}`).click(); await sleep(150);
+      await f.locator('#ocSpecs').click(); await sleep(250);
+    };
     let g = await geo();
     ok(`${w}: header on one line`, g.oneLine && g.top.height < 52, JSON.stringify(g.top));
     ok(`${w}: views in the header`, g.tabsInTop);
+    const right = await fr.evaluate(() => { const r = s => document.querySelector(s).getBoundingClientRect(); return { panels: r('.oc-panels').right, parity: [r('#parity').left, r('#parity').right], more: [r('#more').left, r('#more').right], w: document.querySelector('.top').getBoundingClientRect().right }; });
+    ok(`${w}: Spec, parity and ⋯ together on the right`, right.w - right.more[1] < 12 && right.more[0] - right.parity[1] < 16 && right.parity[0] - right.panels < 16, JSON.stringify(right));
     ok(`${w}: no logo or name in the header`, !(await f.locator('.top .brand').isVisible()));
     ok(`${w}: sync details left to Work Status`, g.syncHidden);
-    ok(`${w}: Spec button in the header, on`, g.specBtn && g.specPressed === 'true');
+    ok(`${w}: Specs menu in the header, spec ticked`, g.specBtn && g.specPressed === 'true');
+    await f.locator('#ocSpecs').click(); await sleep(250);
+    const mg = await fr.evaluate(() => { const m = document.querySelector('#ocSpecsMenu').getBoundingClientRect(), b = document.querySelector('#ocSpecs').getBoundingClientRect(); return { top: m.top, bottom: b.bottom, right: m.right, w: document.documentElement.clientWidth, items: [...document.querySelectorAll('#ocSpecsMenu [role=menuitemcheckbox]')].map(x => x.textContent.trim()) }; });
+    ok(`${w}: Specs menu opens under its button with both choices`, mg.top >= mg.bottom && mg.top < mg.bottom + 14 && mg.right <= mg.w && mg.items.join() === 'Spec list,Spec panel', JSON.stringify(mg));
+    await p.screenshot({ path: `${OUT}/h-${w}-specs-menu.png` });
+    await f.locator('#ocToggle-list').click(); await sleep(250);
+    ok(`${w}: menu stays open to tick both`, await f.locator('#ocSpecsMenu').isVisible());
+    g = await geo();
+    ok(`${w}: list and spec ticked together in design`, g.builder && g.reader);
+    await f.locator('#ocToggle-list').click(); await sleep(250);
+    await p.keyboard.press('Escape'); await sleep(200);
+    ok(`${w}: Escape closes the menu`, !(await f.locator('#ocSpecsMenu').isVisible()));
+    g = await geo();
     ok(`${w}: spec panel shown while designing`, g.reader, JSON.stringify(g));
     ok(`${w}: canvas keeps room`, g.canvas.width > 280, String(g.canvas.width));
     ok(`${w}: no Design/Spec switch in the inspector`, !(await f.locator('.ed-itabs').isVisible().catch(() => false)));
@@ -63,26 +83,33 @@ try {
     ok(`${w}: canvas still has room`, (await width('#edCanvas')) >= 200, String(await width('#edCanvas')));
     await f.locator('.oc-split[data-split="spec"]').dblclick(); await sleep(250);
     await p.screenshot({ path: `${OUT}/h-${w}-design-spec.png` });
-    await f.locator('#ocToggle-spec').click(); await sleep(400);
+    await tick('spec'); await sleep(400);
     g = await geo();
     ok(`${w}: Spec button hides the spec`, !g.reader && g.specPressed === 'false');
     await p.screenshot({ path: `${OUT}/h-${w}-design-nospec.png` });
     await f.locator('.top .tab[data-tab="proto"]').click(); await sleep(600);
     ok(`${w}: views switch from the header`, await f.locator('.tabpanel[data-panel="proto"]').isVisible());
-    if (w >= 1200) {
-      await f.locator('#ocToggle-list').click(); await sleep(300);
-      ok(`${w}: Specs button hides the list`, !(await geo()).builder);
-      await f.locator('#ocToggle-list').click(); await sleep(300);
-      { const w0 = await width('.builder'); await drag('list', 50); const w1 = await width('.builder'); ok(`${w}: divider resizes the spec list`, Math.abs(w1 - w0 - 50) <= 3, `${Math.round(w0)} → ${Math.round(w1)}`); }
-      await f.locator('#ocToggle-list').click(); await sleep(300);
-      await f.locator('#ocToggle-list').click(); await sleep(300);
-      await f.locator('.job >> nth=0').click(); await sleep(800);
-    } else {
-      ok(`${w}: list shows when the spec is hidden`, (await geo()).builder);
-      await f.locator('.job >> nth=0').click(); await sleep(800);
-    }
+    ok(`${w}: spec list shown in the prototype view`, (await geo()).builder);
+    await tick('list'); await sleep(300);
+    ok(`${w}: Specs button hides the list`, !(await geo()).builder);
+    await tick('list'); await sleep(300);
+    { const w0 = await width('.builder'); await drag('list', 40); const w1 = await width('.builder'); ok(`${w}: divider resizes the spec list`, Math.abs(w1 - w0 - 40) <= 3, `${Math.round(w0)} → ${Math.round(w1)}`); }
+    await f.locator('.oc-split[data-split="list"]').dblclick(); await sleep(250);
+    await f.locator('.job >> nth=0').click(); await sleep(800);
     g = await geo();
     ok(`${w}: picking a spec shows it`, g.reader && /\w/.test(await f.locator('#doc').innerText()));
+    ok(`${w}: spec list and spec shown together`, g.builder && g.reader && g.stage.width > 250, JSON.stringify(g.stage));
+    // designing: the list is off by default there, and the Specs button shows it beside the spec
+    await f.locator('.top .tab[data-tab="design"]').click(); await sleep(900);
+    g = await geo();
+    ok(`${w}: design: list off by default, spec on`, !g.builder && g.reader);
+    await tick('list'); await sleep(500);
+    g = await geo();
+    ok(`${w}: design: list, editor and spec together`, g.builder && g.reader && g.canvas.width >= 150, String(g.canvas.width));
+    await p.screenshot({ path: `${OUT}/h-${w}-design-all.png` });
+    await tick('list'); await sleep(300);
+    await f.locator('.top .tab[data-tab="proto"]').click(); await sleep(600);
+    ok(`${w}: the prototype view keeps its own list choice`, (await geo()).builder);
     await p.screenshot({ path: `${OUT}/h-${w}-proto-spec.png` });
     await f.locator('#more').click(); await sleep(400);
     const menu = await fr.evaluate(() => { const d0 = document.querySelector('#moreDlg'); const d = document.querySelector('#moreDlg'); const r = d.getBoundingClientRect(); const m = document.querySelector('#more').getBoundingClientRect(); return { open: d.open, top: r.top, bottom: m.bottom, right: Math.round(document.documentElement.clientWidth - r.right), mr: Math.round(document.documentElement.clientWidth - m.right), h: r.height, sr: d.style.right, cw: document.documentElement.clientWidth, iw: innerWidth }; });
@@ -90,7 +117,7 @@ try {
     await p.screenshot({ path: `${OUT}/h-${w}-menu.png` });
     await p.keyboard.press('Escape'); await sleep(200);
     // the choice is remembered
-    await p.reload(); await f.locator('#ocToggle-spec').waitFor({ timeout: 30000 }); await sleep(800); fr = p.frames().find(x => x.url().includes('guest-files'));
+    await p.reload(); await f.locator('#ocSpecs').waitFor({ timeout: 30000 }); await sleep(800); fr = p.frames().find(x => x.url().includes('guest-files'));
     ok(`${w}: spec choice remembered`, (await geo()).specPressed === 'true');
     await p.close();
   }

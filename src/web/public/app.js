@@ -270,7 +270,7 @@ function openFile(target) {
 // While designing, a spec reader beside the editor (OpenChamber panel) follows the screen being edited.
 document.addEventListener('weshcraft:screen', e => {
   const reader = document.querySelector('.reader');
-  if (!$('#follow')?.checked || !reader || getComputedStyle(reader).display === 'none') return;
+  if (!document.body.classList.contains('editing') || !$('#follow')?.checked || !reader || getComputedStyle(reader).display === 'none') return;
   openFile(`specs/front/screens/${e.detail.key}.md`);
 });
 

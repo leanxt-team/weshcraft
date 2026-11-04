@@ -9,7 +9,14 @@
 //   ANY  /wc/<path>?directory=…       the big panel's API calls, proxied to WeshCraft (starts it if needed)
 //   GET  /events?directory=…&since=N  WeshCraft's live events, long-polled (pages cannot hold an SSE stream)
 //   POST /upload?directory=…&name=…&id=…&part=i&parts=n   chunked upload (64 KB per request), base64 parts
+//   GET  /info?directory=…&host=…     where links opened outside the panel go (prototype, zip, specs)
+//
+// Links opened outside the panel use the address the user reaches OpenChamber with (`host`). When that
+// is not this machine's loopback, a read-only share is started for the project: GET only, the built
+// prototype and specs (/out/…) and the zip, on every interface, behind a random token (a link carries it,
+// then a cookie does for the page's own files). The WeshCraft server itself stays on loopback.
 // GitHub/GitLab access: the server resolves the OpenChamber account, gh/glab login or git credentials.
+import crypto from 'node:crypto';
 import http from 'node:http';
 import { Bridge, detectConfig } from '../../opencode/plugin.mjs';
 
@@ -103,6 +110,51 @@ export function createService(deps = {}) {
     return { seq: p.seq, events: fresh() };
   }
 
+  // ---- read-only share for links opened outside the panel -------------------------------------
+  const LOOPBACK = /^(localhost|127(\.\d+){3}|\[?::1\]?|0\.0\.0\.0)$/i;
+  const SHARED = /^\/(out\/.*|api\/download\.zip)$/;
+  function share(p) {
+    p.share ??= new Promise((resolve, reject) => {
+      const token = crypto.randomBytes(18).toString('base64url');
+      const cookie = `weshcraft_share_${p.bridge.cfg?.port ?? 0}`;
+      const server = http.createServer(async (req, res) => {
+        const url = new URL(req.url ?? '/', 'http://share');
+        const given = url.searchParams.get('token') ?? (req.headers.cookie ?? '').split(/;\s*/).find(c => c.startsWith(`${cookie}=`))?.slice(cookie.length + 1);
+        const ok = typeof given === 'string' && given.length === token.length && crypto.timingSafeEqual(Buffer.from(given), Buffer.from(token));
+        if (!ok) { res.writeHead(401, { 'Content-Type': 'text/plain; charset=utf-8' }); return res.end('This WeshCraft link has expired: open it again from OpenChamber.'); }
+        if ((req.method !== 'GET' && req.method !== 'HEAD') || !SHARED.test(url.pathname)) { res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' }); return res.end('Not shared.'); }
+        try {
+          await p.bridge.start();
+          const r = await fetch(`${p.bridge.base}${url.pathname}`, { method: req.method, headers: p.bridge.headers(), signal: AbortSignal.timeout(60_000) });
+          const headers = { 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff', 'Referrer-Policy': 'no-referrer' };
+          for (const h of ['content-type', 'content-disposition', 'content-length', 'last-modified', 'etag']) { const v = r.headers.get(h); if (v) headers[h] = v; }
+          if (url.searchParams.has('token')) headers['Set-Cookie'] = `${cookie}=${token}; Path=/; HttpOnly; SameSite=Lax`;
+          res.writeHead(r.status, headers);
+          res.end(req.method === 'HEAD' ? undefined : Buffer.from(await r.arrayBuffer()));
+        } catch (e) { res.writeHead(502, { 'Content-Type': 'text/plain; charset=utf-8' }); res.end(`WeshCraft is not reachable: ${e.message}`); }
+      });
+      const first = deps.sharePort ?? (p.bridge.cfg?.port ? p.bridge.cfg.port + 1000 : 0);
+      let port = first, bind = deps.shareHost ?? '::';
+      server.on('error', e => {
+        if (bind === '::' && ['EAFNOSUPPORT', 'EADDRNOTAVAIL', 'EINVAL'].includes(e.code)) { bind = '0.0.0.0'; return server.listen(port, bind); } // no IPv6 here
+        if (e.code === 'EADDRINUSE' && first && port < first + 20) { port += 1; return server.listen(port, bind); }
+        p.share = null; reject(e);
+      });
+      server.on('listening', () => { p.shareServer = server; resolve({ port: server.address().port, token }); });
+      server.listen(port, bind);
+    });
+    return p.share;
+  }
+  async function info(p, host) {
+    await p.bridge.start();
+    const own = { url: p.bridge.url(), base: p.bridge.base, token: p.bridge.cfg?.token ?? null };
+    const name = String(host || '').trim();
+    if (!name || LOOPBACK.test(name) || !/^[\w.:\[\]-]{1,255}$/.test(name)) return own;
+    const s = await share(p);
+    const h = name.includes(':') && !name.startsWith('[') ? `[${name}]` : name;
+    return { url: `http://${h}:${s.port}/out/prototype/index.html?token=${s.token}`, base: `http://${h}:${s.port}`, token: s.token, shared: true };
+  }
+
   // ---- chunked uploads -----------------------------------------------------------------------
   const uploads = new Map();
   async function upload(p, q, body) {
@@ -131,7 +183,7 @@ export function createService(deps = {}) {
     }
     if (url.pathname === '/events' && method === 'GET') return { status: 200, body: JSON.stringify(await events(p, Number(url.searchParams.get('since') || 0))) };
     if (url.pathname === '/upload' && method === 'POST') return upload(p, url.searchParams, await readBody());
-    if (url.pathname === '/info') { await p.bridge.start(); return { status: 200, body: JSON.stringify({ url: p.bridge.url(), base: p.bridge.base }) }; }
+    if (url.pathname === '/info') return { status: 200, body: JSON.stringify(await info(p, url.searchParams.get('host'))) };
     if (url.pathname.startsWith('/wc/')) {
       await p.bridge.start();
       const q = new URLSearchParams(url.searchParams);
@@ -144,7 +196,7 @@ export function createService(deps = {}) {
 
   return {
     handle, state,
-    stop: () => { for (const p of projects.values()) { p.stream?.abort(); p.bridge?.stop(); } },
+    stop: () => { for (const p of projects.values()) { p.stream?.abort(); p.shareServer?.close(); p.bridge?.stop(); } },
   };
 }
 

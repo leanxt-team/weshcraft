@@ -159,7 +159,14 @@ try {
   await o.f.locator('.tab[data-tab="proto"]').click();
   const proto = await waitFor(async () => { const fr = o.p.frames().find(x => x.parentFrame() === o.frame() && !x.url().includes('guest-files')); return fr && (await fr.locator('.sc-screen [data-node]').count()) > 10 ? fr : null; }, 15000);
   ok('page: prototype renders (srcdoc)', !!proto);
-  if (proto) { await proto.locator('nav.sc-nav button').nth(1).click(); await sleep(400); ok('page: prototype navigation', (await proto.locator('.sc-screen:not([hidden])').getAttribute('data-screen')) !== 'scr-home-light'); }
+  if (proto) {
+    // the undo above regenerates: let the prototype reload settle before navigating in it
+    let srcdoc = '', still = 0;
+    for (let i = 0; i < 40 && still < 3; i++) { const d = await o.frame().evaluate(() => document.querySelector('#proto').srcdoc.length + ':' + document.querySelector('#proto').className); still = d === srcdoc && !/loading/.test(d) ? still + 1 : 0; srcdoc = d; await sleep(250); }
+    const fr = () => o.p.frames().find(x => x.parentFrame() === o.frame() && !x.url().includes('guest-files'));
+    await fr().locator('nav.sc-nav button').nth(1).click();
+    ok('page: prototype navigation', !!await waitFor(async () => (await fr()?.locator('.sc-screen:not([hidden])').getAttribute('data-screen').catch(() => null)) !== 'scr-home-light', 3000));
+  }
   await o.f.locator('.job >> nth=0').click(); await sleep(800);
   ok('page: spec reader opens a spec', (await o.f.locator('#doc').innerText()).length > 200);
   await o.p.screenshot({ path: `${SHOTS}/e-page-proto-light.png` });

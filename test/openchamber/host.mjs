@@ -73,13 +73,14 @@ addEventListener('message', async e => {
       let out = fs.readFileSync(fp);
       if (ct.startsWith('text/html')) out = out.toString('utf8').replace(/^\s*<!doctype[^>]*>/i, d => `${d}<meta name="color-scheme" content="light dark">`) + `\n<style data-openchamber-guest-styles>${sdk.GUEST_SCROLLBAR_CSS}${ui.GUEST_UI_LOOK_CSS}</style>\n<script data-openchamber-guest-scrollbar>${sdk.GUEST_SCROLLBAR_SCRIPT}</script>`;
       if (process.env.SIM_CROSSORIGIN && ct.startsWith('text/html')) out = String(out).replace(/<script src="main\.js"/g, '<script crossorigin="anonymous" src="main.js"');
-      res.writeHead(200, { 'content-type': ct, 'content-security-policy': `sandbox allow-scripts; ${sdk.guestFramePolicy(`127.0.0.1:${server.address().port}/api/guest-files/G/`, [])}`, ...(process.env.SIM_NO_ACAO ? {} : { 'access-control-allow-origin': 'null' }), 'x-content-type-options': 'nosniff' });
+      res.writeHead(200, { 'content-type': ct, 'content-security-policy': `sandbox allow-scripts; ${sdk.guestFramePolicy(`${process.env.SIM_HOST || '127.0.0.1'}:${server.address().port}/api/guest-files/G/`, [])}`, ...(process.env.SIM_NO_ACAO ? {} : { 'access-control-allow-origin': 'null' }), 'x-content-type-options': 'nosniff' });
       return res.end(out);
     }
     res.writeHead(404); res.end();
   });
-  await new Promise(r => server.listen(port, '127.0.0.1', r));
-  return { url: `http://127.0.0.1:${server.address().port}`, log, close: () => server.close() };
+  // SIM_HOST: OpenChamber reached at another address than loopback (a LAN name or IP).
+  await new Promise(r => server.listen(port, process.env.SIM_HOST ? '0.0.0.0' : '127.0.0.1', r));
+  return { url: `http://${process.env.SIM_HOST || '127.0.0.1'}:${server.address().port}`, log, close: () => server.close() };
 }
 
 /** A GitHub REST double with state: branches, commits, pull requests; records the token used. */

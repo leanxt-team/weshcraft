@@ -154,12 +154,20 @@ class PollingEventSource {
 }
 window.EventSource = PollingEventSource;
 
+// Links opened outside the panel use the address OpenChamber is reached with: on another machine,
+// the service shares the prototype, specs and zip there (read-only, behind a token).
+const hostName = () => {
+  try {
+    const a = location.ancestorOrigins;
+    const origin = a && a.length ? a[a.length - 1] : document.referrer;
+    return origin ? new URL(origin).hostname : '';
+  } catch { return ''; }
+};
 let info = null;
 const serverUrl = async path => {
-  info ??= JSON.parse((await svc('GET', '/info')).body);
+  info ??= JSON.parse((await svc('GET', '/info', { query: { host: hostName() } })).body);
   const u = new URL(path, `${info.base}/`);
-  const t = new URL(info.url).searchParams.get('token');
-  if (t) u.searchParams.set('token', t);
+  if (info.token) u.searchParams.set('token', info.token);
   return u.href;
 };
 const openOutside = async href => {
@@ -240,33 +248,61 @@ setTimeout(() => {
   const top = document.querySelector('.top');
   if (!top) return;
   const KEY = 'weshcraft.oc.panels';
-  let pref = { list: true, spec: true };
+  // The spec list is on by default, but not while designing (the editor has its screens and layers).
+  let pref = { list: true, spec: true, listDesign: false };
   try { pref = { ...pref, ...JSON.parse(localStorage.getItem(KEY) || '{}') }; } catch { /* storage blocked */ }
   const ICON = {
     list: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6h11M9 12h11M9 18h11"/><circle cx="4.5" cy="6" r="1"/><circle cx="4.5" cy="12" r="1"/><circle cx="4.5" cy="18" r="1"/></svg>',
     spec: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h9l4 4v14H6z"/><path d="M14 3v5h5M9 13h7M9 17h5"/></svg>',
   };
+  // One "Specs" menu in the header: tick the spec list and/or the spec panel.
   const group = document.createElement('div');
   group.className = 'oc-panels';
-  group.setAttribute('role', 'group');
-  group.setAttribute('aria-label', 'Panels');
-  const make = (key, label, title) => {
+  const button = document.createElement('button');
+  button.type = 'button'; button.id = 'ocSpecs'; button.title = 'Show the spec list and/or the spec';
+  button.setAttribute('aria-haspopup', 'menu'); button.setAttribute('aria-expanded', 'false');
+  button.innerHTML = `${ICON.spec}<span>Specs</span><svg class="oc-chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 10l5 5 5-5"/></svg>`;
+  const menu = document.createElement('div');
+  menu.className = 'oc-panels-menu'; menu.id = 'ocSpecsMenu'; menu.setAttribute('role', 'menu'); menu.hidden = true;
+  const make = (key, label) => {
     const b = document.createElement('button');
-    b.type = 'button'; b.id = `ocToggle-${key}`; b.dataset.panel = key; b.title = title;
-    b.innerHTML = `${ICON[key]}<span>${label}</span>`;
-    b.addEventListener('click', () => set(key, !pref[key]));
-    group.append(b);
-    return b;
+    b.type = 'button'; b.id = `ocToggle-${key}`; b.dataset.panel = key; b.setAttribute('role', 'menuitemcheckbox');
+    b.innerHTML = `<span class="oc-tick" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span>${ICON[key]}<span>${label}</span>`;
+    b.addEventListener('click', () => { const k = slot(key); set(k, !pref[k]); });
+    menu.append(b);
   };
-  make('list', 'Specs', 'Show or hide the list of specs');
-  make('spec', 'Spec', 'Show or hide the spec');
+  make('list', 'Spec list');
+  make('spec', 'Spec panel');
+  group.append(button);
+  document.body.append(menu);
   const parity = top.querySelector('.parity');
   (parity || top.querySelector('.more'))?.before(group);
+  const close = () => { if (menu.hidden) return; menu.hidden = true; button.setAttribute('aria-expanded', 'false'); };
+  button.addEventListener('click', () => {
+    if (!menu.hidden) return close();
+    const r = button.getBoundingClientRect();
+    menu.hidden = false; button.setAttribute('aria-expanded', 'true');
+    menu.style.top = `${Math.round(r.bottom + 6)}px`;
+    menu.style.left = `${Math.round(Math.max(8, Math.min(r.left, document.documentElement.clientWidth - menu.offsetWidth - 8)))}px`;
+    menu.querySelector('button')?.focus({ preventScroll: true });
+  });
+  document.addEventListener('pointerdown', e => { if (!menu.hidden && !menu.contains(e.target) && !button.contains(e.target)) close(); }, true);
+  document.addEventListener('keydown', e => { if (e.key === 'Escape' && !menu.hidden) { close(); button.focus(); } });
+  addEventListener('resize', close);
+  const slot = key => (key === 'list' && document.body.classList.contains('editing') ? 'listDesign' : key);
   function apply() {
-    document.body.classList.toggle('oc-no-list', !pref.list);
-    document.body.classList.toggle('oc-no-spec', !pref.spec);
-    for (const b of group.querySelectorAll('button')) b.setAttribute('aria-pressed', String(!!pref[b.dataset.panel]));
+    const cl = document.body.classList;
+    const noList = !pref[slot('list')], noSpec = !pref.spec;
+    if (cl.contains('oc-no-list') !== noList) cl.toggle('oc-no-list', noList);
+    if (cl.contains('oc-no-spec') !== noSpec) cl.toggle('oc-no-spec', noSpec);
+    for (const b of menu.querySelectorAll('button')) {
+      const v = String(!!pref[slot(b.dataset.panel)]);
+      if (b.getAttribute('aria-checked') !== v) b.setAttribute('aria-checked', v);
+    }
+    const any = String(!noList || !noSpec);
+    if (button.getAttribute('aria-pressed') !== any) button.setAttribute('aria-pressed', any);
   }
+  new MutationObserver(apply).observe(document.body, { attributes: true, attributeFilter: ['class'] });
   function set(key, on) {
     if (pref[key] === on) return;
     pref[key] = on;

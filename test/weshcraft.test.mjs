@@ -812,3 +812,27 @@ test('project design: remembered, then design/, then the only one in the repo; s
   fs.rmSync(path.join(d, '.weshcraft.json'));
   assert.deepEqual(projectDesign(d), { file: 'design/main.figcraft.json', how: 'design-folder' });
 });
+
+test('plugin: a busy project port moves to the next one, and every session finds it there', async () => {
+  const { Bridge } = await import('../opencode/plugin.mjs');
+  const mk = () => { const d = fs.mkdtempSync(path.join(os.tmpdir(), 'wc-port-')); fs.mkdirSync(path.join(d, 'design')); fs.copyFileSync(path.join(here, 'fixtures/ridgeline-onboarding.figcraft'), path.join(d, 'design/App.figcraft')); return d; };
+  const a = mk(), b = mk();
+  // both projects on one port: something else holds it first, then project A takes the next one
+  const base = 47100 + Math.floor(Math.random() * 400);
+  const squatter = http.createServer((q, r) => { r.writeHead(200, { 'content-type': 'text/plain' }); r.end('not weshcraft'); });
+  await new Promise(r => squatter.listen(base, '127.0.0.1', r));
+  const cfgA = { ...detectConfig(a), port: base, autoPort: true }, cfgB = { ...detectConfig(b), port: base, autoPort: true };
+  const A = new Bridge(a, cfgA), B = new Bridge(b, cfgB), A2 = new Bridge(a, { ...cfgA });
+  try {
+    await A.start();
+    assert.equal(A.cfg.port, base + 1, 'skips a port another program holds');
+    await B.start();
+    assert.equal(B.cfg.port, base + 2, "skips another project's WeshCraft");
+    assert.ok(await A2.alive(), 'another session of project A finds its server');
+    assert.equal(A2.cfg.port, base + 1);
+    await A2.start();
+    assert.equal(A2.child, null, 'and reuses it instead of starting one');
+    const fixed = new Bridge(a, { ...cfgA, autoPort: false });
+    assert.equal(await fixed.alive(), false, 'a port set by the user is not moved');
+  } finally { A.stop(); B.stop(); squatter.close(); }
+});

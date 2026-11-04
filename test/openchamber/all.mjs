@@ -17,13 +17,17 @@ const runs = [
   ['flow.mjs', [root, path.join(work, 'flow'), work]],
   ['run2.mjs', [root, path.join(work, 'pub')]],
   ['header.mjs', [root, path.join(work, 'hdr'), work]],
+  ['share.mjs', [root, path.join(work, 'share')]],
 ];
+// OpenChamber reached at this machine's network address: links opened outside the panel go there.
+const lan = Object.values(os.networkInterfaces()).flat().find(i => i && i.family === 'IPv4' && !i.internal)?.address;
+if (lan) runs.push(['share.mjs', [root, path.join(work, 'share-lan')], { SIM_HOST: lan }]);
 let failed = 0;
-for (const [script, args] of runs) {
-  const out = execFileSync(process.execPath, [path.join(here, script), ...args], { env, encoding: 'utf8', maxBuffer: 1 << 26 });
+for (const [script, args, extra] of runs) {
+  const out = execFileSync(process.execPath, [path.join(here, script), ...args], { env: { ...env, ...extra }, encoding: 'utf8', maxBuffer: 1 << 26 });
   const lines = out.split('\n').filter(l => /^(PASS|FAIL|CRASH)/.test(l));
   failed += lines.filter(l => !l.startsWith('PASS')).length;
-  console.log(`${script}: ${lines.filter(l => l.startsWith('PASS')).length} passed`);
+  console.log(`${script}${extra ? ' (OpenChamber on the network)' : ''}: ${lines.filter(l => l.startsWith('PASS')).length} passed`);
   for (const l of lines.filter(x => !x.startsWith('PASS'))) console.log(`  ${l}`);
 }
 console.log(failed ? `${failed} failed` : 'all passed');

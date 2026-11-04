@@ -192,43 +192,49 @@ html.oc #moreDlg .sheet-group button:hover, html.oc #moreDlg .sheet-group button
   html.oc .top .oc-tabs { display: none; } /* the tab bar at the bottom picks the view */
 }
 
-/* ---- panels: spec list | stage | spec, each side shown or hidden from the header ---- */
-html.oc .top .oc-panels { display: flex; flex: none; gap: 2px; padding: 2px; border-radius: var(--oc-radius, 8px); background: var(--oc-muted-surface); }
-html.oc .top .oc-panels button { display: inline-flex; align-items: center; gap: 5px; height: 26px; padding: 0 9px; border: 0; border-radius: calc(var(--oc-radius, 8px) - 2px); background: transparent; color: var(--oc-muted); font: 500 12.5px/1 var(--font); cursor: pointer; }
-html.oc .top .oc-panels button:hover { color: var(--oc-fg); }
-html.oc .top .oc-panels button[aria-pressed="true"] { background: var(--oc-bg); color: var(--oc-fg); box-shadow: 0 0 0 1px var(--oc-border); }
-html.oc .top .oc-panels svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
-html.oc .top .oc-panels button[data-panel="spec"][aria-pressed="true"] { color: var(--oc-primary); }
+/* ---- panels: one "Specs" menu, tick the spec list and/or the spec panel ---- */
+html.oc .top .oc-panels { display: flex; flex: none; margin-left: auto; }
+html.oc .top #ocSpecs { display: inline-flex; align-items: center; gap: 5px; height: 28px; padding: 0 6px 0 9px; border: 1px solid var(--oc-border); border-radius: var(--oc-radius, 8px); background: var(--oc-bg); color: var(--oc-fg); font: 500 12.5px/1 var(--font); cursor: pointer; }
+html.oc .top #ocSpecs:hover, html.oc .top #ocSpecs[aria-expanded="true"] { background: var(--oc-hover); }
+html.oc .top #ocSpecs[aria-pressed="true"] { color: var(--oc-primary); }
+html.oc .top #ocSpecs svg, html.oc .oc-panels-menu svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+html.oc .top #ocSpecs .oc-chev { width: 13px; height: 13px; color: var(--oc-muted); }
+html.oc .oc-panels-menu { position: fixed; z-index: 95; display: grid; min-width: 168px; padding: 4px; border: 1px solid var(--oc-border); border-radius: var(--oc-radius, 8px); background: var(--oc-elevated, var(--oc-bg)); box-shadow: 0 12px 32px rgba(0, 0, 0, .2); }
+html.oc .oc-panels-menu[hidden] { display: none; }
+html.oc .oc-panels-menu button { display: flex; align-items: center; gap: 8px; height: 30px; padding: 0 10px 0 6px; border: 0; border-radius: calc(var(--oc-radius, 8px) - 2px); background: none; color: var(--oc-fg); font: 13px/1 var(--font); text-align: left; cursor: pointer; }
+html.oc .oc-panels-menu button:hover, html.oc .oc-panels-menu button:focus-visible { background: var(--oc-hover); outline: none; }
+html.oc .oc-panels-menu .oc-tick { display: grid; place-items: center; width: 16px; height: 16px; border: 1px solid var(--oc-border); border-radius: 4px; }
+html.oc .oc-panels-menu .oc-tick svg { width: 12px; height: 12px; stroke-width: 2.4; opacity: 0; }
+html.oc .oc-panels-menu button[aria-checked="true"] .oc-tick { background: var(--oc-primary); border-color: var(--oc-primary); color: var(--oc-primary-fg); }
+html.oc .oc-panels-menu button[aria-checked="true"] .oc-tick svg { opacity: 1; }
 html.oc .top .parity { margin-left: 0; }
-html.oc .top .oc-panels { margin-left: auto; }
 
 @media (min-width: 721px) {
-  /* one row of columns at every width; the toggles decide what shares it, the dividers how wide
-     (--oc-list, --oc-spec, --oc-edl, --oc-edr: set while dragging, not saved) */
-  html.oc body { display: grid; }
+  /* one row of columns at every width: the spec list, the view, the spec. Specs and Spec in the
+     header show or hide each side on its own; the dividers set the widths (--oc-list, --oc-spec,
+     --oc-edl, --oc-edr: set while dragging, not saved). */
+  html.oc body { display: grid; --L: minmax(200px, 240px); --S: minmax(320px, .9fr); }
+  html.oc body.editing { --L: minmax(170px, 200px); --S: minmax(300px, .62fr); }
   html.oc body > * + * { margin-top: 0; }
-  html.oc .layout { position: relative; grid-template-rows: minmax(0, 1fr); grid-template-columns: var(--oc-list, minmax(200px, 240px)) minmax(0, 1fr) var(--oc-spec, minmax(320px, .9fr)) !important; }
+  html.oc .layout { position: relative; grid-template-rows: minmax(0, 1fr); grid-template-columns: var(--oc-list, var(--L)) minmax(0, 1fr) var(--oc-spec, var(--S)) !important; }
+  html.oc .builder, html.oc body.editing .builder { display: flex; }
   html.oc .reader, html.oc body.editing .reader { display: flex; grid-column: auto; height: auto; }
-  html.oc body.oc-no-list .builder { display: none; }
+  html.oc body.oc-no-list .builder, html.oc body.oc-no-list.editing .builder { display: none; }
   html.oc body.oc-no-spec .reader, html.oc body.oc-no-spec.editing .reader { display: none; }
-  html.oc body.oc-no-list .layout { grid-template-columns: minmax(0, 1fr) var(--oc-spec, minmax(320px, .9fr)) !important; }
-  html.oc body.oc-no-spec .layout { grid-template-columns: var(--oc-list, minmax(200px, 240px)) minmax(0, 1fr) !important; }
+  html.oc body.oc-no-list .layout { grid-template-columns: minmax(0, 1fr) var(--oc-spec, var(--S)) !important; }
+  html.oc body.oc-no-spec .layout { grid-template-columns: var(--oc-list, var(--L)) minmax(0, 1fr) !important; }
   html.oc body.oc-no-list.oc-no-spec .layout { grid-template-columns: minmax(0, 1fr) !important; }
-  /* designing: the editor's own screens and layers replace the spec list; the spec stays beside it */
-  html.oc body.editing .builder, html.oc body.editing #ocToggle-list { display: none; }
-  html.oc body.editing .layout { grid-template-columns: minmax(0, 1fr) var(--oc-spec, minmax(300px, .62fr)) !important; }
-  html.oc body.editing.oc-no-spec .layout { grid-template-columns: minmax(0, 1fr) !important; }
   html.oc .tabpanel.ed { position: relative; grid-template-columns: var(--oc-edl, 200px) minmax(0, 1fr) var(--oc-edr, 264px); }
-  html.oc body.editing:not(.oc-no-spec) .tabpanel.ed { grid-template-columns: var(--oc-edl, 176px) minmax(0, 1fr) var(--oc-edr, 244px); }
+  html.oc body.editing:not(.oc-no-spec) .tabpanel.ed, html.oc body.editing:not(.oc-no-list) .tabpanel.ed { grid-template-columns: var(--oc-edl, 176px) minmax(0, 1fr) var(--oc-edr, 244px); }
 }
 @media (min-width: 721px) and (max-width: 1100px) {
-  html.oc body.editing:not(.oc-no-spec) .layout { grid-template-columns: minmax(0, 1fr) var(--oc-spec, 280px) !important; }
-  html.oc body.editing:not(.oc-no-spec) .tabpanel.ed { grid-template-columns: var(--oc-edl, 140px) minmax(0, 1fr) var(--oc-edr, 236px); }
-  html.oc body.editing:not(.oc-no-spec) .ed-right { min-width: 0; overflow-x: hidden; }
-  /* a narrower expanded panel: the spec list makes room for the spec */
-  html.oc body:not(.oc-no-spec) .builder { display: none; }
-  html.oc body:not(.oc-no-spec) .layout { grid-template-columns: minmax(0, 1fr) var(--oc-spec, minmax(300px, .9fr)) !important; }
-  html.oc body:not(.oc-no-spec) #ocToggle-list { display: none; }
+  html.oc body { --L: minmax(170px, 200px); --S: minmax(280px, .8fr); }
+  html.oc body.editing { --L: 170px; --S: 280px; }
+  html.oc body.editing:not(.oc-no-spec) .tabpanel.ed, html.oc body.editing:not(.oc-no-list) .tabpanel.ed { grid-template-columns: var(--oc-edl, 140px) minmax(0, 1fr) var(--oc-edr, 236px); }
+  html.oc body.editing .ed-right { min-width: 0; overflow-x: hidden; }
+  /* everything at once in a narrower panel: each side gives a little */
+  html.oc body.editing:not(.oc-no-list):not(.oc-no-spec) { --L: 150px; --S: 250px; }
+  html.oc body.editing:not(.oc-no-list):not(.oc-no-spec) .tabpanel.ed { grid-template-columns: var(--oc-edl, 120px) minmax(0, 1fr) var(--oc-edr, 210px); }
 }
 /* dividers: drag to resize the blocks beside them; double-click to reset */
 html.oc .oc-split { position: absolute; top: 0; bottom: 0; z-index: 30; width: 9px; margin-left: -4px; cursor: col-resize; touch-action: none; }
@@ -239,7 +245,7 @@ html.oc body.oc-resizing, html.oc body.oc-resizing * { cursor: col-resize !impor
 html.oc body.oc-resizing iframe { pointer-events: none; }
 @media (max-width: 720px) {
   html.oc .oc-split { display: none !important; }
-  html.oc .top .oc-panels { display: none; } /* one view at a time: the bottom tab bar has Specs and Spec */
+  html.oc .top .oc-panels, html.oc .oc-panels-menu { display: none !important; } /* one view at a time: the bottom tab bar has Specs and Spec */
 }
 html.oc .reader .pane-head h2 { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 /* the spec has its own panel: the inspector is the design inspector only */
@@ -248,3 +254,6 @@ html.oc .ed-itabs { display: none; }
 html.oc .top .brand { display: none; }
 html.oc .top { padding-left: 6px; }
 html.oc .top .oc-tabs { margin-left: 0; }
+/* Spec, parity and ⋯ sit together on the right */
+html.oc .top > .spacer { display: none; }
+html.oc .top .oc-tabs { flex: 1 1 auto; }

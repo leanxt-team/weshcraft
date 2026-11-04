@@ -54,6 +54,7 @@ export function detectConfig(dir, options = {}) {
     out: '.', concurrency: 6, ...cfg,
     surface: [].concat(cfg.surface ?? []), mcpServer: [].concat(cfg.mcpServer ?? []),
     // One stable port per project, so every session of the project shares one server.
+    autoPort: cfg.port == null,
     port: cfg.port ?? 4600 + (parseInt(crypto.createHash('sha1').update(path.resolve(dir)).digest('hex').slice(0, 4), 16) % 300),
   };
 }
@@ -74,9 +75,11 @@ export function serveArgs(cfg) {
 
 // ---- the WeshCraft server for this project --------------------------------------------------
 export class Bridge {
+  static PORT_SPAN = 12;
   constructor(dir, cfg, { log = () => {}, spawnImpl = spawn, nodePath = NODE_BIN, bin = BIN } = {}) {
     Object.assign(this, { dir, cfg, log, spawnImpl, nodePath, bin });
     this.base = `http://127.0.0.1:${cfg.port}`;
+    this.port0 = cfg.port;
     this.child = null;
     this.ready = null;
     this.id = 0;
@@ -84,27 +87,59 @@ export class Bridge {
 
   headers() { return { 'Content-Type': 'application/json', ...(this.cfg.token ? { Authorization: `Bearer ${this.cfg.token}` } : {}) }; }
 
+  /** What answers on a port: this project's WeshCraft, nothing, or something else. */
+  async probe(port) {
+    try {
+      const r = await fetch(`http://127.0.0.1:${port}/api/ping`, { headers: this.headers(), signal: AbortSignal.timeout(1500) });
+      if (!r.ok) return 'taken';
+      const j = await r.json().catch(() => ({}));
+      const real = p => { try { return fs.realpathSync.native(p); } catch { return path.resolve(p); } };
+      return j.app === 'weshcraft' && (!j.outDir || real(j.outDir) === real(path.resolve(this.dir, this.cfg.out ?? '.'))) ? 'ours' : 'taken';
+    } catch (e) {
+      const code = e?.cause?.code ?? e?.code;
+      return code === 'ECONNREFUSED' ? 'free' : 'taken';
+    }
+  }
+
+  // The project's port comes from its path; when another project or program holds it, the next
+  // ones are tried (PORT_SPAN), and every session looks for the project's server the same way.
+  ports() { return this.cfg.autoPort ? Array.from({ length: Bridge.PORT_SPAN }, (_, i) => this.port0 + i) : [this.port0]; }
+  use(port) { this.cfg = { ...this.cfg, port }; this.base = `http://127.0.0.1:${port}`; }
+
   async alive() {
     // Ours, for this project: another program on the port, or another project's WeshCraft, is not.
-    try {
-      const r = await fetch(`${this.base}/api/ping`, { headers: this.headers(), signal: AbortSignal.timeout(1500) });
-      if (!r.ok) return false;
-      const j = await r.json();
-      const real = p => { try { return fs.realpathSync.native(p); } catch { return path.resolve(p); } };
-      return j.app === 'weshcraft' && (!j.outDir || real(j.outDir) === real(path.resolve(this.dir, this.cfg.out ?? '.')));
-    } catch { return false; }
+    for (const port of this.ports()) {
+      const st = await this.probe(port);
+      if (st === 'ours') { this.use(port); return true; }
+      if (st === 'free') return false;
+    }
+    return false;
   }
 
   /** Reuse a server another session started, else start one. */
   start() {
     this.ready ??= (async () => {
-      if (await this.alive()) return true;
-      this.child = this.spawnImpl(this.nodePath, [this.bin, ...serveArgs(this.cfg)], { cwd: this.dir, stdio: 'ignore', detached: false, env: process.env });
-      this.child.on?.('exit', code => { this.log(`weshcraft server exited (${code})`); this.child = null; this.ready = null; });
-      // Never outlive OpenCode / OpenChamber.
-      process.once?.('exit', () => this.stop());
-      for (let i = 0; i < 60; i++) { if (await this.alive()) return true; await new Promise(r => setTimeout(r, 150)); }
-      throw new Error(`WeshCraft did not start on ${this.base}`);
+      for (const port of this.ports()) {
+        const st = await this.probe(port);
+        if (st === 'ours') { this.use(port); return true; }
+        if (st === 'taken') continue;
+        this.use(port);
+        const child = this.spawnImpl(this.nodePath, [this.bin, ...serveArgs(this.cfg)], { cwd: this.dir, stdio: 'ignore', detached: false, env: process.env });
+        this.child = child;
+        let exited = false;
+        child.on?.('exit', code => { exited = true; if (this.child === child) { this.log(`weshcraft server exited (${code})`); this.child = null; this.ready = null; } });
+        // Never outlive OpenCode / OpenChamber.
+        process.once?.('exit', () => this.stop());
+        for (let i = 0; i < 80; i++) {
+          const now = await this.probe(port);
+          if (now === 'ours') return true;
+          if (exited && now !== 'free') break; // lost the port to someone else meanwhile: next one
+          if (exited && i > 6) break;
+          await new Promise(r => setTimeout(r, 150));
+        }
+        if (!exited) throw new Error(`WeshCraft did not start on ${this.base}`);
+      }
+      throw new Error(`WeshCraft could not find a free port from ${this.port0}`);
     })().catch(e => { this.ready = null; throw e; });
     return this.ready;
   }
