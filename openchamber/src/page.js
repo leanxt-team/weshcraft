@@ -9,7 +9,9 @@
 import { connectHost, HostRequestError } from '@openchamber/sdk';
 import { applyHostReady } from '@openchamber/sdk/ui';
 
+window.__wcStarted = 'script';
 const host = connectHost();
+window.__wcStarted = 'connecting';
 document.documentElement.classList.add('oc');
 let directory = null;
 let resolveReady;
@@ -17,7 +19,8 @@ const ready = new Promise(r => { resolveReady = r; });
 let readyAt = 0;
 
 host.onReady(ctx => {
-  applyHostReady(ctx, document.documentElement);
+  window.__wcStarted = 'ready';
+  try { applyHostReady(ctx, document.documentElement); } catch (e) { console.error(e); }
   document.documentElement.classList.add('oc');
   if (!readyAt) { readyAt = Date.now(); directory = ctx.directory ?? null; resolveReady(); }
 });

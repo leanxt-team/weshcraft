@@ -45,7 +45,21 @@ fs.writeFileSync(path.join(here, 'page', 'index.html'), `<!doctype html>
 </head>
 <body data-view="proto">
 ${body.trim()}
-<script src="main.js" crossorigin="anonymous"></script>
+<script src="main.js" onerror="window.__wcStarted='load-error'"></script>
+<script>
+  // Independent of main.js: if it never loaded or never heard from OpenChamber, say which.
+  setTimeout(function () {
+    var s = window.__wcStarted;
+    if (s === 'ready') return;
+    var msg = s === 'load-error' ? 'main.js could not be loaded by OpenChamber (blocked or missing). Reload the extension in Settings → Extensions.' : !s ? 'The WeshCraft script did not start (main.js not loaded). Reload the extension in Settings → Extensions; if it persists, check the extension card for an error.'
+      : 'OpenChamber did not answer this panel (state: ' + s + '). Enable WeshCraft in Settings → Extensions, approve it, then reload it there.';
+    var box = document.createElement('div'); box.className = 'oc-problem';
+    var t = document.createElement('strong'); t.textContent = 'WeshCraft is not connected'; var d = document.createElement('div'); d.textContent = msg;
+    box.appendChild(t); box.appendChild(d);
+    var root = document.getElementById('root');
+    if (root) { root.innerHTML = ''; root.appendChild(box); } else document.body.insertBefore(box, document.body.firstChild);
+  }, 6000);
+</script>
 </body>
 </html>
 `);
@@ -132,7 +146,21 @@ function smallShell(mode, height) {
 </head>
 <body>
 <div id="root"><div class="oc-problem">Connecting to OpenChamber…</div></div>
-<script src="main.js" crossorigin="anonymous"></script>
+<script src="main.js" onerror="window.__wcStarted='load-error'"></script>
+<script>
+  // Independent of main.js: if it never loaded or never heard from OpenChamber, say which.
+  setTimeout(function () {
+    var s = window.__wcStarted;
+    if (s === 'ready') return;
+    var msg = s === 'load-error' ? 'main.js could not be loaded by OpenChamber (blocked or missing). Reload the extension in Settings → Extensions.' : !s ? 'The WeshCraft script did not start (main.js not loaded). Reload the extension in Settings → Extensions; if it persists, check the extension card for an error.'
+      : 'OpenChamber did not answer this panel (state: ' + s + '). Enable WeshCraft in Settings → Extensions, approve it, then reload it there.';
+    var box = document.createElement('div'); box.className = 'oc-problem';
+    var t = document.createElement('strong'); t.textContent = 'WeshCraft is not connected'; var d = document.createElement('div'); d.textContent = msg;
+    box.appendChild(t); box.appendChild(d);
+    var root = document.getElementById('root');
+    if (root) { root.innerHTML = ''; root.appendChild(box); } else document.body.insertBefore(box, document.body.firstChild);
+  }, 6000);
+</script>
 </body>
 </html>
 `;

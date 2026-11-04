@@ -4,7 +4,9 @@
 import { connectHost, HostRequestError } from '@openchamber/sdk';
 import { applyHostReady, mountBadge, mountButton, mountEmpty, mountSpinner } from '@openchamber/sdk/ui';
 
+window.__wcStarted = 'script';
 const host = connectHost();
+window.__wcStarted = 'connecting';
 const root = document.querySelector('#root');
 const compact = document.documentElement.dataset.mode === 'status';
 let directory = null;
@@ -205,7 +207,7 @@ async function refresh() {
   clearTimeout(timer);
   try { state = await svc('GET', '/state'); error = null; } catch (e) { error = explain(e); }
   // The form keeps what the user typed: no re-render while they are in it.
-  if (!root.querySelector('.sp-setup:focus-within')) render();
+  if (!root.querySelector('.sp-setup:focus-within')) { try { render(); } catch (e) { fail('render', e); } }
   const h = headline(error ? { status: 'error', error } : state);
   if (!compact) host.setBadge(h.tone === 'error' ? 1 : null).catch(() => {});
   timer = setTimeout(refresh, document.hidden ? 15000 : state?.sync?.busy ? 1500 : 4000);
@@ -218,15 +220,25 @@ const watchdog = setTimeout(() => {
 }, 4000);
 addEventListener('error', e => { root.innerHTML = ''; const b = el('div', 'oc-problem'); b.append(el('strong', '', 'WeshCraft panel error'), el('div', '', e.error?.stack || e.message)); root.append(b); });
 
+// Errors here would be swallowed by the SDK (it catches listener errors): show them instead.
+function fail(where, e) {
+  root.innerHTML = '';
+  const b = el('div', 'oc-problem');
+  b.append(el('strong', '', `WeshCraft panel error (${where})`), el('div', '', String(e?.stack || e?.message || e)));
+  root.append(b);
+}
 host.onReady(ctx => {
-  applyHostReady(ctx, document.documentElement);
+  window.__wcStarted = 'ready';
+  try { applyHostReady(ctx, document.documentElement); } catch (e) { console.error(e); }
   if (mounted) return;
   mounted = true;
   readyAt = Date.now();
   clearTimeout(watchdog);
-  directory = ctx.directory ?? null;
-  render();
-  if (compact) host.setHeight(52).catch(() => {});
-  refresh();
-  host.onDirectory(d => { if (d !== directory) { directory = d; state = null; render(); refresh(); } });
+  try {
+    directory = ctx.directory ?? null;
+    render();
+    if (compact) host.setHeight(52).catch(() => {});
+    refresh().catch(e => fail('refresh', e));
+    host.onDirectory(d => { if (d !== directory) { directory = d; state = null; try { render(); } catch (e) { fail('render', e); } refresh().catch(e => fail('refresh', e)); } });
+  } catch (e) { fail('start', e); }
 });
