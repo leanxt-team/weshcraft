@@ -1,10 +1,12 @@
 // The browser editor's API: read the design (screens, layer tree, one layer, a rendered screen)
 // and change it with the same operations agents use over MCP (one undo stack for both).
+import fs from 'node:fs';
 import path from 'node:path';
 import { renderScreen } from '../proto/html.mjs';
 import { props, tokens as tokenLines } from '../design/describe.mjs';
 import { hexOf } from '../design/props.mjs';
 import { openEditable } from '../design/source.mjs';
+import { designCandidates, rememberDesign } from '../design/discover.mjs';
 
 const json = async read => JSON.parse((await read()).toString() || '{}');
 
@@ -48,11 +50,26 @@ function layerTree(store, root) {
   return walk(root);
 }
 
+export { designCandidates };
+const remember = rememberDesign;
+
 export async function designApi(ws, req, url, read, { watchFile } = {}) {
   const p = url.pathname;
   const store = ws.source?.store;
   try {
-    if (p === '/api/design' && req.method === 'GET') return { body: summary(ws) };
+    if (p === '/api/design' && req.method === 'GET') return { body: { ...summary(ws), project: path.basename(ws.outDir) } };
+    if (p === '/api/design/candidates') return { body: designCandidates(ws.outDir) };
+    if (p === '/api/design/open' && req.method === 'POST') {
+      const b = await json(read);
+      const abs = path.resolve(ws.outDir, String(b.file || ''));
+      if (!abs.startsWith(ws.outDir + path.sep) || !/\.figcraft(\.json)?$/i.test(abs) || !fs.existsSync(abs)) return { status: 400, body: { error: 'pick a .figcraft file inside this project' } };
+      if (ws.source?.kind === 'mcp') return { status: 409, body: { error: 'this WeshCraft is attached to a live FigCraft' } };
+      ws.useSource(openEditable(abs));
+      watchFile?.(abs);
+      remember(ws.outDir, path.relative(ws.outDir, abs).split(path.sep).join('/'));
+      ws.run().catch(e => ws.emit('log', { level: 'error', message: e.message }));
+      return { body: summary(ws) };
+    }
     if (p === '/api/design/new' && req.method === 'POST') {
       if (ws.source) return { status: 409, body: { error: `this project already has a design: ${ws.describe()}` } };
       const b = await json(read);
@@ -60,6 +77,7 @@ export async function designApi(ws, req, url, read, { watchFile } = {}) {
       const file = path.join(ws.outDir, 'design', `${base}.figcraft`);
       ws.useSource(openEditable(file, b.name || base));
       watchFile?.(file);
+      remember(ws.outDir, path.relative(ws.outDir, file).split(path.sep).join('/'));
       // A first screen, so there is something to draw on.
       ws.source.store.apply([{ op: 'screen', name: b.screen || 'Home', width: b.width ?? 393, height: b.height ?? 852 }], { by: 'editor', label: 'New design' });
       return { body: summary(ws) };

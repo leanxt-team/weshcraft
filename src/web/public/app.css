@@ -744,3 +744,16 @@ button.link { border: 0; background: none; padding: 0; cursor: pointer; justify-
 .ed-confirm p { margin: 0; }
 .ed-confirm .row { display: flex; gap: 8px; justify-content: flex-end; }
 .btn.danger { color: var(--red); }
+
+/* designs found in the project */
+.ed-empty:has(.ed-found) { align-content: center; gap: 12px; overflow: auto; }
+.ed-found ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; max-height: 220px; overflow: auto; }
+.ed-open { display: flex; width: 100%; align-items: baseline; gap: 10px; padding: 8px 10px; border: 1px solid var(--hairline); border-radius: 10px; background: var(--glass); cursor: pointer; text-align: left; color: var(--text); }
+.ed-open:hover { border-color: var(--accent); }
+.ed-open .nm { font-weight: 600; white-space: nowrap; }
+.ed-open code { color: var(--muted); font-size: 11.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.ed-empty:has(.ed-found) { place-items: center; align-content: center; }
+/* nothing to edit yet: no screen strip or tools, just the choices */
+.ed-screens:empty { display: none; }
+.ed-center:has(.ed-empty:not([hidden])) .ed-tools { display: none; }
+.ed-canvas:focus, .ed-canvas:focus-visible { outline: none; }

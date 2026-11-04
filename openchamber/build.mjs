@@ -9,12 +9,12 @@ import { build } from 'esbuild';
 const here = path.dirname(fileURLToPath(import.meta.url));
 const app = path.join(here, '..', 'src', 'web', 'public');
 const banner = { js: '/* WeshCraft for OpenChamber, built by openchamber/build.mjs. Edit openchamber/src or src/web/public, then rebuild. */' };
-const DESKTOP = s => s.replaceAll('(max-width: 720px)', '(max-width: 0px)'); // the big panel is the desktop interface
+const DESKTOP = s => s; // narrow rail panel: one view at a time (restyled for OpenChamber in oc-theme.css); wide or expanded: desktop
 
 const common = { bundle: true, format: 'iife', platform: 'browser', target: 'es2021', minify: true, legalComments: 'none', banner };
 
 // small panel: rail + Work Status
-for (const [dir, mode, height] of [['panel', 'panel', null], ['status', 'status', 52]]) {
+for (const [dir, mode, height] of [['status', 'status', 52]]) {
   await build({ ...common, entryPoints: [path.join(here, 'src/sync.js')], outfile: path.join(here, dir, 'main.js') });
   fs.writeFileSync(path.join(here, dir, 'index.html'), smallShell(mode, height));
 }
@@ -67,7 +67,7 @@ ${body.trim()}
 // inline code ('unsafe-inline'), and a page that loads nothing else cannot be broken by how a given
 // OpenChamber version serves (or copies) the package's other files.
 const inlineSafe = js => js.replace(/<\/script/gi, '<\\/script').replace(/<!--/g, '<\\!--');
-for (const dir of ['panel', 'status', 'page']) {
+for (const dir of ['status', 'page']) {
   const f = path.join(here, dir, 'index.html');
   let html = fs.readFileSync(f, 'utf8');
   const js = fs.readFileSync(path.join(here, dir, 'main.js'), 'utf8');
@@ -82,7 +82,7 @@ for (const dir of ['panel', 'status', 'page']) {
   fs.writeFileSync(f, html);
   fs.rmSync(path.join(here, dir, 'main.js'));
 }
-console.log('built openchamber/panel, openchamber/status, openchamber/page (self-contained)');
+console.log('built openchamber/status, openchamber/page (self-contained)');
 
 function smallShell(mode, height) {
   return `<!doctype html>
@@ -148,7 +148,23 @@ function smallShell(mode, height) {
   .sp-f input:focus { outline: none; border-color: var(--oc-focus); box-shadow: 0 0 0 2px color-mix(in srgb, var(--oc-focus) 30%, transparent); }
   .sp-chk { display: flex; align-items: center; gap: 6px; font-size: 12px; }
   .sp-chk input { accent-color: var(--oc-primary); margin: 0; }
-  /* Work Status: one line */
+  /* Work Status: sync, dense */
+  html[data-mode="status"] #root { gap: 6px; padding: 6px 10px 8px; }
+  .st-head { display: flex; align-items: center; gap: 8px; min-width: 0; }
+  .st-line { margin: 0; font-size: 12px; overflow-wrap: anywhere; color: var(--oc-muted); }
+  .st-line.tone-success { color: var(--oc-success-text, var(--oc-success)); } .st-line.tone-error { color: var(--oc-error-text, var(--oc-error)); }
+  .st-line.tone-warning { color: var(--oc-warning-text, var(--oc-warning)); } .st-line.tone-info { color: var(--oc-info-text, var(--oc-info)); }
+  .st-actions { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+  .st-btns { display: inline-flex; gap: 4px; margin-left: auto; }
+  .st-hist { list-style: none; margin: 0; padding: 0; display: grid; gap: 1px; }
+  .st-hist li { display: grid; grid-template-columns: 7px 56px 1fr; align-items: center; gap: 6px; padding: 2px 4px; border-radius: 4px; font-size: 11.5px; }
+  .st-hist li.click { cursor: pointer; } .st-hist li.click:hover { background: var(--oc-hover); }
+  .st-hist .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--oc-success); } .st-hist li.bad .dot { background: var(--oc-error); }
+  .st-hist .when { color: var(--oc-muted); } .st-hist .what { font-family: var(--oc-mono); font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .st-hist li.bad .what { font-family: inherit; color: var(--oc-error-text, var(--oc-error)); }
+  html[data-mode="status"] .sp-setup { padding: 8px; gap: 6px; }
+  html[data-mode="status"] .sp-hint { display: none; }
+  /* (legacy one-line row) */
   .st-row { all: unset; box-sizing: border-box; width: 100%; display: flex; align-items: center; gap: 8px; padding: 4px 6px; border-radius: calc(var(--oc-radius, 8px) - 2px); cursor: pointer; }
   .st-row:hover:not(:disabled) { background: var(--oc-hover); }
   .st-row:disabled { cursor: default; }

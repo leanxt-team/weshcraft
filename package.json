@@ -14,7 +14,8 @@
     "start": "node bin/weshcraft.mjs serve",
     "test": "node --test test/weshcraft.test.mjs",
     "demo": "node -e \"const fs=require('fs');fs.mkdirSync('.weshcraft-demo/design',{recursive:true});if(!fs.existsSync('.weshcraft-demo/design/ridgeline-app.figcraft'))fs.copyFileSync('test/fixtures/ridgeline-app.figcraft','.weshcraft-demo/design/ridgeline-app.figcraft')\" && node bin/weshcraft.mjs serve --out .weshcraft-demo",
-    "build:openchamber": "node openchamber/build.mjs"
+    "build:openchamber": "node openchamber/build.mjs",
+    "test:openchamber": "node test/openchamber/all.mjs"
   },
   "files": [
     "bin",
@@ -37,7 +38,7 @@
         "id": "weshcraft",
         "name": "WeshCraft",
         "icon": "openchamber/icon.svg",
-        "entry": "openchamber/panel/index.html"
+        "entry": "openchamber/page/index.html"
       },
       "page": {
         "entry": "openchamber/page/index.html",
@@ -46,7 +47,7 @@
       "statusSection": {
         "entry": "openchamber/status/index.html",
         "title": "WeshCraft sync",
-        "height": 52
+        "height": 120
       },
       "service": {
         "entry": "openchamber/service/main.js",

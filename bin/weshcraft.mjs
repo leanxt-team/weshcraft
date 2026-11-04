@@ -7,6 +7,7 @@ import { parseArgs } from 'node:util';
 import { fileURLToPath } from 'node:url';
 import { sourceFromOptions } from '../src/figcraft/source.mjs';
 import { openEditable } from '../src/design/source.mjs';
+import { projectDesign } from '../src/design/discover.mjs';
 import { Workspace } from '../src/spec/workspace.mjs';
 import { WeshCraftMcp } from '../src/mcp/server.mjs';
 import { startServer } from '../src/web/server.mjs';
@@ -99,12 +100,8 @@ function syncer(ws, o) {
 function workspace(o, { editable = false } = {}) {
   const outDir = path.resolve(o.out ?? '.');
   let file = o.file ?? o.positionals[0];
-  // serve / mcp in a project: pick up its design (design/*.figcraft) when none is named.
-  if (!file && editable && !o.mcp && !o.attach) {
-    const dir = path.join(outDir, 'design');
-    const found = fs.existsSync(dir) ? fs.readdirSync(dir).filter(n => /\.figcraft(\.json)?$/i.test(n)).sort() : [];
-    if (found.length) file = path.join(dir, found[0]);
-  }
+  // serve / mcp in a project: open its design (remembered, design/, or the only one in the repo).
+  if (!file && editable && !o.mcp && !o.attach) { const found = projectDesign(outDir); if (found) file = path.join(outDir, found.file); }
   const surfaces = o.surface ?? [], servers = o['mcp-server'] ?? [];
   const surface = surfaces.length || servers.length ? new SurfaceSource({ files: surfaces, servers, snapshotDir: path.join(outDir, 'design') }) : null;
   const source = sourceFromOptions({ file: file && path.resolve(file), mcp: o.mcp, attach: o.attach, figcraftCli: o['figcraft-cli'], surfaceOnly: !!surface, editable, readOnly: !!o['read-only'] });

@@ -733,7 +733,7 @@ test('OpenChamber extension: manifest, built pages, service (state, proxy, event
   const pkg = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'));
   const c = pkg.openchamber.contributes;
   for (const entry of [c.panel.entry, c.page.entry, c.statusSection.entry, c.service.entry, c.panel.icon]) assert.ok(fs.existsSync(path.join(root, entry)), entry);
-  for (const page of [c.panel.entry, c.page.entry, c.statusSection.entry]) {
+  for (const page of [...new Set([c.panel.entry, c.page.entry, c.statusSection.entry])]) {
     const html = fs.readFileSync(path.join(root, page), 'utf8');
     assert.ok(!/<script[^>]*\ssrc=|<link[^>]*rel="stylesheet"/.test(html.replace(/<script>[\s\S]*?<\/script>/g, '')), `${page} is self-contained`);
     assert.ok(html.length > 50_000 && /window\.__wcStarted = 'loaded'/.test(html), `${page} carries its built script`);
@@ -742,7 +742,8 @@ test('OpenChamber extension: manifest, built pages, service (state, proxy, event
   const parse = path.join(root, 'node_modules/@openchamber/sdk/dist/parse.js');
   if (fs.existsSync(parse)) assert.equal((await import(parse)).parseManifestJson(JSON.stringify(pkg)).ok, true);
   // the big panel is the desktop app, rebuilt from src/web/public
-  assert.match(fs.readFileSync(path.join(root, 'openchamber/page/index.html'), 'utf8'), /@media \(max-width: 0px\)/);
+  assert.equal(c.panel.entry, c.page.entry, 'the rail panel is the full interface');
+  assert.match(fs.readFileSync(path.join(root, 'openchamber/page/index.html'), 'utf8'), /html\.oc \.phonebar/, 'narrow panels in OpenChamber style');
 
   const dir = tmp();
   fs.mkdirSync(path.join(dir, 'design'));
@@ -787,4 +788,27 @@ test('OpenChamber extension: manifest, built pages, service (state, proxy, event
     assert.equal(st.sync.last.ok, true);
     assert.match(execFileSync('git', ['log', '--oneline', '-1'], { cwd: dir, encoding: 'utf8' }), /docs\(specs\)/);
   } finally { service.stop(); server.close(); }
+});
+
+import { projectDesign } from '../src/design/discover.mjs';
+
+test('project design: remembered, then design/, then the only one in the repo; several → the user picks', () => {
+  const d = tmp();
+  assert.equal(projectDesign(d), null);
+  fs.mkdirSync(path.join(d, 'apps/web/design'), { recursive: true });
+  fs.copyFileSync(ACCOUNT, path.join(d, 'apps/web/design/a.figcraft.json'));
+  assert.deepEqual(projectDesign(d), { file: 'apps/web/design/a.figcraft.json', how: 'only-one' });
+  fs.mkdirSync(path.join(d, 'node_modules/x'), { recursive: true });
+  fs.copyFileSync(ACCOUNT, path.join(d, 'node_modules/x/ignored.figcraft.json'));
+  assert.equal(projectDesign(d).how, 'only-one', 'node_modules is not the project');
+  fs.mkdirSync(path.join(d, 'apps/admin/design'), { recursive: true });
+  fs.copyFileSync(ACCOUNT, path.join(d, 'apps/admin/design/b.figcraft.json'));
+  assert.equal(projectDesign(d), null, 'two candidates: ask');
+  fs.writeFileSync(path.join(d, '.weshcraft.json'), JSON.stringify({ file: 'apps/admin/design/b.figcraft.json' }));
+  assert.deepEqual(projectDesign(d), { file: 'apps/admin/design/b.figcraft.json', how: 'remembered' });
+  fs.mkdirSync(path.join(d, 'design'));
+  fs.copyFileSync(ACCOUNT, path.join(d, 'design/main.figcraft.json'));
+  assert.equal(projectDesign(d).how, 'remembered', 'an explicit choice wins');
+  fs.rmSync(path.join(d, '.weshcraft.json'));
+  assert.deepEqual(projectDesign(d), { file: 'design/main.figcraft.json', how: 'design-folder' });
 });

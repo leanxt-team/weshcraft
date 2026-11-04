@@ -17,6 +17,7 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
+import { projectDesign } from '../src/design/discover.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const BIN = path.join(ROOT, 'bin', 'weshcraft.mjs');
@@ -33,6 +34,8 @@ const NODE_BIN = (() => {
 export function detectConfig(dir, options = {}) {
   const file = path.join(dir, '.opencode', 'weshcraft.json');
   let cfg = { ...options };
+  // The project's design: the one chosen before, design/*.figcraft, or the only one in the repo.
+  if (!cfg.file && !cfg.attach && !cfg.mcp) { const found = projectDesign(dir); if (found) cfg.file = found.file; }
   if (fs.existsSync(file)) {
     try { cfg = { ...cfg, ...JSON.parse(fs.readFileSync(file, 'utf8')) }; } catch (e) { return { error: `.opencode/weshcraft.json: ${e.message}` }; }
   }
@@ -190,7 +193,7 @@ export function createPlugin(deps = {}) {
         await ctx.tool?.transform?.(editor => {
           editor.namespace({ name: 'weshcraft', description: 'WeshCraft: a spec-oriented FigCraft for this project.' });
           editor.add({
-            name: 'start', description: 'Start WeshCraft in this project (no design yet): then design_new creates the design and the design_* tools edit it.',
+            name: 'start', description: 'Start WeshCraft in this project, or connect to the one the user opened in OpenChamber. Call it whenever the user talks about a design, screens, a prototype or specs here: then design_new creates the design (or design_* edits the one the user started) and the specs follow every change.',
             input: { type: 'object', properties: {}, additionalProperties: false }, options: { namespace: 'weshcraft' },
             execute: async () => {
               cfg = detectConfig(dir, { ...(ctx.options ?? {}), force: true });
@@ -211,7 +214,22 @@ export function createPlugin(deps = {}) {
         });
       });
       // Unload or reload: stop the server this plugin started (one another session started keeps running).
-      return () => bridge?.stop();
+      // Idle project: if the user starts WeshCraft from OpenChamber (or a browser), take its tools
+      // without a restart. Cheap: one local HTTP check every few seconds, nothing when the port is free.
+      let idleCheck = null;
+      if (!cfg) {
+        const probe = new Bridge(dir, detectConfig(dir, { ...(ctx.options ?? {}), force: true }), { log, spawnImpl: deps.spawn });
+        idleCheck = setInterval(async () => {
+          if (bridge || !(await probe.alive())) return;
+          clearInterval(idleCheck);
+          cfg = probe.cfg;
+          await register();
+          await ctx.tool?.reload?.();
+          log('WeshCraft is running for this project: design and spec tools are ready');
+        }, deps.idleCheckMs ?? 4000);
+        idleCheck.unref?.();
+      }
+      return () => { clearInterval(idleCheck); bridge?.stop(); };
     },
   };
 }

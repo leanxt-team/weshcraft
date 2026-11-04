@@ -91,7 +91,7 @@ Without links, a tool is matched to the endpoint whose `operationId` has the sam
 node bin/weshcraft.mjs init --client opencode --global
 ```
 
-Installs the OpenCode plugin (OpenCode 2.2+, also used by OpenChamber): the agent gets the `design_*` and `weshcraft_*` tools and `/weshcraft`, and the project's WeshCraft starts with it. In OpenChamber, also add this folder in **Settings → Extensions**: a **small panel** shows the sync status with GitHub, GitLab or the local repository (rail and Work Status), and the **big panel** (Extension pages › WeshCraft) is the whole desktop interface in OpenChamber's theme. GitHub/GitLab access is inherited from the account signed in to OpenChamber, the `gh`/`glab` login or git credentials. See [`opencode/README.md`](opencode/README.md).
+Installs the OpenCode plugin (OpenCode 2.2+, also used by OpenChamber): the agent gets the `design_*` and `weshcraft_*` tools and `/weshcraft`, and the project's WeshCraft starts with it. In OpenChamber, also add this folder in **Settings → Extensions**: the **rail panel** is the whole WeshCraft interface for the open project (it opens the project's existing design, or starts one; edits by hand or by the agent update the specs live), and **Work Status › WeshCraft sync** shows and drives the sync with GitHub, GitLab or the local repository. GitHub/GitLab access is inherited from the account signed in to OpenChamber, the `gh`/`glab` login or git credentials. See [`opencode/README.md`](opencode/README.md).
 
 ### Live FigCraft over MCP (optional)
 

@@ -4,6 +4,7 @@ import path from 'node:path';
 import { createRequire } from 'node:module';
 import { tree, find, props, tokens, subtree } from './describe.mjs';
 import { openEditable } from './source.mjs';
+import { rememberDesign } from './discover.mjs';
 import { buildManifest } from '../model/manifest.mjs';
 import { renderPrototype } from '../proto/html.mjs';
 import { summaryLine, diffManifests } from '../spec/diff.mjs';
@@ -62,6 +63,7 @@ export async function callDesignTool(ws, name, args = {}) {
     const base = String(args.name || 'design').replace(/[^\w.-]+/g, '-').replace(/^-+|-+$/g, '') || 'design';
     const file = path.join(ws.outDir, 'design', `${base}.figcraft`);
     ws.useSource(openEditable(file, args.name));
+    rememberDesign(ws.outDir, path.relative(ws.outDir, file).split(path.sep).join('/'));
     await ws.run();
     return out({ created: path.relative(ws.outDir, file), next: 'design_screen to add the first screen' });
   }

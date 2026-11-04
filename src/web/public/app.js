@@ -474,7 +474,11 @@ function connect() {
   es.addEventListener('manifest', e => applySummary(JSON.parse(e.data).summary));
   es.addEventListener('prototype', e => { reloadProto(JSON.parse(e.data).hash); editor?.onRegenerated(); });
   es.addEventListener('design', e => editor?.onDesign(JSON.parse(e.data)));
-  es.addEventListener('source', e => { const s = JSON.parse(e.data).source; $('#source').textContent = s; $('#source').title = s; });
+  es.addEventListener('source', e => {
+    const s = JSON.parse(e.data).source; $('#source').textContent = s; $('#source').title = s;
+    // A design started or opened elsewhere (the agent, another window): show it now.
+    editor?.onSource();
+  });
   es.addEventListener('parity', e => { state.report = JSON.parse(e.data).report; renderParity(); });
   es.addEventListener('log', e => log(JSON.parse(e.data)));
   es.addEventListener('sync', e => renderSync(JSON.parse(e.data).status));

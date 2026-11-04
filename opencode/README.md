@@ -5,7 +5,15 @@ Two parts in this repository, used together:
 | | What it adds | Where |
 |---|---|---|
 | **OpenCode plugin** (`opencode/plugin.mjs`) | WeshCraft's tools for the agent (`design_*`, `weshcraft_*`), the `/weshcraft` command, and the WeshCraft server for the project | OpenCode 2.2+, and OpenChamber (it runs on the OpenCode server) |
-| **OpenChamber extension** (`openchamber/`, manifest in `package.json`) | **Small panel**: sync status with GitHub / GitLab / this repository. **Big panel**: the whole WeshCraft desktop interface, in OpenChamber's theme | OpenChamber 2.0.1+, web and desktop |
+| **OpenChamber extension** (`openchamber/`, manifest in `package.json`) | **Rail panel**: the whole WeshCraft interface (design editor, prototype, specs, links), in OpenChamber's theme. **Work Status › WeshCraft sync**: sync with GitHub / GitLab / this repository | OpenChamber 2.0.1+, web and desktop |
+
+## How it feels
+
+Open a session in a repository:
+
+- **It already has WeshCraft work** (a design chosen before, `design/*.figcraft`, or the only `.figcraft` in the repo): the rail panel shows it right away. Change it by hand in the panel, or ask the agent ("make the sign-up button say Join"); either way the canvas, the prototype and the specs update within a second, and both see each other's changes. Switching branches switches the design.
+- **It has several designs**: the panel lists them; pick one, it is remembered for the project (`.weshcraft.json`).
+- **It has none**: start one in the panel (pick a screen size), or ask the agent ("start a WeshCraft design for the checkout"). Then it is the first case: the agent gets its design tools as soon as the design exists, the panel shows what the agent builds.
 
 ## Install
 
@@ -19,22 +27,19 @@ Two parts in this repository, used together:
 2. The extension: in OpenChamber, **Settings → Extensions**, paste the path of your WeshCraft folder (or its git URL) into **Folder, ZIP, or URL**, choose **Add**, and allow it. It asks for one permission: a local service, which runs this project's WeshCraft.
 3. Restart OpenCode / reload OpenChamber.
 
-## The small panel (sync status)
+## The rail panel (WeshCraft)
 
-On the rail, and as a **WeshCraft sync** section in Work Status:
-
-- where the specs go: a GitHub or GitLab repository and branch, or this repository's git;
-- the state: Synced (with the commit), Syncing, Waiting (the specs are out of sync with the design: only matching specs are synced), Sync failed (with the reason, and a dot on the rail icon), Not syncing;
-- the pull / merge request (opens in the browser), recent syncs, **Sync now**, **Stop syncing**;
-- when nothing is set up: GitHub · GitLab · Local git, repository, branch, pull request on/off, **Start syncing**.
-
-The Work Status line shows the same state in one row; click it to open the pull request.
-
-## The big panel (WeshCraft)
-
-**Extension pages › WeshCraft** (the menu above the session list) opens the full desktop interface: design editor, prototype, spec builder, reader, front ⇄ back map, manifest, publish & sync. It uses OpenChamber's colours, font, radius and light/dark theme instead of WeshCraft's own Liquid Glass look, and follows the open project.
+The WeshCraft icon on the right opens the full interface for the open project. Narrow, it shows one view at a time with a tab bar at the bottom (Specs · Design · Prototype · Links · Spec); widen or expand the panel and it becomes the desktop layout (spec builder, editor, reader side by side). The same page is in **Extension pages › WeshCraft** full screen. It uses OpenChamber's colours, font, radius and light/dark theme, follows the open project (its name is next to WeshCraft), and puts a dot on the rail icon when the specs are out of sync or a sync failed.
 
 Each page is one self-contained HTML file (script and styles inline), so it works however an OpenChamber version serves package files. Extension pages cannot reach the network themselves, so the page talks to WeshCraft through the extension's service: API calls, live updates (long-polled), the prototype (loaded as HTML), uploads (sent in 45 KB chunks). Downloads and links to other sites open through OpenChamber (in the desktop app, in its browser panel).
+
+## Work Status › WeshCraft sync
+
+Everything about syncing, as tall as it needs:
+
+- where the specs go (a GitHub or GitLab repository and branch, or this repository's git) and the state: Synced (commit), Syncing, Waiting (specs out of sync with the design: only matching specs are synced), Sync failed (with the reason), Not syncing;
+- the pull / merge request, **Sync now**, **Stop**, the last syncs;
+- not set up yet: GitHub · GitLab · Local git, repository, branch, pull request on/off, **Start syncing**.
 
 ## GitHub / GitLab access is inherited
 
@@ -55,6 +60,10 @@ The panel and the publish dialog say which one is used ("Access: your OpenChambe
 - A project with nothing to spec gets one tool, `weshcraft_start`; after it, `design_new` creates the design and the editing tools appear.
 - `/weshcraft` gives the link, parity, front ⇄ back links and open questions.
 - Settings: `.opencode/weshcraft.json` or the plugin's options in `opencode.json` (`file`, `surface`, `mcpServer`, `attach`, `figcraftCli`, `sync`, `port`, `token`). `--no-plugin` registers WeshCraft as an MCP server in `opencode.json` instead.
+
+## Tests
+
+`npm test` (unit). `npm run test:openchamber` runs the extension end to end in a browser against a stand-in for OpenChamber built from its source (sandboxed frames, its CSP and message schema, HTML-only serving), including the session flow above with the real plugin as the agent.
 
 ## Rebuild the extension pages
 

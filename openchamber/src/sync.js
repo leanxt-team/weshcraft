@@ -138,20 +138,54 @@ function render() {
   root.append(el('p', 'sp-hint', 'Full WeshCraft (design, prototype, specs): Extension pages menu › WeshCraft.'));
 }
 
+/** Work Status: everything about sync, dense, as tall as its content (the section grows up to 320 px). */
 function renderCompact(h, s, kind) {
-  const row = el('button', 'st-row');
-  row.type = 'button';
-  const dot = el('span', 'st-dot');
-  dot.dataset.tone = h.tone;
-  const where2 = s?.target ? (kind === 'git' ? 'git' : s.repo) : null;
-  row.append(dot, el('span', 'st-label', h.label), el('span', 'st-meta', where2 ? `${PROVIDER[kind] ?? ''} ${where2}`.trim() : ''));
-  const url = s?.last?.url;
-  if (url) { const go = el('span', 'st-go', s.last.number ? `#${s.last.number}` : 'Open'); row.append(go); }
-  row.disabled = !url;
-  row.title = url ?? '';
-  row.addEventListener('click', () => url && host.openUrl(url).catch(() => {}));
-  root.append(row, el('div', 'st-sub', h.line || ''));
+  const head = el('div', 'st-head');
+  const dot = el('span', 'st-dot'); dot.dataset.tone = h.tone;
+  const where2 = s?.target ? (kind === 'git' ? 'this repository' : s.repo) : '';
+  head.append(dot, el('span', 'st-label', h.label), el('span', 'st-meta', where2 ? `${PROVIDER[kind] ?? ''} · ${where2}${s.branch ? ` @ ${s.branch}` : ''}` : ''));
+  root.append(head);
+  if (error || state?.status === 'error') { root.append(el('p', 'st-line tone-error', h.line)); return; }
+  if (state?.status === 'none') { root.append(el('p', 'st-line', 'No design in this project yet: open WeshCraft (rail) to start one, then sync its specs here.')); return; }
+  if (h.line) root.append(el('p', `st-line tone-${h.tone}`, h.line));
+  if (s?.target) {
+    const links = el('div', 'st-actions');
+    const url = s.last?.url;
+    if (url) {
+      const a = el('button', 'sp-link', s.last.number ? `${kind === 'gitlab' ? 'Merge request !' : 'Pull request #'}${s.last.number} ↗` : 'Open on the web ↗');
+      a.type = 'button'; a.title = url;
+      a.addEventListener('click', () => host.openUrl(url).catch(() => {}));
+      links.append(a);
+    }
+    const btns = el('span', 'st-btns');
+    mountButton(btns, { label: 'Sync now', size: 'xs', loading: !!s.busy || busyAction, disabled: !!s.busy || busyAction, onClick: syncNow });
+    mountButton(btns, { label: 'Stop', variant: 'ghost', size: 'xs', onClick: () => act({ off: true }, 'Sync stopped') });
+    links.append(btns);
+    root.append(links);
+    if (s.access) root.append(el('p', 'sp-access', `Access: ${s.access}`));
+    if (s.history?.length) {
+      const ul = el('ul', 'st-hist');
+      for (const x of s.history.slice(0, 3)) {
+        const li = el('li', x.ok ? 'ok' : 'bad');
+        li.append(el('span', 'dot'), el('span', 'when', ago(x.at)), el('span', 'what', x.ok ? (x.changed === false ? 'no change' : `${x.commit ? String(x.commit).slice(0, 7) : 'committed'}${x.files != null ? ` · ${x.files} files` : ''}`) : (x.error ?? 'failed')));
+        if (x.url) { li.classList.add('click'); li.title = x.url; li.addEventListener('click', () => host.openUrl(x.url).catch(() => {})); }
+        ul.append(li);
+      }
+      root.append(ul);
+    }
+  } else if (state?.status === 'ok') root.append(setupForm());
 }
+
+/** The Work Status section is as tall as what it shows. */
+let lastHeight = 0;
+function fitHeight() {
+  if (!compact) return;
+  const hgt = Math.min(320, Math.max(28, Math.ceil(root.getBoundingClientRect().height) + 2));
+  if (Math.abs(hgt - lastHeight) < 2) return;
+  lastHeight = hgt;
+  host.setHeight(hgt).catch(() => {});
+}
+if (compact) new ResizeObserver(fitHeight).observe(root);
 
 function setupForm() {
   const f = el('form', 'sp-setup');
@@ -237,7 +271,6 @@ host.onReady(ctx => {
   try {
     directory = ctx.directory ?? null;
     render();
-    if (compact) host.setHeight(52).catch(() => {});
     refresh().catch(e => fail('refresh', e));
     host.onDirectory(d => { if (d !== directory) { directory = d; state = null; try { render(); } catch (e) { fail('render', e); } refresh().catch(e => fail('refresh', e)); } });
   } catch (e) { fail('start', e); }

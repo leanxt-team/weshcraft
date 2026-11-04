@@ -1,0 +1,58 @@
+import fs from 'node:fs';
+import path from 'node:path';
+import { createRequire } from 'node:module';
+import { startHost } from './host.mjs';
+const [ROOT, P1, WORK, OUT] = process.argv.slice(2);
+const { chromium } = createRequire(import.meta.url)('playwright');
+fs.rmSync(WORK, { recursive: true, force: true });
+const P4 = path.join(WORK, 'mono'); fs.mkdirSync(path.join(P4, 'apps/mobile/design'), { recursive: true });
+fs.copyFileSync(path.join(ROOT, 'test/fixtures/account.figcraft.json'), path.join(P4, 'apps/mobile/design/account.figcraft.json'));
+fs.mkdirSync(path.join(P4, 'apps/web/design'), { recursive: true });
+fs.copyFileSync(path.join(ROOT, 'test/fixtures/ridgeline-onboarding.figcraft'), path.join(P4, 'apps/web/design/onboarding.figcraft'));
+const { createService, listen } = await import(path.join(ROOT, 'openchamber/service/main.js'));
+const service = createService(); const s = listen({ port: 47994, token: 't', service });
+const host = await startHost({ root: ROOT, sdkDir: path.join(ROOT, 'node_modules/@openchamber/sdk'), service: { port: 47994, token: 't' } });
+const b = await chromium.launch(); const errs = [];
+const R = []; const ok = (n, c, i = '') => R.push(`${c ? 'PASS' : 'FAIL'} ${n}${i ? ` — ${i}` : ''}`);
+const open = async (dir, w, h, theme = 'light') => {
+  const p = await b.newPage({ viewport: { width: w + 20, height: h + 20 }, deviceScaleFactor: 2 });
+  p.on('pageerror', e => errs.push(e.message)); p.on('console', m => m.type() === 'error' && !/fonts\.g|Content Security/.test(m.text()) && errs.push(m.text()));
+  await p.goto(`${host.url}/host?entry=openchamber/page/index.html&dir=${encodeURIComponent(dir)}&w=${w}&h=${h}&surface=panel&theme=${theme}`);
+  return { p, f: p.frameLocator('#f') };
+};
+let o = await open(P1, 460, 860);
+await o.f.locator('#edScreen [data-node]').first().waitFor({ timeout: 30000 }); await o.p.waitForTimeout(800);
+await o.p.screenshot({ path: `${OUT}/n-design.png` });
+const t = await o.f.locator('#edScreen [data-node]').filter({ hasText: /^Where/ }).last().boundingBox();
+await o.p.keyboard.down('Control'); await o.p.mouse.click(t.x + 4, t.y + 4); await o.p.keyboard.up('Control'); await o.p.waitForTimeout(700);
+await o.p.screenshot({ path: `${OUT}/n-design-selected.png` });
+const geo = await o.p.frames().find(x => x.url().includes('guest-files')).evaluate(() => {
+  const r = s => document.querySelector(s).getBoundingClientRect();
+  return { canvas: r('#edCanvas'), insp: r('#edInspector'), tools: r('.ed-tools'), bar: r('.phonebar') };
+});
+ok('narrow: toolbar above the canvas', geo.tools.bottom <= geo.canvas.top + 1, JSON.stringify([geo.tools.bottom, geo.canvas.top]));
+ok('narrow: inspector below the canvas, no overlap', geo.canvas.bottom <= geo.insp.top + 1, JSON.stringify([geo.canvas.bottom, geo.insp.top]));
+ok('narrow: everything above the tab bar', geo.insp.bottom <= geo.bar.top + 1, JSON.stringify([geo.insp.bottom, geo.bar.top]));
+ok('narrow: canvas gets real room', geo.canvas.height > 300, String(geo.canvas.height));
+ok('narrow: project name in the header', /repo/.test(await o.f.locator('.brand').innerText()));
+for (const v of ['specs', 'proto', 'links', 'read']) { await o.f.locator(`.phonebar [data-view="${v}"]`).click(); await o.p.waitForTimeout(900); await o.p.screenshot({ path: `${OUT}/n-${v}.png` }); }
+await o.p.close();
+// a monorepo whose design lives in a subfolder
+o = await open(P4, 460, 860);
+await o.f.locator('.ed-open').first().waitFor({ timeout: 30000 });
+await o.p.waitForTimeout(400);
+await o.p.screenshot({ path: `${OUT}/n-found.png` });
+ok('several designs: the user picks', /apps\/mobile\/design\/account\.figcraft\.json/.test(await o.f.locator('.ed-found').innerText()) && /apps\/web\/design\/onboarding\.figcraft/.test(await o.f.locator('.ed-found').innerText()));
+await o.f.locator('.ed-open', { hasText: 'apps/mobile/design/account.figcraft.json' }).click();
+ok('open in place: editor shows its screens', !!await (async () => { for (let i = 0; i < 60; i++) { if (await o.f.locator('#edScreen [data-node]').count() > 3) return true; await o.p.waitForTimeout(250); } return false; })());
+ok('choice remembered for the project', JSON.parse(fs.readFileSync(path.join(P4, '.weshcraft.json'), 'utf8')).file === 'apps/mobile/design/account.figcraft.json');
+ok('edited in place (no copy)', !fs.existsSync(path.join(P4, 'design')));
+await o.p.screenshot({ path: `${OUT}/n-opened.png` });
+await o.p.close();
+o = await open(P1, 460, 860, 'dark');
+await o.f.locator('#edScreen [data-node]').first().waitFor({ timeout: 30000 }); await o.p.waitForTimeout(800);
+await o.p.screenshot({ path: `${OUT}/n-design-dark.png` });
+await o.p.close();
+ok('no errors', errs.length === 0, errs.slice(0, 3).join(' | '));
+console.log(R.join('\n'));
+await b.close(); service.stop(); s.close(); host.close(); setTimeout(() => process.exit(0), 300);

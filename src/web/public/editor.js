@@ -106,10 +106,26 @@ export function createEditor({ openFile, markdown, log }) {
     else if (reason === 'read-only') el.innerHTML = '<div class="ed-card"><h3>Read-only</h3><p>This WeshCraft was started with <code>--read-only</code>: the design is shown in the Prototype tab and edited elsewhere (FigCraft, another WeshCraft). Specs still follow every save.</p></div>';
     else if (reason === 'no-screen') el.innerHTML = '<div class="ed-card"><h3>No screen yet</h3><p>Add the first screen of this design.</p><div class="ed-presets" data-act="presets"></div></div>';
     else el.innerHTML = `<form class="ed-card" id="edNewForm"><h3>Start a design</h3><p>A new FigCraft document in <code>design/</code>: draw screens here, or let your agent build them with the <code>design_*</code> tools. Specs are written as you go.</p><label>Name <input name="name" value="App" required autocomplete="off"></label><div class="ed-presets" data-act="new"></div><p class="muted small">Or open an existing <code>.figcraft</code> from the menu.</p></form>`;
+    if (reason === 'none') {
+      // Designs already in this project (any folder): open one in place, before starting a new one.
+      api('/candidates').then(list => {
+        if (!list?.length || !el.querySelector('#edNewForm')) return;
+        const box = document.createElement('div');
+        box.className = 'ed-card ed-found';
+        box.innerHTML = `<h3>Designs in ${esc(E.S?.project ?? 'this project')}</h3><p>Open one to edit it in place; WeshCraft remembers it for this project.</p><ul>${list.map(c => `<li><button type="button" class="ed-open" data-file="${esc(c.file)}"><span class="nm">${esc(c.name)}</span><code>${esc(c.file)}</code></button></li>`).join('')}</ul>`;
+        el.prepend(box);
+      }).catch(() => {});
+    }
     const host = el.querySelector('.ed-presets');
     if (host) host.innerHTML = PRESETS.map(([n, w, h]) => `<button type="button" class="ed-preset" data-w="${w}" data-h="${h}"><span class="ed-pv" style="aspect-ratio:${w}/${h}"></span>${n}<small>${w}×${h}</small></button>`).join('');
   }
   $('#edEmpty').addEventListener('click', async e => {
+    const openBtn = e.target.closest('.ed-open');
+    if (openBtn) {
+      openBtn.disabled = true;
+      try { await api('/open', { file: openBtn.dataset.file }); E.screenId = null; E.fit = true; await refresh(); onAvailable?.(true); status(`Opened ${openBtn.dataset.file}`); } catch (err) { status(err.message, 'err'); openBtn.disabled = false; }
+      return;
+    }
     const b = e.target.closest('.ed-preset');
     if (!b) return;
     const w = Number(b.dataset.w), h = Number(b.dataset.h);
@@ -675,6 +691,7 @@ export function createEditor({ openFile, markdown, log }) {
 
   async function renderInspector() {
     const box = $('#edInspector');
+    box.dataset.sel = String(E.sel.length);
     const tabs = `<div class="ed-itabs" role="tablist"><button type="button" role="tab" data-itab="design" aria-selected="${E.insp === 'design'}">Design</button><button type="button" role="tab" data-itab="spec" aria-selected="${E.insp === 'spec'}">Spec</button></div>`;
     if (E.insp === 'spec') { box.innerHTML = `${tabs}<div class="ed-spec" id="edSpec"><p class="empty">Loading…</p></div>`; return renderSpecTab(); }
     if (!E.sel.length) { box.innerHTML = tabs + docPanel(); return; }
@@ -834,5 +851,6 @@ export function createEditor({ openFile, markdown, log }) {
     /** Specs were regenerated: screen keys may have changed; the Spec tab refreshes. */
     onRegenerated() { if (shown && document.body.classList.contains('editing')) { api('').then(S => { E.S = S; renderScreens(); if (E.insp === 'spec') renderSpecTab(); }).catch(() => {}); } },
     available() { return !!E.S?.editable; },
+    onSource() { E.screenId = null; E.sel = []; E.fit = true; E.version = -1; if (shown) refresh(); },
   };
 }

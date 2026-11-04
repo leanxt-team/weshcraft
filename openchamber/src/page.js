@@ -22,10 +22,22 @@ host.onReady(ctx => {
   window.__wcStarted = 'ready';
   try { applyHostReady(ctx, document.documentElement); } catch (e) { console.error(e); }
   document.documentElement.classList.add('oc');
-  if (!readyAt) { readyAt = Date.now(); directory = ctx.directory ?? null; resolveReady(); }
+  if (!readyAt) {
+    readyAt = Date.now(); directory = ctx.directory ?? null; resolveReady();
+    // Which project this is, next to the name.
+    const brand = document.querySelector('.brand');
+    if (brand && directory && !brand.querySelector('.oc-project')) { const s = document.createElement('span'); s.className = 'oc-project'; s.textContent = directory.split(/[\\/]/).filter(Boolean).pop(); s.title = directory; brand.append(s); }
+  }
 });
 // Another project in the same window: start over with its WeshCraft.
-host.onDirectory(d => { if (readyAt && d && d !== directory) location.reload(); });
+host.onDirectory(d => {
+  if (!readyAt || !d || d === directory) return;
+  const n = document.createElement('div');
+  n.className = 'oc-switching';
+  n.textContent = `Opening ${d.split(/[\\/]/).filter(Boolean).pop()}…`;
+  document.body.append(n);
+  setTimeout(() => location.reload(), 60);
+});
 
 // Never a blank page: say what is wrong in the page itself.
 function showProblem(title, detail) {
@@ -97,6 +109,19 @@ window.fetch = async (input, init = {}) => {
   return new Response(empty ? null : r.body, { status: r.status, headers: { 'Content-Type': typeOf(url.pathname) } });
 };
 
+// The rail icon carries a dot when something needs a look: parity errors or a failed sync.
+const badge = { errors: 0, syncFailed: false, shown: undefined };
+function badgeFrom(e) {
+  try {
+    const d = JSON.parse(e.data);
+    if (e.type === 'parity') badge.errors = d.report?.errors ?? 0;
+    else if (e.type === 'sync') badge.syncFailed = d.status?.last ? d.status.last.ok === false : false;
+    else return;
+  } catch { return; }
+  const n = badge.errors + (badge.syncFailed ? 1 : 0) || null;
+  if (n !== badge.shown) { badge.shown = n; host.setBadge(n).catch(() => {}); }
+}
+
 class PollingEventSource {
   constructor() {
     this.listeners = new Map();
@@ -115,6 +140,7 @@ class PollingEventSource {
         if (r.status >= 400) throw new Error(`events: HTTP ${r.status}`);
         const j = JSON.parse(r.body);
         if (j.reset) { location.reload(); return; }
+        for (const e of j.events) badgeFrom(e);
         for (const e of j.events) {
           for (const fn of this.listeners.get(e.type) ?? []) { try { fn({ type: e.type, data: e.data }); } catch (err) { console.error(err); } }
         }

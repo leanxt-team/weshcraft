@@ -90,11 +90,72 @@ html.oc .doc { font-family: var(--font); }
 html.oc .doc table, html.oc .doc th, html.oc .doc td { border-color: var(--oc-border); }
 html.oc .doc pre, html.oc .doc code { background: var(--oc-muted-surface); }
 
-/* the big panel is the desktop interface: no phone tab bar or floating buttons */
-html.oc .phonebar, html.oc .fab, html.oc .more { display: none !important; }
+/* A narrow rail panel shows one view at a time (WeshCraft's compact mode), in OpenChamber's look:
+   a flat tab bar along the bottom, square panes, desktop text sizes. Wide or expanded: desktop. */
+@media (max-width: 720px) {
+  html.oc:root { --tabbar: 50px; --safe-b: 0px; --safe-t: 0px; }
+  html.oc body { padding: 0 0 var(--tabbar); font-size: 13px; }
+  html.oc .top { position: sticky; top: 0; border-radius: 0; margin: 0; min-height: 44px; padding: 4px 6px 4px 12px; border-bottom: 1px solid var(--oc-border); }
+  html.oc .brand { font-size: 14px; }
+  html.oc .parity { font-size: 11.5px; }
+  html.oc .more { width: 30px; height: 30px; background: transparent; border-radius: calc(var(--oc-radius, 8px) - 2px); }
+  html.oc .more:hover { background: var(--oc-hover); }
+  html.oc .builder, html.oc .stage, html.oc .reader { height: calc(100vh - 45px - var(--tabbar)); min-height: 0; border-radius: 0; }
+  html.oc .phonebar { left: 0; right: 0; bottom: 0; height: var(--tabbar); padding: 4px 6px; border-radius: 0; border: 0; border-top: 1px solid var(--oc-border); background: var(--oc-bg); box-shadow: none; }
+  html.oc .phonebar button { border-radius: calc(var(--oc-radius, 8px) - 2px); font-size: 10.5px; color: var(--oc-muted); }
+  html.oc .phonebar button svg { width: 20px; height: 20px; }
+  html.oc .phonebar button[aria-current="true"] { color: var(--oc-primary-text, var(--oc-primary)); }
+  html.oc .phonebar .thumb { background: var(--oc-selection) !important; box-shadow: none !important; }
+  html.oc .job { height: 32px; font-size: 13px; }
+  html.oc .group h3 { font-size: 11.5px; }
+  html.oc .pane-head { min-height: 40px; padding: 8px 10px 4px 14px; }
+  html.oc .pane-head h2 { font-size: 10.5px; }
+  html.oc .doc { font-size: 13px; }
+  html.oc .fab { height: 34px; font-size: 13px; border-radius: var(--oc-radius, 8px); background: var(--oc-primary); color: var(--oc-primary-fg); box-shadow: none; bottom: calc(var(--tabbar) + 10px); }
+  html.oc .sheet { border-radius: calc(var(--oc-radius, 8px) + 4px) calc(var(--oc-radius, 8px) + 4px) 0 0; }
+  html.oc .ed-canvas { border-radius: var(--oc-radius, 8px); }
+  html.oc .ed-sec { background: var(--oc-bg); border: 1px solid var(--oc-border); border-radius: var(--oc-radius, 8px); }
+  html.oc .f input, html.oc .f select, html.oc .ed-sec textarea, html.oc .ed-notes input { height: 30px; font-size: 13px; }
+  html.oc .f { font-size: 12.5px; }
+}
 
 /* what the page says when OpenChamber or the service is not there */
 .oc-problem { position: fixed; z-index: 100; left: 50%; top: 56px; transform: translateX(-50%); max-width: min(560px, calc(100vw - 32px)); padding: 12px 14px; border: 1px solid var(--oc-border, #ccc); border-radius: var(--oc-radius, 8px); background: var(--oc-elevated, Canvas); color: var(--oc-fg, CanvasText); font: 12.5px/1.45 var(--oc-font, system-ui, sans-serif); box-shadow: 0 12px 32px rgba(0, 0, 0, .2); white-space: pre-wrap; overflow-wrap: anywhere; }
 .oc-problem strong { display: block; margin-bottom: 4px; font-size: 13px; }
 html.oc fieldset.seg label:has(input:checked) { background: var(--oc-bg) !important; box-shadow: 0 0 0 1px var(--oc-border), 0 1px 2px rgba(0, 0, 0, .06) !important; color: var(--oc-fg); font-weight: 600; border-radius: calc(var(--oc-radius, 8px) - 2px); }
 html.oc fieldset.seg .thumb { display: none; }
+
+/* the project, next to the name */
+html.oc .brand .oc-project { font-weight: 500; color: var(--oc-muted); margin-left: 2px; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 22ch; }
+html.oc .brand .oc-project::before { content: '·'; margin: 0 6px 0 2px; }
+.oc-switching { position: fixed; inset: 0; z-index: 90; display: grid; place-items: center; background: color-mix(in srgb, var(--oc-bg) 80%, transparent); font: 13px var(--oc-font, system-ui); color: var(--oc-muted); }
+
+/* the design editor in a narrow rail panel: chips, tools, canvas filling the space, inspector below */
+@media (max-width: 720px) {
+  html.oc body[data-view="design"] .stage { display: flex; flex-direction: column; height: calc(100vh - 45px - var(--tabbar)); overflow: hidden; }
+  html.oc .tabpanel.ed { flex: 1; min-height: 0; display: flex; flex-direction: column; margin: 0; }
+  html.oc .ed-left { flex: none; }
+  html.oc .ed-screens { padding: 6px 8px 4px; gap: 4px; }
+  html.oc .ed-screens li { height: 26px; padding: 0 10px; font-size: 12.5px; border-radius: calc(var(--oc-radius, 8px) - 2px); background: var(--oc-muted-surface); border: 1px solid var(--oc-border); }
+  html.oc .ed-screens li[aria-selected="true"] { background: var(--oc-selection); border-color: transparent; }
+  html.oc .ed-screens::after { width: 26px; height: 26px; border-radius: calc(var(--oc-radius, 8px) - 2px); background: var(--oc-muted-surface); border: 1px solid var(--oc-border); font-size: 15px; }
+  html.oc .ed-center { flex: 1 1 auto; min-height: 160px; display: flex; flex-direction: column; }
+  html.oc .ed-tools { flex: none; padding: 2px 8px 6px; gap: 4px; }
+  html.oc .ed-seg button { min-width: 30px; height: 28px; }
+  html.oc .ed-icon { width: 28px; height: 28px; }
+  html.oc .ed-canvas { flex: 1 1 auto; height: auto; min-height: 0; margin: 0 8px; border: 1px solid var(--oc-border); border-radius: var(--oc-radius, 8px); }
+  html.oc .ed-right { flex: 0 0 auto; max-height: 46%; overflow: auto; margin-top: 6px; border-top: 1px solid var(--oc-border); padding-bottom: 8px; }
+  html.oc .ed-right[data-sel="0"] { max-height: 30%; }
+  html.oc .ed-itabs { position: sticky; top: 0; z-index: 2; padding: 6px 8px 4px; background: var(--oc-bg); }
+  html.oc .ed-itabs button { height: 26px; font-size: 12px; }
+  html.oc .ed-sec { margin: 6px 8px 0; padding: 8px 10px; }
+  html.oc .ed-presets.small { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+  html.oc .ed-presets.small .ed-preset { padding: 6px 2px; font-size: 11px; }
+  html.oc .ed-empty { padding: 12px; }
+  html.oc .ed-card { padding: 14px; max-width: 100%; }
+  html.oc .ed-card h3 { font-size: 14px; }
+}
+@media (max-width: 720px) {
+  html.oc .hd { width: 8px; height: 8px; margin: -4px 0 0 -4px; border-radius: 2px; } /* a mouse panel, not a phone */
+}
+html.oc .ed-canvas:focus-visible { outline: none; }
