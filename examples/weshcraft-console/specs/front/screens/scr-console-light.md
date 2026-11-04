@@ -2,6 +2,7 @@
 
 | | |
 |---|---|
+| Function | [Console](../../FUNCTIONS.md#fn-console) |
 | Node | `#2` |
 | Page | Console |
 | Frame | 1440 × 960 px |
@@ -711,6 +712,7 @@ _No notes yet. Agent or human additions go here; WeshCraft keeps this block when
   }
  ],
  "fingerprint": "dbd1d9140820",
+ "function": "fn-console",
  "inputs": [
   46,
   47
@@ -924,6 +926,6 @@ _No notes yet. Agent or human additions go here; WeshCraft keeps this block when
   1440,
   960
  ],
- "sourceHash": "d378e26074d3cd4f"
+ "sourceHash": "d69943427aa24a1d"
 }
 -->

@@ -8,6 +8,7 @@ Every operation a screen needs, grouped by screen. Conventions (auth, errors, pa
 ### `GET /jobs` — GET /jobs → Job
 
 - Screen: [Console — Light](../front/screens/scr-console-light.md), on screen load
+- Function: [Console](../FUNCTIONS.md#fn-console)
 - Kind: annotated · confidence: explicit
 - Response shown: `Job.file` (`#156` `#164` `#172` `#180`), `Job.group` (`#157` `#165` `#173` `#181`), `Job.updated` (`#158` `#166` `#174` `#182`), `Job.status` (`#161` `#169` `#177` `#185`), `Job.checks` (`#162` `#170` `#178` `#186`)
 - Returns: `Job`
@@ -17,6 +18,7 @@ Every operation a screen needs, grouped by screen. Conventions (auth, errors, pa
 ### `POST /specs/publish` — POST /specs/publish → Spec
 
 - Screen: [Console — Light](../front/screens/scr-console-light.md), triggered by `#54`
+- Function: [Console](../FUNCTIONS.md#fn-console)
 - Kind: annotated · confidence: explicit
 - Front end: ▶ `#54` Publish · ⇢ `#46` Search · ⇢ `#47` Search
 - Returns: `Spec`
@@ -27,6 +29,7 @@ Every operation a screen needs, grouped by screen. Conventions (auth, errors, pa
 ### `GET /parity` — GET /parity → Parity
 
 - Screen: [Console — Light](../front/screens/scr-console-light.md), triggered by `#56`
+- Function: [Console](../FUNCTIONS.md#fn-console)
 - Kind: annotated · confidence: explicit
 - Front end: ▶ `#56` Parity
 - Returns: `Parity`
@@ -36,6 +39,7 @@ Every operation a screen needs, grouped by screen. Conventions (auth, errors, pa
 ### `GET /parity/trend` — GET /parity/trend → Parity
 
 - Screen: [Console — Light](../front/screens/scr-console-light.md), triggered by `#80`
+- Function: [Console](../FUNCTIONS.md#fn-console)
 - Kind: annotated · confidence: explicit
 - Front end: ▶ `#80` Parity over time
 - Returns: `Parity`
@@ -45,6 +49,7 @@ Every operation a screen needs, grouped by screen. Conventions (auth, errors, pa
 ### `GET /links` — GET /links → Link
 
 - Screen: [Console — Light](../front/screens/scr-console-light.md), triggered by `#101`
+- Function: [Console](../FUNCTIONS.md#fn-console)
 - Kind: annotated · confidence: explicit
 - Front end: ▶ `#101` Spec jobs by group
 - Response shown: `Link.rel` (`#113` `#117` `#121`), `Link.share` (`#114` `#118` `#122`)
@@ -55,6 +60,7 @@ Every operation a screen needs, grouped by screen. Conventions (auth, errors, pa
 ### `GET /parity/history` — GET /parity/history → Parity
 
 - Screen: [Console — Light](../front/screens/scr-console-light.md), triggered by `#123`
+- Function: [Console](../FUNCTIONS.md#fn-console)
 - Kind: annotated · confidence: explicit
 - Front end: ▶ `#123` Checks per run
 - Response shown: `Parity.score` (`#59`), `Parity.checks` (`#65`), `Parity.errors` (`#71`), `Parity.screens` (`#77`)
@@ -65,6 +71,7 @@ Every operation a screen needs, grouped by screen. Conventions (auth, errors, pa
 ### `GET /specs` — GET /specs → Spec
 
 - Screen: [Console — Light](../front/screens/scr-console-light.md), triggered by `#144`
+- Function: [Console](../FUNCTIONS.md#fn-console)
 - Kind: annotated · confidence: explicit
 - Front end: ▶ `#144` Spec jobs
 - Returns: `Spec`
@@ -130,6 +137,6 @@ _No notes yet. Agent or human additions go here; WeshCraft keeps this block when
    "trigger": 144
   }
  ],
- "sourceHash": "d378e26074d3cd4f"
+ "sourceHash": "d69943427aa24a1d"
 }
 -->

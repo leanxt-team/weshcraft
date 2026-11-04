@@ -2,7 +2,9 @@
 
 ```mermaid
 flowchart LR
-  scr_console_light["Console — Light"]
+  subgraph fn_console["Console"]
+    scr_console_light["Console — Light"]
+  end
 ```
 
 | From | Element | To | Transition |
@@ -19,6 +21,6 @@ _No notes yet. Agent or human additions go here; WeshCraft keeps this block when
 {
  "edges": [],
  "kind": "front-flows",
- "sourceHash": "d378e26074d3cd4f"
+ "sourceHash": "d69943427aa24a1d"
 }
 -->

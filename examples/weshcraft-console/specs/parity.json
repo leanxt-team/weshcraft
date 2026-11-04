@@ -1,9 +1,16 @@
 {
  "ok": true,
  "score": 100,
- "checks": 584,
+ "checks": 588,
  "errors": 0,
- "warnings": 0,
- "issues": [],
- "sourceHash": "d378e26074d3cd4f"
+ "warnings": 1,
+ "issues": [
+  {
+   "level": "warning",
+   "code": "functions-suggested",
+   "file": "specs/FUNCTIONS.md",
+   "message": "the function is suggested from the prototype: name them and give each a purpose (design_functions or the Functions view)"
+  }
+ ],
+ "sourceHash": "d69943427aa24a1d"
 }

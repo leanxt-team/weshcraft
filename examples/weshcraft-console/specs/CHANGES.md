@@ -2,6 +2,10 @@
 
 Every regeneration that changed the prototype, newest first. Written by WeshCraft from the manifest; `#id` cites the layer.
 
+<!-- weshcraft:change d69943427aa24a1d -->
+### 2026-11-04 14:58 UTC · `d378e26074d3cd4f` → `d69943427aa24a1d`
+
+
 <!-- weshcraft:change d378e26074d3cd4f -->
 ### 2026-11-04 07:33 UTC · `60e569c9b2fe7a39` → `d378e26074d3cd4f`
 

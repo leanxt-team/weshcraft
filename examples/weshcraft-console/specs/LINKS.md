@@ -9,7 +9,9 @@ Legend: ▶ triggers an operation · ⇢ submits a request field · ☰ list fil
 ```mermaid
 flowchart LR
   subgraph Front[Front end]
-    scr_console_light["Console — Light"]
+    subgraph fn_console["Console"]
+      scr_console_light["Console — Light"]
+    end
   end
   subgraph API
     op_get_jobs_2["GET /jobs"]
@@ -368,6 +370,6 @@ _No notes yet._
  ],
  "gaps": 0,
  "kind": "links",
- "sourceHash": "d378e26074d3cd4f"
+ "sourceHash": "d69943427aa24a1d"
 }
 -->

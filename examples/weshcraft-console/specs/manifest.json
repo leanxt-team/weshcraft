@@ -3,7 +3,7 @@
  "source": {
   "name": "WeshCraft Console",
   "truncated": false,
-  "hash": "d378e26074d3cd4f"
+  "hash": "d69943427aa24a1d"
  },
  "screens": [
   {
@@ -1747,5 +1747,57 @@
    }
   ],
   "gaps": []
+ },
+ "functions": {
+  "declared": false,
+  "items": [
+   {
+    "key": "fn-console",
+    "name": "Console",
+    "summary": "",
+    "screens": [
+     "scr-console-light"
+    ],
+    "operations": [
+     "op-get-jobs-2",
+     "op-post-specs-publish-54",
+     "op-get-parity-56",
+     "op-get-parity-trend-80",
+     "op-get-links-101",
+     "op-get-parity-history-123",
+     "op-get-specs-144"
+    ],
+    "tools": [],
+    "endpoints": [],
+    "entities": [
+     {
+      "name": "Job",
+      "access": "reads"
+     },
+     {
+      "name": "Link",
+      "access": "reads"
+     },
+     {
+      "name": "Parity",
+      "access": "reads"
+     },
+     {
+      "name": "Spec",
+      "access": "reads, writes"
+     }
+    ],
+    "actors": [
+     "user"
+    ],
+    "next": []
+   }
+  ],
+  "unassigned": {
+   "screens": [],
+   "operations": [],
+   "tools": []
+  },
+  "missing": []
  }
 }

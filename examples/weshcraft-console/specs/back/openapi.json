@@ -3,7 +3,7 @@
   "info": {
     "title": "WeshCraft Console API",
     "version": "0.1.0",
-    "x-weshcraft-source-hash": "d378e26074d3cd4f"
+    "x-weshcraft-source-hash": "d69943427aa24a1d"
   },
   "paths": {
     "/jobs": {
