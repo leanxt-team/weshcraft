@@ -43,7 +43,15 @@ export function linksSpec(manifest, { notes } = {}) {
     L.push('```mermaid');
     L.push('flowchart LR');
     L.push('  subgraph Front[Front end]');
-    for (const s of manifest.screens.filter(s => edges.some(e => e.screen === s.key))) L.push(`    ${nodeId(s.key)}["${s.name.replace(/"/g, "'")}"]`);
+    const linked = manifest.screens.filter(s => edges.some(e => e.screen === s.key));
+    for (const f of manifest.functions?.items ?? []) {
+      const mine = linked.filter(s => f.screens.includes(s.key));
+      if (!mine.length) continue;
+      L.push(`    subgraph ${nodeId(f.key)}["${f.name.replace(/"/g, "'")}"]`);
+      for (const s of mine) L.push(`      ${nodeId(s.key)}["${s.name.replace(/"/g, "'")}"]`);
+      L.push('    end');
+    }
+    for (const s of linked.filter(x => !(manifest.functions?.items ?? []).some(f => f.screens.includes(x.key)))) L.push(`    ${nodeId(s.key)}["${s.name.replace(/"/g, "'")}"]`);
     for (const [k, name] of Object.entries(SURFACE)) if (edges.some(e => e.screen === k)) L.push(`    ${nodeId(`surface_${k}`)}["${name}"]`);
     L.push('  end');
     L.push('  subgraph API');

@@ -24,6 +24,7 @@ const desktopPlugin = {
   name: 'weshcraft-desktop',
   setup(b) {
     b.onResolve({ filter: /^\/app\/editor\.js$/ }, () => ({ path: path.join(app, 'editor.js') }));
+    b.onResolve({ filter: /^\/app\/functions\.js$/ }, () => ({ path: path.join(app, 'functions.js') }));
     b.onLoad({ filter: /src[\\/]web[\\/]public[\\/].*\.js$/ }, a => ({ contents: DESKTOP(fs.readFileSync(a.path, 'utf8')), loader: 'js' }));
   },
 };

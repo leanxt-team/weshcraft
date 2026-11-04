@@ -63,9 +63,9 @@ try {
     ok(`${w}: spec panel shown while designing`, g.reader, JSON.stringify(g));
     ok(`${w}: canvas keeps room`, g.canvas.width > 280, String(g.canvas.width));
     ok(`${w}: no Design/Spec switch in the inspector`, !(await f.locator('.ed-itabs').isVisible().catch(() => false)));
-    await f.locator('#edScreens li').nth(1).click(); await sleep(1200);
+    await f.locator('#edScreens li[data-id]').nth(1).click(); await sleep(1200);
     ok(`${w}: spec follows the screen being edited`, /2 Interests/.test(await f.locator('#specTitle').innerText()) || /Interests/.test((await f.locator('#doc').innerText()).slice(0, 200)), await f.locator('#specTitle').innerText());
-    await f.locator('#edScreens li').nth(0).click(); await sleep(1000);
+    await f.locator('#edScreens li[data-id]').nth(0).click(); await sleep(1000);
     // dividers: drag the spec, the inspector and the screens list wider
     const drag = async (name, dx) => {
       const h = f.locator(`.oc-split[data-split="${name}"]`);

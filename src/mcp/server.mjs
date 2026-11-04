@@ -171,6 +171,7 @@ export class WeshCraftMcp {
               ? 'Design with the design_* tools: design_tree first (ids), then design_edit to batch changes (one undo step; refs link new layers), design_text for copy, design_bind / design_api to tie layers to data and API calls, design_link for prototype links. Specs regenerate automatically after each change; pass wait:true to get parity back. The user edits the same design in the browser at the same time.'
               : this.ws.source?.kind === 'mcp' ? 'Design with the figcraft_* tools (the full FigCraft MCP); after edits, specs regenerate automatically.'
               : 'No design yet: design_new starts one (or the project front is an API / MCP server only).',
+            'Start from how the product works: design_functions lists its functions (suggested from the prototype until declared). Declare them early: a handful, each with a one-line purpose and its screens; specs/FUNCTIONS.md, the screen specs and the maps follow them.',
             'Use weshcraft_status / weshcraft_check to see parity, weshcraft_links for front ⇄ back links, weshcraft_write_notes to add states, edge cases and questions, weshcraft_publish to open a PR/MR, weshcraft_sync to keep a GitHub/GitLab branch or the local git repository in step.',
             'Facts in specs (copy, sizes, colours, interactions, operations) come from the design only: to change them, change the design.',
             this.webUrl ? `Live view: ${this.webUrl}` : '',

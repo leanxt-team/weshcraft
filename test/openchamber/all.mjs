@@ -18,6 +18,7 @@ const runs = [
   ['run2.mjs', [root, path.join(work, 'pub')]],
   ['header.mjs', [root, path.join(work, 'hdr'), work]],
   ['share.mjs', [root, path.join(work, 'share')]],
+  ['functions.mjs', [root, path.join(work, 'functions'), work]],
 ];
 // OpenChamber reached at this machine's network address: links opened outside the panel go there.
 const lan = Object.values(os.networkInterfaces()).flat().find(i => i && i.family === 'IPv4' && !i.internal)?.address;

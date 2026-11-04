@@ -8,7 +8,7 @@ html.oc:root {
   --glass: var(--oc-bg); --glass-strong: var(--oc-elevated, var(--oc-bg)); --glass-thin: var(--oc-bg);
   --glass-edge: var(--oc-border); --glass-edge-2: transparent;
   --sheen: none; --blur: none;
-  --shadow: none; --shadow-sm: none;
+  --shadow: 0 0 #0000; --shadow-sm: 0 0 #0000; /* not `none`: they sit in shadow lists */
   --hairline: var(--oc-border);
   --fill: var(--oc-hover); --fill-2: var(--oc-muted-surface);
   --text: var(--oc-fg); --text-2: color-mix(in srgb, var(--oc-fg) 72%, var(--oc-bg)); --muted: var(--oc-muted);

@@ -5,6 +5,7 @@ import { descendants } from '../model/normalize.mjs';
 import { nodeCss, fontWeight } from '../proto/html.mjs';
 import { embedContract, notesBlock } from './contract.mjs';
 import { screenLinkRows, linkContract } from './links.mjs';
+import { functionOfScreen } from '../model/functions.mjs';
 
 const NOTES_PLACEHOLDER = '_No notes yet. Agent or human additions go here; WeshCraft keeps this block when it regenerates the file._';
 
@@ -85,10 +86,11 @@ export function screenSpec(model, manifest, screen, { notes, ops = [], code = nu
     return { t, n, fg, bg, ratio, ok, large };
   });
 
+  const fn = functionOfScreen(manifest, screen.key);
   const L = [];
   L.push(`# Screen: ${screen.name}`);
   L.push('');
-  L.push(`| | |\n|---|---|\n| Node | ${ref(screen.id)} |\n| Page | ${mdEscape(screen.page)}${screen.section ? ` / ${mdEscape(screen.section)}` : ''} |\n| Frame | ${screen.width} × ${screen.height} px |\n| Dev status | ${screen.devStatus ?? 'not marked'} |\n| Fingerprint | \`${screen.fingerprint}\` |\n| Prototype | [prototype/index.html#${screen.key}](../../prototype/index.html#${screen.key})${hasRender ? ` · [FigCraft render](../../prototype/screens/${screen.key}.png)` : ''} |`);
+  L.push(`| | |\n|---|---|\n| Function | ${fn ? `[${mdEscape(fn.name)}](../../FUNCTIONS.md#${fn.key})${fn.summary ? ` — ${mdEscape(fn.summary)}` : ''}` : 'not in a function yet ([functions](../../FUNCTIONS.md))'} |\n| Node | ${ref(screen.id)} |\n| Page | ${mdEscape(screen.page)}${screen.section ? ` / ${mdEscape(screen.section)}` : ''} |\n| Frame | ${screen.width} × ${screen.height} px |\n| Dev status | ${screen.devStatus ?? 'not marked'} |\n| Fingerprint | \`${screen.fingerprint}\` |\n| Prototype | [prototype/index.html#${screen.key}](../../prototype/index.html#${screen.key})${hasRender ? ` · [FigCraft render](../../prototype/screens/${screen.key}.png)` : ''} |`);
   L.push('');
   L.push('## Purpose');
   L.push('');
@@ -197,6 +199,7 @@ export function screenSpec(model, manifest, screen, { notes, ops = [], code = nu
   L.push('');
   L.push(embedContract({
     kind: 'front-screen', key: screen.key, node: screen.id, fingerprint: screen.fingerprint, sourceHash: manifest.source.hash,
+    function: fn?.key ?? null,
     size: [screen.width, screen.height],
     copy: screen.texts.map(t => ({ node: t.id, text: t.characters })),
     actions: screen.actions.map(a => ({ node: a.id, type: a.type, dest: a.destScreen })),
@@ -332,7 +335,14 @@ export function flowsSpec(manifest, { notes } = {}) {
   const edges = manifest.screens.flatMap(s => s.actions.filter(a => a.destScreen).map(a => ({ from: s.key, to: a.destScreen, label: a.label || a.name, node: a.id, transition: a.transition })));
   L.push('```mermaid');
   L.push('flowchart LR');
-  for (const s of manifest.screens) L.push(`  ${s.key.replace(/-/g, '_')}["${s.name.replace(/"/g, "'")}"]`);
+  // Screens grouped by product function (FUNCTIONS.md)
+  const fns = manifest.functions?.items ?? [];
+  for (const f of fns.filter(x => x.screens.length)) {
+    L.push(`  subgraph ${f.key.replace(/-/g, '_')}["${f.name.replace(/"/g, "'")}"]`);
+    for (const k of f.screens) { const s = manifest.screens.find(x => x.key === k); L.push(`    ${s.key.replace(/-/g, '_')}["${s.name.replace(/"/g, "'")}"]`); }
+    L.push('  end');
+  }
+  for (const s of manifest.screens.filter(x => !fns.some(f => f.screens.includes(x.key)))) L.push(`  ${s.key.replace(/-/g, '_')}["${s.name.replace(/"/g, "'")}"]`);
   for (const e of edges) L.push(`  ${e.from.replace(/-/g, '_')} -- "${e.label.replace(/"/g, "'").slice(0, 30)}" --> ${e.to.replace(/-/g, '_')}`);
   L.push('```');
   L.push('');

@@ -127,7 +127,7 @@ function loadSurfaceDoc(doc, file, rel) {
   if (doc?.weshcraft || doc?.mcp || doc?.api) {
     const api = doc.api ? (typeof doc.api === 'string' || doc.api.openapi === undefined && doc.api.file ? fromOpenApi(readStructured(rel(doc.api.file ?? doc.api)), rel(doc.api.file ?? doc.api)) : fromOpenApi(doc.api, file)) : null;
     const mcp = doc.mcp ? (typeof doc.mcp === 'string' ? fromMcp(readStructured(rel(doc.mcp)), rel(doc.mcp)) : fromMcp(doc.mcp, file)) : null;
-    return { name: doc.name ?? api?.title ?? mcp?.server ?? 'Service', api, mcp, links: doc.links ?? [] };
+    return { name: doc.name ?? api?.title ?? mcp?.server ?? 'Service', api, mcp, links: doc.links ?? [], functions: Array.isArray(doc.functions) ? doc.functions : null };
   }
   throw new Error(`${file}: not an OpenAPI document, an MCP tools/list result or a weshcraft surface file`);
 }
@@ -157,6 +157,7 @@ export function mergeSurfaces(list) {
     if (s.mcp) out.mcp = out.mcp ? { ...out.mcp, tools: [...out.mcp.tools, ...s.mcp.tools], resources: [...out.mcp.resources, ...s.mcp.resources], prompts: [...out.mcp.prompts, ...s.mcp.prompts] } : s.mcp;
     if (s.api) out.api = out.api ? { ...out.api, endpoints: [...out.api.endpoints, ...s.api.endpoints], schemas: { ...out.api.schemas, ...s.api.schemas } } : s.api;
     out.links.push(...(s.links || []));
+    if (s.functions) out.functions = [...(out.functions ?? []), ...s.functions];
   }
   return out;
 }

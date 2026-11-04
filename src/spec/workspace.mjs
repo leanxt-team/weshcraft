@@ -9,6 +9,7 @@ import { renderPrototype } from '../proto/html.mjs';
 import { screenSpec, componentSpec, tokensSpec, tokensCss, flowsSpec } from './front.mjs';
 import { domainSpec, apiSpec, openapi, conventionsSpec } from './back.mjs';
 import { linksSpec } from './links.mjs';
+import { functionsSpec } from './functions.mjs';
 import { mcpToolSpec, mcpIndexSpec, endpointSpec, apiIndexSpec } from './surface.mjs';
 import { readNotes } from './contract.mjs';
 import { diffManifests, updateChangelog, summaryLine } from './diff.mjs';
@@ -136,6 +137,7 @@ export class Workspace {
   plan() {
     const m = this.manifest;
     const jobs = [];
+    jobs.push({ id: 'product:functions', group: 'product', title: 'Functions', file: 'specs/FUNCTIONS.md', build: notes => functionsSpec(m, { notes }) });
     for (const s of m.screens) jobs.push({ id: `front:screen:${s.key}`, group: 'front', title: `Screen · ${s.name}`, file: `specs/front/screens/${s.key}.md`, fingerprint: s.fingerprint, node: s.id, screen: s.key, build: notes => screenSpec(this.model, m, s, { notes, ops: m.domain.operations, code: this.codeCache?.get(s.id), hasRender: fs.existsSync(this.file(`prototype/screens/${s.key}.png`)) }) });
     for (const c of m.components) jobs.push({ id: `front:component:${c.key}`, group: 'front', title: `Component · ${c.name}`, file: `specs/front/components/${c.key}.md`, fingerprint: c.fingerprint, node: c.id, build: notes => componentSpec(this.model, m, c, { notes, code: this.codeCache?.get(`c${c.id}`) }) });
     if (m.surface?.mcp) {

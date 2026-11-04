@@ -87,6 +87,19 @@ export function diffManifests(prev, next) {
   if (addedL || removedL) add('links', 'changed', `Front ⇄ back links: +${addedL} −${removedL}`);
   const pg = (prev.links?.gaps ?? []).length, ng = (next.links?.gaps ?? []).length;
   if (pg !== ng) add('links', ng > pg ? 'added' : 'removed', `Gaps: ${pg} → ${ng}`);
+  // Product functions
+  const pf = byKey(prev.functions?.items, 'key'), nf = byKey(next.functions?.items, 'key');
+  if (!prev.functions?.declared && next.functions?.declared) add('function', 'changed', `Functions declared: ${next.functions.items.map(f => `**${f.name}**`).join(', ')}`);
+  else {
+    for (const [k, f] of nf) if (!pf.has(k)) add('function', 'added', `Function **${f.name}** added`);
+    for (const [k, f] of pf) if (!nf.has(k)) add('function', 'removed', `Function **${f.name}** removed`);
+    for (const [k, f] of nf) {
+      const p = pf.get(k);
+      if (!p) continue;
+      if (p.summary !== f.summary) add('function', 'changed', `Function **${f.name}**: purpose changed`);
+      if (!same(p.screens, f.screens)) add('function', 'changed', `Function **${f.name}**: screens ${p.screens.length} → ${f.screens.length}`);
+    }
+  }
 
   return { items, from: prev.source.hash, to: next.source.hash };
 }
@@ -108,7 +121,7 @@ export function summaryLine(diff) {
   if (!diff.items.length) return 'no design change';
   if (diff.items.some(i => i.area === 'design')) return 'first version';
   const count = a => diff.items.filter(i => i.area === a).length;
-  return [['mcp', 'MCP tools'], ['api', 'endpoints'], ['screen', 'screens'], ['copy', 'copy'], ['interaction', 'interactions'], ['component', 'components'], ['operation', 'operations'], ['entity', 'data'], ['links', 'links']]
+  return [['function', 'functions'], ['mcp', 'MCP tools'], ['api', 'endpoints'], ['screen', 'screens'], ['copy', 'copy'], ['interaction', 'interactions'], ['component', 'components'], ['operation', 'operations'], ['entity', 'data'], ['links', 'links']]
     .filter(([a]) => count(a)).map(([a, n]) => `${count(a)} ${n}`).join(', ') || `${diff.items.length} changes`;
 }
 

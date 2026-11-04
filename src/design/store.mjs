@@ -447,6 +447,64 @@ export class DesignStore extends EventEmitter {
 
   rename(name) { this.touchMeta(); this.doc.name = String(name); }
 
+  /** A screen (top-level frame, also inside a section) by id, '#12' or its exact name. */
+  screenRef(ref) {
+    const tops = this.doc.pages.flatMap(p => (this.doc.nodes[String(p)]?.children ?? []).flatMap(id => { const n = this.doc.nodes[String(id)]; return n?.type === 'section' ? n.children ?? [] : [id]; })).map(id => this.doc.nodes[String(id)]).filter(Boolean);
+    const s = String(ref).trim();
+    const n = /^#?\d+$/.test(s) ? tops.find(x => x.id === Number(s.replace('#', ''))) : (tops.filter(x => x.name === s).length === 1 ? tops.find(x => x.name === s) : null);
+    if (!n) throw new Error(tops.filter(x => x.name === s).length > 1 ? `"${s}" names several screens: use an id` : `no screen ${s}`);
+    return n.id;
+  }
+
+  /** The product functions declared in this design (first page's pluginData.weshcraft), or null. */
+  getFunctions() {
+    const pid = this.doc.pages?.[0];
+    const pd = pid != null ? this.doc.nodes[String(pid)]?.pluginData?.weshcraft : null;
+    if (!pd) return null;
+    try { const j = typeof pd === 'string' ? JSON.parse(pd) : pd; return Array.isArray(j?.functions) ? j.functions : null; } catch { return null; }
+  }
+
+  /**
+   * Declare the product functions (the whole list; null clears it). Screens as ids, '#12' or exact
+   * names; a screen listed twice stays in the last function that lists it.
+   */
+  setFunctions(list) {
+    const pid = this.doc.pages?.[0];
+    if (pid == null) throw new Error('the design has no page');
+    let clean = null;
+    if (list != null) {
+      if (!Array.isArray(list)) throw new Error('functions must be a list of {name, summary?, screens?, operations?, tools?}');
+      const owner = new Map();
+      clean = [];
+      const names = new Set();
+      for (const f of list) {
+        const name = String(f?.name ?? '').trim().slice(0, 80);
+        if (!name) throw new Error('every function needs a name');
+        if (names.has(name.toLowerCase())) throw new Error(`two functions are called ${name}`);
+        names.add(name.toLowerCase());
+        const screens = [];
+        for (const ref of f.screens ?? []) {
+          const id = this.screenRef(ref);
+          if (owner.has(id)) { const prev = clean[owner.get(id)]; prev.screens = prev.screens.filter(x => x !== id); }
+          owner.set(id, clean.length);
+          if (!screens.includes(id)) screens.push(id);
+        }
+        const strs = xs => [...new Set((xs ?? []).map(x => String(x).trim()).filter(Boolean))];
+        clean.push({ name, ...(String(f.summary ?? '').trim() ? { summary: String(f.summary).trim().slice(0, 400) } : {}), screens, ...(strs(f.operations).length ? { operations: strs(f.operations) } : {}), ...(strs(f.tools).length ? { tools: strs(f.tools) } : {}) });
+      }
+    }
+    this.touch(pid);
+    const raw = clone(this.node(pid));
+    const pd = { ...(raw.pluginData ?? {}) };
+    let cur = {};
+    try { cur = pd.weshcraft ? (typeof pd.weshcraft === 'string' ? JSON.parse(pd.weshcraft) : pd.weshcraft) : {}; } catch { cur = {}; }
+    if (clean) cur.functions = clean; else delete cur.functions;
+    if (Object.keys(cur).length) pd.weshcraft = JSON.stringify(cur); else delete pd.weshcraft;
+    raw.pluginData = pd;
+    this.doc.nodes[String(pid)] = raw;
+    return clean;
+  }
+
   /**
    * Apply a batch of operations as one undo step. Each op may carry `ref` to name what it creates;
    * later ops can use that ref wherever an id is expected. Returns {refs, results}.
@@ -476,6 +534,7 @@ export class DesignStore extends EventEmitter {
             case 'token': out = this.token({ name: o.name, value: o.value, mode: o.mode, collection: o.collection }); break;
             case 'useToken': out = this.useToken(r(o.id), o.token); break;
             case 'rename': this.rename(o.name); out = o.name; break;
+            case 'functions': out = this.setFunctions(o.functions ?? null); break;
             default: throw new Error(`unknown op "${o.op}" (create, screen, set, text, delete, move, duplicate, instance, link, bind, api, note, token, useToken, rename)`);
           }
           if (o.ref) refs[o.ref] = out;
@@ -492,7 +551,7 @@ export class DesignStore extends EventEmitter {
 function describeOps(ops) {
   if (ops.length === 1) {
     const o = ops[0];
-    return { create: `Create ${o.type ?? 'frame'}`, screen: `Add screen ${o.name ?? ''}`.trim(), set: 'Change layer', text: 'Edit text', delete: 'Delete', move: 'Move', duplicate: 'Duplicate', instance: 'Insert instance', link: 'Prototype link', bind: 'Bind data', api: 'Annotate API', note: 'Add note', token: `Token ${o.name}`, useToken: 'Apply token', rename: 'Rename design' }[o.op] ?? o.op;
+    return { create: `Create ${o.type ?? 'frame'}`, screen: `Add screen ${o.name ?? ''}`.trim(), set: 'Change layer', text: 'Edit text', delete: 'Delete', move: 'Move', duplicate: 'Duplicate', instance: 'Insert instance', link: 'Prototype link', bind: 'Bind data', api: 'Annotate API', note: 'Add note', token: `Token ${o.name}`, useToken: 'Apply token', rename: 'Rename design', functions: 'Product functions' }[o.op] ?? o.op;
   }
   return `${ops.length} changes`;
 }

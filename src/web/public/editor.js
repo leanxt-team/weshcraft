@@ -140,7 +140,15 @@ export function createEditor({ openFile, markdown, log }) {
   // ---- screens list -------------------------------------------------------------------------
   function renderScreens() {
     const list = $('#edScreens');
-    const html = (E.S?.screens ?? []).map(s => `<li role="option" data-id="${s.id}" title="${esc(s.name)} · ${Math.round(s.width)}×${Math.round(s.height)}">${icon(s.type)}<span class="nm">${esc(s.name)}</span><span class="dim">${Math.round(s.width)}×${Math.round(s.height)}</span><span class="acts"><button type="button" data-act="dup" title="Duplicate screen" aria-label="Duplicate"><svg viewBox="0 0 24 24"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V5a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h3"/></svg></button><button type="button" data-act="del" title="Delete screen" aria-label="Delete"><svg viewBox="0 0 24 24"><path d="M5 7h14M10 7V4h4v3M7 7l1 13h8l1-13"/></svg></button></span></li>`).join('');
+    const item = s => `<li role="option" data-id="${s.id}" title="${esc(s.name)} · ${Math.round(s.width)}×${Math.round(s.height)}">${icon(s.type)}<span class="nm">${esc(s.name)}</span><span class="dim">${Math.round(s.width)}×${Math.round(s.height)}</span><span class="acts"><button type="button" data-act="dup" title="Duplicate screen" aria-label="Duplicate"><svg viewBox="0 0 24 24"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V5a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h3"/></svg></button><button type="button" data-act="del" title="Delete screen" aria-label="Delete"><svg viewBox="0 0 24 24"><path d="M5 7h14M10 7V4h4v3M7 7l1 13h8l1-13"/></svg></button></span></li>`;
+    const screens = E.S?.screens ?? [];
+    const order = E.S?.functions?.order ?? [];
+    let html;
+    if (order.length && screens.some(s => s.function)) {
+      // grouped by product function (the Functions view), in journey order
+      const groups = [...order.map(n => [n, screens.filter(s => s.function === n)]), ['Not in a function', screens.filter(s => s.key && (!s.function || !order.includes(s.function)))], ['Other', screens.filter(s => !s.key)]].filter(([, l]) => l.length);
+      html = groups.map(([n, l]) => `<li class="ed-group" role="presentation">${esc(n)}</li>${l.map(item).join('')}`).join('');
+    } else html = screens.map(item).join('');
     // Rebuild only when the list changed: a rebuild between two clicks would swallow a double-click.
     if (html !== list.dataset.html) { list.innerHTML = html; list.dataset.html = html; }
     list.querySelectorAll('li[data-id]').forEach(li => li.setAttribute('aria-selected', String(Number(li.dataset.id) === E.screenId)));
@@ -716,6 +724,7 @@ export function createEditor({ openFile, markdown, log }) {
       `<section class="ed-sec head"><div class="ed-ttl">${icon(p.type)}<input class="ed-name" data-k="name" value="${esc(p.name)}" aria-label="Layer name"><code class="ed-id" title="Cite as \`#${id}\` in notes">#${id}</code></div><div class="muted small">${esc(p.type)}${p.component ? ` of #${p.component}` : ''}${isScreen ? ' · screen' : ''}</div></section>`,
       // Spec first: this is what the specs read.
       `<section class="ed-sec spec"><h4>Spec</h4>`,
+      isScreen && E.S?.functions ? field('Function', sel('function', [['', '— none'], ...E.S.functions.list.map(f => [f.name, f.name]), ['+new', 'New function…']], E.S.screens.find(x => x.id === id)?.function ?? '')) : '',
       !isScreen ? field('On click', sel('link', [['', 'No link'], ['back', 'Back'], ['url', 'Open URL…'], ...screens.filter(s => s.id !== E.screenId).map(s => [String(s.id), `→ ${s.name}`])], linkVal)) : '',
       linkVal === 'url' ? field('URL', `<input type="url" data-k="url" value="${esc(p.link?.url ?? '')}" placeholder="https://">`) : '',
       `<div class="f api"><span>${isScreen ? 'Loads' : 'Calls'}</span>${sel('apiMethod', [['', '—'], ['GET', 'GET'], ['POST', 'POST'], ['PUT', 'PUT'], ['PATCH', 'PATCH'], ['DELETE', 'DELETE']], p.api?.method)}<input data-k="apiPath" value="${esc(p.api?.path ?? '')}" placeholder="/path" spellcheck="false" aria-label="API path"><input data-k="apiReturns" value="${esc(p.api?.returns ?? '')}" placeholder="→ Entity" spellcheck="false" aria-label="Returns"></div>`,
@@ -802,6 +811,18 @@ export function createEditor({ openFile, markdown, log }) {
     const numv = x => (x === '' ? undefined : Number(x));
     switch (k) {
       case 'name': return v.trim() && setProps({ name: v.trim() }, 'Rename');
+      case 'function': {
+        // a screen belongs to one function: out of all, then into the chosen (or a new) one
+        const list = (E.S?.functions?.list ?? []).map(f => ({ ...f, screens: (f.screens ?? []).filter(x => x !== id) }));
+        let name = v;
+        if (v === '+new') {
+          const base = (E.S.screens.find(x => x.id === id)?.name ?? 'Function').replace(/\s*[—–-]\s*[^—–-]+$/, '').trim() || 'Function';
+          name = base; for (let i = 2; list.some(f => f.name.toLowerCase() === name.toLowerCase()); i++) name = `${base} ${i}`;
+          list.push({ name, screens: [] });
+        }
+        if (name) list.find(f => f.name === name).screens.push(id);
+        return ops([{ op: 'functions', functions: list }], name ? `Screen in ${name}` : 'Screen out of its function');
+      }
       case 'x': case 'y': case 'width': case 'height': case 'fontSize': case 'gap': case 'strokeWeight': case 'opacity':
         if (v === '' || Number.isNaN(Number(v))) return;
         if (k === 'gap') return setProps({ layout: { gap: Number(v) } }, 'Gap');
@@ -851,7 +872,7 @@ export function createEditor({ openFile, markdown, log }) {
     /** A design change from anyone (agent, another tab, FigCraft saving the file). */
     onDesign(ev) { if (shown && document.body.classList.contains('editing') && ev.version !== E.version) refresh(); else if (ev.version !== E.version) E.stale = true; },
     /** Specs were regenerated: screen keys may have changed; the Spec tab refreshes. */
-    onRegenerated() { if (shown && document.body.classList.contains('editing')) { api('').then(S => { E.S = S; renderScreens(); if (E.insp === 'spec') renderSpecTab(); }).catch(() => {}); } },
+    onRegenerated() { if (shown && document.body.classList.contains('editing')) { api('').then(S => { E.S = S; renderScreens(); if (E.insp === 'spec') renderSpecTab(); else if (!$('#edInspector').contains(document.activeElement) || document.activeElement?.dataset.k === 'function') renderInspector(); }).catch(() => {}); } },
     available() { return !!E.S?.editable; },
     onSource() { E.screenId = null; E.sel = []; E.fit = true; E.version = -1; if (shown) refresh(); },
   };

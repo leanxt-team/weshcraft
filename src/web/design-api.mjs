@@ -8,6 +8,8 @@ import { hexOf } from '../design/props.mjs';
 import { openEditable } from '../design/source.mjs';
 import { designCandidates, rememberDesign } from '../design/discover.mjs';
 
+import { toDeclared } from '../model/functions.mjs';
+
 const json = async read => JSON.parse((await read()).toString() || '{}');
 
 function summary(ws) {
@@ -15,6 +17,7 @@ function summary(ws) {
   if (!store) return { editable: false, reason: ws.source?.kind === 'mcp' ? 'live-figcraft' : ws.source ? 'read-only' : 'none' };
   const d = store.doc;
   const keys = new Map((ws.manifest?.screens ?? []).map(s => [s.id, s.key]));
+  const fnOf = new Map((ws.manifest?.functions?.items ?? []).flatMap(f => f.screens.map(k => [k, f.name])));
   const page = store.node(d.current_page ?? d.pages[0]);
   const vars = d.variables ?? { collections: [], variables: [] };
   const firstVal = v => { const col = vars.collections.find(c => c.id === v.collection); return v.values[col?.modes[0]?.id] ?? Object.values(v.values)[0]; };
@@ -25,7 +28,9 @@ function summary(ws) {
     file: path.relative(ws.outDir, store.file).split(path.sep).join('/'),
     page: { id: page.id, name: page.name, background: hexOf(page.background) },
     pages: d.pages.map(id => ({ id, name: store.node(id).name })),
-    screens: (page.children ?? []).map(id => store.node(id)).map(n => ({ id: n.id, name: n.name, type: n.type, width: n.width, height: n.height, x: n.transform?.[4] ?? 0, y: n.transform?.[5] ?? 0, key: keys.get(n.id) ?? null })),
+    screens: (page.children ?? []).map(id => store.node(id)).map(n => ({ id: n.id, name: n.name, type: n.type, width: n.width, height: n.height, x: n.transform?.[4] ?? 0, y: n.transform?.[5] ?? 0, key: keys.get(n.id) ?? null, function: fnOf.get(keys.get(n.id)) ?? null })),
+    // Product functions: what the design declares (or the suggestion to start from), in order.
+    functions: ws.manifest?.functions ? { declared: ws.manifest.functions.declared, list: store.getFunctions() ?? toDeclared(ws.manifest), order: ws.manifest.functions.items.map(f => f.name) } : null,
     components: Object.values(d.nodes).filter(n => n.type === 'component').map(n => ({ id: n.id, name: n.name })),
     tokens: vars.variables.map(v => { const val = firstVal(v); return { id: v.id, name: v.name, type: v.resolvedType, value: val?.type === 'color' ? hexOf(val.value) : val?.value ?? null }; }),
     undo: store.undoStack.at(-1)?.label ?? null,

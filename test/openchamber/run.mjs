@@ -187,12 +187,12 @@ try {
   ok('page: uploaded screens in the editor', !!await waitFor(async () => /Welcome/.test(await o.f.locator('#edScreens').innerText().catch(() => '')) || (await o.f.locator('.tab[data-tab="design"]').click().then(() => sleep(1500)).then(() => /Welcome/.test('')) ), 20000) || /Welcome/.test(await o.f.locator('#edScreens').innerText()));
   // delete-screen confirmation (sandbox has no window.confirm)
   await o.f.locator('.tab[data-tab="design"]').click(); await sleep(1200);
-  const before = await o.f.locator('#edScreens li').count();
-  await o.f.locator('#edScreens li').last().hover();
-  await o.f.locator('#edScreens li').last().locator('[data-act="del"]').click();
+  const before = await o.f.locator('#edScreens li[data-id]').count();
+  await o.f.locator('#edScreens li[data-id]').last().hover();
+  await o.f.locator('#edScreens li[data-id]').last().locator('[data-act="del"]').click();
   ok('page: delete asks in a dialog', await o.f.locator('dialog.ed-confirm').isVisible());
   await o.f.locator('dialog.ed-confirm button[value="ok"]').click();
-  ok('page: screen deleted after confirming', !!await waitFor(async () => (await o.f.locator('#edScreens li').count()) === before - 1));
+  ok('page: screen deleted after confirming', !!await waitFor(async () => (await o.f.locator('#edScreens li[data-id]').count()) === before - 1));
   await o.p.close();
 
   // ===== F. empty project: start a design from the page =====

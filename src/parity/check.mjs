@@ -5,6 +5,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { readContract, visibleText, citedNodes } from '../spec/contract.mjs';
 import { stableStringify } from '../util/common.mjs';
+import { functionsContract } from '../spec/functions.mjs';
 
 const read = f => (fs.existsSync(f) ? fs.readFileSync(f, 'utf8') : null);
 const setEq = (a, b) => a.length === b.length && a.every(x => b.includes(x));
@@ -78,7 +79,30 @@ export function checkParity(manifest, outDir) {
     checks++;
     if (!setEq(wantL, (c.links || []).map(key))) err('links-differ', f, 'front ⇄ back links of this screen differ from the prototype');
     checks++;
+    const fnKey = manifest.functions?.items.find(x => x.screens.includes(s.key))?.key ?? null;
+    if ((c.function ?? null) !== fnKey) err('function-differs', f, `this screen belongs to ${fnKey ?? 'no function'} in FUNCTIONS.md, the spec says ${c.function ?? 'none'}`, s.id);
+    checks++;
     if (c.size?.[0] !== s.width || c.size?.[1] !== s.height) err('size-differs', f, `frame size ${c.size?.join('×')} ≠ ${s.width}×${s.height}`, s.id);
+  }
+
+  // Product functions: the overview matches the prototype, and everything belongs to one.
+  if (manifest.functions) {
+    const file = path.join(outDir, 'specs/FUNCTIONS.md');
+    const spec = loadSpec(file, 'functions');
+    if (spec) {
+      checks++;
+      const { declared, functions, unassigned } = spec.c;
+      if (key({ declared, functions, unassigned }) !== key(functionsContract(manifest))) err('functions-differ', 'specs/FUNCTIONS.md', 'the functions (screens, operations, data or journey) differ from the prototype');
+    }
+    const fns = manifest.functions;
+    const scr = new Map(manifest.screens.map(x => [x.key, x]));
+    const opn = new Map(manifest.domain.operations.map(o => [o.key, `${o.method} ${o.path}`]));
+    if (!fns.declared && fns.items.length) warn('functions-suggested', 'specs/FUNCTIONS.md', `${fns.items.length === 1 ? 'the function is' : `the ${fns.items.length} functions are`} suggested from the prototype: name them and give each a purpose (design_functions or the Functions view)`);
+    for (const k of fns.unassigned.screens) { checks++; warn('not-in-a-function', 'specs/FUNCTIONS.md', `screen ${scr.get(k).name} is in no function`, scr.get(k).id); }
+    for (const k of fns.unassigned.operations) { checks++; warn('not-in-a-function', 'specs/FUNCTIONS.md', `operation ${opn.get(k)} is in no function`); }
+    for (const t of fns.unassigned.tools) { checks++; warn('not-in-a-function', 'specs/FUNCTIONS.md', `MCP tool ${t} is in no function`); }
+    for (const x of fns.missing) { checks++; warn('function-unknown-ref', 'specs/FUNCTIONS.md', `function ${fns.items.find(i => i.key === x.function)?.name ?? x.function} lists ${x.kind} ${x.ref}, which is not in the prototype`); }
+    for (const x of fns.items) if (!x.screens.length && !x.operations.length && !x.tools.length) { checks++; warn('empty-function', 'specs/FUNCTIONS.md', `function ${x.name} has no screen, operation or tool`); }
   }
 
   // Specs for screens that no longer exist.

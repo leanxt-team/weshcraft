@@ -3,6 +3,7 @@
 // to a freshly extracted manifest. Same document in, byte-identical manifest out.
 import { sha, slug, pascal, camel } from '../util/common.mjs';
 import { descendants } from './normalize.mjs';
+import { buildFunctions, declaredFunctions } from './functions.mjs';
 
 const SCREEN_TYPES = new Set(['frame', 'component', 'componentSet', 'instance']);
 const INPUT_RE = /\b(input|field|text ?field|search|email|password|textarea|select|dropdown|picker|checkbox|toggle|switch|radio|slider|stepper)\b/i;
@@ -391,6 +392,8 @@ export function buildManifest(model, { sourceName = model.name, surface = null }
     screens, components, tokens: tokensOf(model), flows, domain, links,
     ...(surf ? { surface: surf } : {}),
   };
-  manifest.source.hash = sha({ screens, components, tokens: manifest.tokens, flows, domain, links, surface: surf }, 16);
+  // Product functions: declared in the design (or the surface file), else suggested.
+  manifest.functions = buildFunctions(manifest, declaredFunctions(model) ?? surface?.functions ?? null);
+  manifest.source.hash = sha({ screens, components, tokens: manifest.tokens, flows, domain, links, surface: surf, functions: manifest.functions }, 16);
   return manifest;
 }

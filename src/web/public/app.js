@@ -1,6 +1,7 @@
 // WeshCraft browser UI: live spec builder fed by SSE, prototype iframe, spec reader linked to
 // prototype layers, parity list, notes editing and publishing.
 import { createEditor } from '/app/editor.js';
+import { createFunctionsView } from '/app/functions.js';
 
 const $ = s => document.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -69,6 +70,7 @@ function markdown(md) {
 
 // ---- builder list ----------------------------------------------------------------------------
 const GROUPS = [
+  ['product', 'Product', j => j.group === 'product'],
   ['front', 'Front end', j => j.group === 'front'],
   ['back', 'Back end', j => j.group === 'back'],
   ['links', 'Front ⇄ back', j => j.group === 'links'],
@@ -153,28 +155,30 @@ function showDoc(md, file) {
 // no external library, works offline. Unknown syntax keeps the code block.
 function parseFlow(src) {
   const nodes = new Map(), edges = [], groups = [];
-  let group = null;
+  const stack = []; // subgraphs: the outermost makes the column, an inner one a band inside it
+  const unq = t => String(t ?? '').replace(/^"(.*)"$/, '$1');
   const node = (id, label, shape) => {
-    if (!nodes.has(id)) nodes.set(id, { id, label: id, shape: 'box', group: group?.id ?? null, order: nodes.size });
+    const top = stack[0], inner = stack.length > 1 ? stack[stack.length - 1] : null;
+    if (!nodes.has(id)) nodes.set(id, { id, label: id, shape: 'box', group: top?.id ?? null, band: inner?.label ?? null, order: nodes.size });
     const n = nodes.get(id);
     if (label != null) { n.label = label; n.shape = shape || 'box'; }
-    if (group && !n.group) n.group = group.id;
+    if (top && !n.group) { n.group = top.id; n.band = inner?.label ?? null; }
     return n;
   };
   const ref = t => {
-    const m = /^([\w-]+)(?:\[\("(.*)"\)\]|\["(.*)"\]|\[(.*)\])?$/.exec(t.trim());
+    const m = /^([\w-]+)(?:\[\("(.*)"\)\]|\(\["(.*)"\]\)|\["(.*)"\]|\[(.*)\])?$/.exec(t.trim());
     if (!m) return null;
-    return node(m[1], m[2] ?? m[3] ?? m[4] ?? null, m[2] != null ? 'pill' : 'box').id;
+    return node(m[1], m[2] ?? m[3] ?? m[4] ?? m[5] ?? null, m[2] != null ? 'pill' : m[3] != null ? 'actor' : 'box').id;
   };
   for (const raw of src.split('\n')) {
     const l = raw.trim();
     if (!l || /^flowchart|^graph/.test(l)) continue;
     let m;
-    if ((m = /^subgraph\s+([\w-]+)(?:\[(.*)\])?$/.exec(l))) { group = { id: m[1], label: m[2] ?? m[1] }; groups.push(group); continue; }
-    if (l === 'end') { group = null; continue; }
-    if ((m = /^(.+?)\s+(<-\.->|-\.->|-->|--\s*"([^"]*)"\s*-->)\s*(?:\|([^|]*)\|\s*)?(.+)$/.exec(l))) {
+    if ((m = /^subgraph\s+([\w-]+)(?:\[(.*)\])?$/.exec(l))) { const g = { id: m[1], label: unq(m[2] ?? m[1]) }; if (!stack.length) groups.push(g); stack.push(g); continue; }
+    if (l === 'end') { stack.pop(); continue; }
+    if ((m = /^(.+?)\s+(<-\.->|-\.->|==>|-->|--\s*"([^"]*)"\s*-->)\s*(?:\|([^|]*)\|\s*)?(.+)$/.exec(l))) {
       const a = ref(m[1]), b = ref(m[5]);
-      if (a && b) edges.push({ a, b, label: m[3] ?? m[4] ?? '', dashed: m[2].includes('.'), both: m[2].startsWith('<') });
+      if (a && b) edges.push({ a, b, label: m[3] ?? m[4] ?? '', dashed: m[2].includes('.'), both: m[2].startsWith('<'), thick: m[2] === '==>' });
       continue;
     }
     if (!ref(l)) return null;
@@ -191,16 +195,22 @@ function parseFlow(src) {
   }
   return { cols: cols.filter(c => c.nodes.length), edges };
 }
+// "Name<br/><small>purpose</small>": a title and a muted line under it.
+function flowLabel(t) {
+  const [main, ...rest] = String(t).split(/<br\s*\/?>/i);
+  const strip = x => x.replace(/<[^>]*>/g, '');
+  return `${esc(strip(main))}${rest.length ? `<small>${esc(strip(rest.join(' ')))}</small>` : ''}`;
+}
 function renderDiagrams(root) {
   for (const fig of root.querySelectorAll('figure.diagram:not(.done)')) {
     const g = parseFlow(fig.dataset.src);
     fig.classList.add('done');
     if (!g) continue;
     // Standard edge kinds read better as line styles + a legend than as text on every wire.
-    const KINDS = { calls: 'calls an operation', list: 'list filled by', returns: 'returns', 'shown on': 'shown on screen' };
+    const KINDS = { calls: 'calls an operation', list: 'list filled by', returns: 'returns', 'shown on': 'shown on screen', 'leads to': 'leads to', writes: 'writes', reads: 'reads', 'reads, writes': 'reads and writes' };
     g.legend = g.edges.length > 3 && g.edges.every(e => !e.label || e.label in KINDS);
     const kinds = g.legend ? [...new Set(g.edges.map(e => e.label).filter(Boolean))] : [];
-    fig.innerHTML = `<div class="flow" style="--cols:${g.cols.length}">${g.cols.map(c => `<div class="flow-col">${c.label ? `<div class="flow-head">${esc(c.label)}</div>` : ''}${c.nodes.map(n => `<div class="flow-node ${n.shape}" data-id="${esc(n.id)}">${esc(n.label)}</div>`).join('')}</div>`).join('')}<svg class="flow-wires" aria-hidden="true"></svg></div><div class="flow-foot">${kinds.map(k => `<span class="flow-key k-${k.replace(/\s+/g, '-')}"><i></i>${esc(KINDS[k])}</span>`).join('')}<details class="flow-src"><summary>Mermaid source</summary><pre><code>${esc(fig.dataset.src)}</code></pre></details></div>`;
+    fig.innerHTML = `<div class="flow" style="--cols:${g.cols.length}">${g.cols.map(c => `<div class="flow-col">${c.label ? `<div class="flow-head">${esc(c.label)}</div>` : ''}${c.nodes.map((n, i) => `${n.band && n.band !== c.nodes[i - 1]?.band ? `<div class="flow-band">${esc(n.band)}</div>` : ''}<div class="flow-node ${n.shape}" data-id="${esc(n.id)}">${flowLabel(n.label)}</div>`).join('')}</div>`).join('')}<svg class="flow-wires" aria-hidden="true"></svg></div><div class="flow-foot">${kinds.map(k => `<span class="flow-key k-${k.replace(/[\s,]+/g, '-')}"><i></i>${esc(KINDS[k])}</span>`).join('')}<details class="flow-src"><summary>Mermaid source</summary><pre><code>${esc(fig.dataset.src)}</code></pre></details></div>`;
     const draw = () => drawFlow(fig, g);
     requestAnimationFrame(draw);
     new ResizeObserver(draw).observe(fig);
@@ -231,7 +241,7 @@ function drawFlow(fig, g) {
       d = ca < cb ? `M${x1} ${y1} C${x1 + m} ${y1} ${x2 - m} ${y2} ${x2} ${y2}` : `M${x2} ${y2} C${x2 - m} ${y2} ${x1 + m} ${y1} ${x1} ${y1}`;
       lx = (x1 + x2) / 2; ly = (y1 + y2) / 2;
     }
-    out += `<path d="${d}" class="${e.dashed ? 'dashed' : ''} k-${(e.label || 'none').replace(/\s+/g, '-')}" marker-end="url(#arr)"${e.both ? ' marker-start="url(#arr)"' : ''}/>`;
+    out += `<path d="${d}" class="${e.dashed ? 'dashed' : ''}${e.thick ? ' thick' : ''} k-${(e.label || 'none').replace(/[\s,]+/g, '-')}" marker-end="url(#arr)"${e.both ? ' marker-start="url(#arr)"' : ''}/>`;
     if (e.label && !g.legend) labels.push({ text: e.label, x: lx, y: ly });
   }
   svg.innerHTML = out;
@@ -274,6 +284,17 @@ document.addEventListener('weshcraft:screen', e => {
   openFile(`specs/front/screens/${e.detail.key}.md`);
 });
 
+// ---- product functions -----------------------------------------------------------------------
+const fnView = createFunctionsView({
+  root: $('#fnview'),
+  getManifest: () => state.manifest,
+  isEditable: () => !!state.editable,
+  // Opening a spec from the diagram shows it in the reader without leaving the diagram.
+  openFile: (f, { quiet } = {}) => { if (quiet && phone.matches) return; openFile(f); if (!quiet && phone.matches) setPhoneView('read'); },
+  showScreen: key => { if (phone.matches) setPhoneView('proto'); else selectTab('proto'); state.protoScreen = key; protoPost({ weshcraft: 'show', key }); },
+  log,
+});
+
 // ---- front ⇄ back link map ------------------------------------------------------------------
 const REL_ICON = { triggers: '▶', submits: '⇢', lists: '☰', displays: '◉', invokes: '⚙', exposes: '↗' };
 const SURFACE_GROUPS = [{ key: 'mcp', name: 'MCP tools' }, { key: 'api', name: 'Public API' }];
@@ -314,7 +335,7 @@ function renderLinkMap() {
   box.innerHTML = `
     ${gaps.length ? `<div class="gaps">${gaps.map(g => `<button type="button" class="gap" data-k="${g.node != null ? `n:${g.node}` : `o:${esc(g.op)}`}">⚠ ${esc(g.message)}</button>`).join('')}</div>` : ''}
     <div class="lcols">
-      <div class="lcol"><h4>Front end <span>layers</span></h4>${screens.map(s => `<div class="lscreen"><div class="lhead">${esc(s.name)}</div>${nodeRow(s)}</div>`).join('')}</div>
+      <div class="lcol"><h4>Front end <span>layers</span></h4>${screens.map(s => { const fn = m.functions?.items.find(f => f.screens.includes(s.key)); return `<div class="lscreen"><div class="lhead">${esc(s.name)}${fn ? ` <span class="lfn" title="Function">${esc(fn.name)}</span>` : ''}</div>${nodeRow(s)}</div>`; }).join('')}</div>
       <div class="lcol"><h4>API <span>operations</span></h4>${m.domain.operations.map(opRow).join('') || '<p class="empty">none</p>'}</div>
       <div class="lcol"><h4>Domain <span>entity fields</span></h4>${m.domain.entities.map(ent).join('') || '<p class="empty">none</p>'}</div>
       <svg class="lwires" aria-hidden="true"></svg>
@@ -457,7 +478,7 @@ function applySummary(s) {
       .replace(/(&quot;[^&]*?&quot;)(\s*:)/g, '<span class="jk">$1</span>$2')
       .replace(/:\s(&quot;.*?&quot;)/g, ': <span class="js">$1</span>')
       .replace(/:\s(-?\d[\d.e+-]*|true|false|null)/g, ': <span class="jn">$1</span>');
-    try { state.manifest = JSON.parse(t); state.linkKey = null; state.linkSel = null; renderLinkMap(); } catch { /* partial write */ }
+    try { state.manifest = JSON.parse(t); state.linkKey = null; state.linkSel = null; renderLinkMap(); fnView.refresh(); } catch { /* partial write */ }
   });
 }
 function connect() {
@@ -510,6 +531,8 @@ async function init() {
   // The design editor: first tab when the design is editable here (a .figcraft file, not a live FigCraft).
   editor = createEditor({ openFile: f => { selectTab('proto'); openFile(f); if (phone.matches) setPhoneView('read'); }, markdown, log });
   await editor.init(editable => {
+    state.editable = !!editable;
+    fnView.refresh();
     $('#designTab').hidden = false;
     $('#pbDesign').hidden = false;
     if (editable || st.source === 'nothing') { if (phone.matches) setPhoneView('design'); else selectTab('design'); }
@@ -556,6 +579,7 @@ function selectTab(t) {
   document.body.classList.toggle('editing', t === 'design');
   if (t === 'design') editor?.shown();
   if (t === 'links') requestAnimationFrame(drawWires);
+  if (t === 'functions') requestAnimationFrame(fnView.draw);
 }
 document.querySelectorAll('.tab').forEach(b => b.addEventListener('click', () => selectTab(b.dataset.tab)));
 $('#run').addEventListener('click', () => run(false));
@@ -663,7 +687,7 @@ const phone = window.matchMedia('(max-width: 720px)');
 function setPhoneView(v) {
   document.body.dataset.view = v;
   document.querySelectorAll('.phonebar [data-view]').forEach(b => b.setAttribute('aria-current', String(b.dataset.view === v)));
-  if (v === 'proto' || v === 'links' || v === 'manifest' || v === 'design') selectTab(v);
+  if (v === 'proto' || v === 'links' || v === 'manifest' || v === 'design' || v === 'functions') selectTab(v);
   if (v === 'links') requestAnimationFrame(drawWires);
   window.scrollTo(0, 0);
 }

@@ -6,6 +6,7 @@
 import { mdEscape, slug } from '../util/common.mjs';
 import { embedContract, notesBlock } from './contract.mjs';
 import { entityAnchor } from './links.mjs';
+import { functionOfOperation } from '../model/functions.mjs';
 
 const NOTES_PLACEHOLDER = '_No notes yet. Agent or human additions go here; WeshCraft keeps this block when it regenerates the file._';
 const ref = id => `\`#${id}\``;
@@ -89,6 +90,8 @@ export function apiSpec(manifest, { notes } = {}) {
         : `- Screen: [${mdEscape(s.name)}](../front/screens/${s.key}.md)${o.trigger ? `, triggered by ${ref(o.trigger)}` : ', on screen load'}`);
       const tools = manifest.surface?.mcp?.tools.filter(t => t.op === o.key) ?? [];
       if (tools.length) L.push(`- MCP: ${tools.map(t => `[\`${t.name}\`](../front/mcp/${t.key}.md)`).join(', ')}`);
+      const fnOf = functionOfOperation(manifest, o.key);
+      L.push(`- Function: ${fnOf ? `[${mdEscape(fnOf.name)}](../FUNCTIONS.md#${fnOf.key})` : 'not in a function yet'}`);
       L.push(`- Kind: ${o.kind} · confidence: ${o.confidence}`);
       const used = manifest.links.edges.filter(x => x.op === o.key);
       // Screens' layers; MCP tools and public endpoints have their own lines above.

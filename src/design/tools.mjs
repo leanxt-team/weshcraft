@@ -6,6 +6,7 @@ import { tree, find, props, tokens, subtree } from './describe.mjs';
 import { openEditable } from './source.mjs';
 import { rememberDesign } from './discover.mjs';
 import { buildManifest } from '../model/manifest.mjs';
+import { toDeclared, ACTORS } from '../model/functions.mjs';
 import { renderPrototype } from '../proto/html.mjs';
 import { summaryLine, diffManifests } from '../spec/diff.mjs';
 
@@ -43,6 +44,15 @@ export const DESIGN_TOOLS = [
   { name: 'design_bind', description: 'Bind a layer to data: it shows Entity.field. Becomes an explicit entity field in the domain spec and a ◉ link in the front ⇄ back map.', inputSchema: { type: 'object', properties: { id: ID, entity: { type: 'string' }, field: { type: 'string' }, type: { type: 'string', description: 'string (default), number, boolean, date, url, image, …' }, clear: { type: 'boolean' } }, required: ['id'] } },
   { name: 'design_api', description: 'The API call a layer triggers (button, form) or a screen frame loads: METHOD /path → Returns. Becomes an explicit operation in the API spec and OpenAPI, linked to the layer.', inputSchema: { type: 'object', properties: { id: ID, method: { type: 'string', enum: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'] }, path: { type: 'string' }, returns: { type: 'string' }, clear: { type: 'boolean' } }, required: ['id'] } },
   { name: 'design_tokens', description: 'List design tokens, or create/update one (name + value) and optionally paint layers with it (apply: ids).', inputSchema: { type: 'object', properties: { name: { type: 'string' }, value: { type: ['string', 'number'] }, mode: { type: 'string' }, collection: { type: 'string' }, apply: { type: 'array', items: ID } } } },
+  {
+    name: 'design_functions',
+    description: 'The product functions: how the product works at a glance (Functions view, specs/FUNCTIONS.md). A handful of functions (Sign up, Find a trail, Pay…), each with a one-line purpose and the screens that make it; operations, data, who uses it and where it leads follow from the design. Screen specs, the API spec and the maps refer to them. Without arguments: the current functions (declared, or suggested from the prototype until you declare them) and what no function covers. To change them (one undo step): functions:[{name, summary, screens, operations?, tools?}] replaces the list; set:{name, rename?, summary?, screens?, addScreens?, removeScreens?, operations?, tools?} adds or updates one (the others stay; suggested ones become declared); remove:"name". screens: ids or exact screen names, each screen in one function; operations: "METHOD /path" for API-only operations; tools: MCP tool names not already reached through an operation.',
+    inputSchema: { type: 'object', properties: {
+      functions: { type: 'array', items: { type: 'object', properties: { name: { type: 'string' }, summary: { type: 'string' }, screens: { type: 'array', items: ID }, operations: { type: 'array', items: { type: 'string' } }, tools: { type: 'array', items: { type: 'string' } } }, required: ['name'] } },
+      set: { type: 'object', properties: { name: { type: 'string' }, rename: { type: 'string' }, summary: { type: 'string' }, screens: { type: 'array', items: ID }, addScreens: { type: 'array', items: ID }, removeScreens: { type: 'array', items: ID }, operations: { type: 'array', items: { type: 'string' } }, tools: { type: 'array', items: { type: 'string' } } }, required: ['name'] },
+      remove: { type: 'string' }, wait: { type: 'boolean' },
+    } },
+  },
   { name: 'design_undo', description: 'Undo the last design change(s), whoever made them (you or the user in the browser).', inputSchema: { type: 'object', properties: { steps: { type: 'number' } } } },
   { name: 'design_redo', description: 'Redo undone design change(s).', inputSchema: { type: 'object', properties: { steps: { type: 'number' } } } },
   { name: 'design_screenshot', description: 'PNG of a screen as the prototype renders it (needs Playwright with Chromium on this machine).', inputSchema: { type: 'object', properties: { id: ID, scale: { type: 'number' } }, required: ['id'] } },
@@ -107,6 +117,47 @@ export async function callDesignTool(ws, name, args = {}) {
       if (!ops.length) return out('give value (to create/update) and/or apply (ids to paint)', true);
       edit(ops, `Token ${args.name}`);
       return done({ ok: true, token: args.name });
+    }
+    case 'design_functions': {
+      const m = ws.manifest;
+      if (args.functions == null && args.set == null && args.remove == null) {
+        const fns = m?.functions;
+        if (!fns) return out('no run yet: try again in a moment', true);
+        const scr = new Map(m.screens.map(s => [s.key, s]));
+        const op = new Map(m.domain.operations.map(o => [o.key, `${o.method} ${o.path}`]));
+        const name = new Map(fns.items.map(f => [f.key, f.name]));
+        return out({
+          declared: fns.declared,
+          ...(fns.declared ? {} : { note: 'suggested from the prototype: declare them (functions:[…] or set:{…}) to make them the product\'s' }),
+          functions: fns.items.map(f => ({ name: f.name, summary: f.summary || undefined, who: f.actors.map(a => ACTORS[a]), screens: f.screens.map(k => `${scr.get(k).name} #${scr.get(k).id}`), operations: f.operations.map(k => op.get(k)), tools: f.tools.length ? f.tools : undefined, data: f.entities.map(e => `${e.name} (${e.access})`), next: f.next.map(n => name.get(n.to)) })),
+          notCovered: { screens: fns.unassigned.screens.map(k => `${scr.get(k).name} #${scr.get(k).id}`), operations: fns.unassigned.operations.map(k => op.get(k)), tools: fns.unassigned.tools },
+          ...(fns.missing.length ? { unknownRefs: fns.missing } : {}),
+        });
+      }
+      // Work from what the design holds now (the manifest may lag a few hundred ms behind).
+      const keyToId = new Map((m?.screens ?? []).map(s => [s.key, s.id]));
+      const ref = x => (keyToId.has(x) ? keyToId.get(x) : store.screenRef(x));
+      let list = args.functions ?? store.getFunctions() ?? (m ? toDeclared(m) : []);
+      list = list.map(f => ({ ...f, screens: (f.screens ?? []).map(ref) }));
+      if (args.set) {
+        const st = args.set;
+        const i = list.findIndex(f => f.name.toLowerCase() === String(st.name).trim().toLowerCase());
+        const cur = i >= 0 ? { ...list[i] } : { name: String(st.name).trim(), screens: [] };
+        if (st.rename) cur.name = String(st.rename).trim();
+        if (st.summary != null) cur.summary = st.summary;
+        if (st.screens) cur.screens = st.screens.map(ref);
+        if (st.addScreens) cur.screens = [...new Set([...cur.screens, ...st.addScreens.map(ref)])];
+        if (st.removeScreens) { const rm = new Set(st.removeScreens.map(ref)); cur.screens = cur.screens.filter(x => !rm.has(x)); }
+        if (st.operations) cur.operations = st.operations;
+        if (st.tools) cur.tools = st.tools;
+        // a screen belongs to one function: taken from the others
+        const mine = new Set(cur.screens);
+        list = list.map((f, j) => (j === i ? f : { ...f, screens: f.screens.filter(x => !mine.has(x)) }));
+        if (i >= 0) list[i] = cur; else list.push(cur);
+      }
+      if (args.remove != null) list = list.filter(f => f.name.toLowerCase() !== String(args.remove).trim().toLowerCase());
+      const r = edit([{ op: 'functions', functions: list }], 'Product functions');
+      return done({ ok: true, functions: (r.results[0] ?? []).map(f => `${f.name} (${f.screens.length} screens)`) });
     }
     case 'design_undo': case 'design_redo': {
       const labels = [];

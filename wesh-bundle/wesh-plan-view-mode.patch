@@ -88,10 +88,10 @@ index df06071..ef74e50 100644
  // wesh's own files in a project: they are not the project's code, so the code graph must not index them.
 diff --git a/skills/wesh-plan-view-mode/FORMAT.md b/skills/wesh-plan-view-mode/FORMAT.md
 new file mode 100644
-index 0000000..3684396
+index 0000000..bc4aa81
 --- /dev/null
 +++ b/skills/wesh-plan-view-mode/FORMAT.md
-@@ -0,0 +1,77 @@
+@@ -0,0 +1,86 @@
 +# WeshCraft spec format (v1)
 +
 +An **advanced spec**: a folder in a git repository that holds a visual prototype and the front-end and back-end specifications generated from it, with machine-checkable links between all three. Plain markdown and JSON, readable without any tool; `weshcraft check` verifies it, `/wesh-plan-view-mode` iterates on it, `weshcraft_sync` keeps it in a branch.
@@ -113,6 +113,7 @@ index 0000000..3684396
 +specs/README.md                   index + traceability
 +specs/PARITY.md, parity.json      last parity result
 +specs/CHANGES.md                  design changelog, newest first
++specs/FUNCTIONS.md                how the product works: functions → screens, operations, data, journey
 +specs/LINKS.md                    front ⇄ back map
 +specs/front/screens/<key>.md      one per screen
 +specs/front/components/<key>.md   one per component (set)
@@ -169,12 +170,20 @@ index 0000000..3684396
 +5. **Build**: code is reviewed against `specs/front/screens/*.md` §Acceptance criteria, `specs/back/api.md` and `openapi.json` (`wesh-review --spec specs/README.md`).
 +
 +Commit messages: `docs(specs): <name>: <change summary>`, body = prototype hash, parity, changelog lines.
++
++## Product functions
++
++`specs/FUNCTIONS.md` (contract kind `functions`) describes the product as a handful of functions. Each has a key (`fn-<slug>`), a name, a one-line purpose, who uses it (`user`: people in the app, `agent`: AI agents through MCP tools, `api`: integrations through the public API), its screens (in journey order), operations, MCP tools and public endpoints, the entities it reads and writes, and the functions it leads to (navigation from one of its screens to another function's). A Mermaid diagram shows who → functions → data, with ⇒ for where each function leads.
++
++Functions are declared in the design: the first page's `pluginData.weshcraft` holds `{"functions": [{"name", "summary", "screens": [node ids], "operations": ["METHOD /path"], "tools": ["name"]}]}` (`operations` and `tools` only for those no screen reaches). A service without screens declares them in `weshcraft.surface.json` (`"functions"`, same shape, no screens). Until declared, they are suggested from the prototype: flows, canvas sections, wizard steps (one way in, one way on), screens about the same entity, variants of one screen, API tags; the spec says so.
++
++The other specs follow them: a screen spec's header names its function (contract field `function`), `back/api.md` gives each operation's function, and `front/flows.md` and `LINKS.md` group screens by function. Parity: `functions-differ` (error) when FUNCTIONS.md no longer matches; warnings `functions-suggested`, `not-in-a-function` (a screen, operation or tool in none), `function-unknown-ref` (a declared screen or operation that is gone) and `empty-function`; `function-differs` (error) when a screen spec names another function.
 diff --git a/skills/wesh-plan-view-mode/SKILL.md b/skills/wesh-plan-view-mode/SKILL.md
 new file mode 100644
-index 0000000..db73552
+index 0000000..77a845c
 --- /dev/null
 +++ b/skills/wesh-plan-view-mode/SKILL.md
-@@ -0,0 +1,70 @@
+@@ -0,0 +1,74 @@
 +---
 +name: wesh-plan-view-mode
 +description: Plan in view mode. Design the prototype through WeshCraft MCP (a spec-oriented FigCraft), generate front and back specs in parallel that match it exactly, then update, sync or push the advanced spec in a git repo. Use for /wesh-plan-view-mode.
@@ -202,6 +211,9 @@ index 0000000..db73552
 +## 1. Facts first, yourself
 +As `/wesh-plan`: repo entry points, existing API, models, components, `GLOSSARY.md`, ADRs (`codegraph_explore` or `wesh-scout`). Then `design_tree` (ids, layout, links, API annotations; one line per layer) and `weshcraft_manifest` for entities and operations. Never ask user what tree, manifest or repo answers.
 +
++## 1b. How the product works
++`design_functions`: the product's functions (suggested from the prototype until declared). Settle them in the first round: a handful (not one per screen), each a verb phrase the user would say ("Find a trail", "Pay"), a one-line purpose, its screens; API-only operations and MCP tools that no screen reaches go to the function they serve. Declare with `design_functions {functions:[…]}` (or `set` for one). Every later round says which function it changes; a new screen goes into a function in the same batch. `specs/FUNCTIONS.md` is the first thing a reader opens: keep it true.
++
 +## 2. Frontier rounds, answered in the design
 +Same rounds as `/wesh-plan` (numbered, recommended answer, "yes" accepts). Route each settled answer:
 +- Changes what user sees or does (screen, copy, state, flow, field, button) → one `design_edit` per settled round: all its ops in one batch (one undo step for user), `ref` to wire new layers (`{op:"screen",ref:"s"}`, `{op:"create",parent:"s",…}`, `{op:"link",id:…,to:"s"}`). Reuse components (`instance`) and tokens (`useToken`); auto layout (`layout`, `sizing`) over x/y. `design_text` for copy-only rounds. `design_screenshot` (if available) or the live URL so user confirms. Live FigCraft instead: `figcraft_batch`, `figcraft_set_properties`, `figcraft_run_command`.
@@ -223,7 +235,7 @@ index 0000000..db73552
 +- inferred operation or field → confirm by binding/annotating in the design.
 +
 +## 5. Parity gate
-+`weshcraft_check` must be `ok`. Stale or missing → `weshcraft_generate`. Drift → design changed: regenerate, never hand-edit generated sections.
++`weshcraft_check` must be `ok`, with no `functions-suggested` or `not-in-a-function` warning left. Stale or missing → `weshcraft_generate`. Drift → design changed: regenerate, never hand-edit generated sections.
 +
 +## 6. Spec summary
 +Reply in `/wesh-plan` shape, under ~60 lines, pointing at files instead of restating them:
@@ -234,6 +246,7 @@ index 0000000..db73552
 +Changed: <weshcraft diff summary, update mode only>
 +Acceptance: specs/front/screens/*.md §Acceptance criteria (+ the 3-5 that matter most)
 +Decisions: entities, operations, components reused (specs/back/domain.md, api.md)
++Functions: specs/FUNCTIONS.md — <name: purpose> per function, nothing outside a function
 +Links: specs/LINKS.md — <n> operation links, <n> data links, gaps: <none | list>
 +Test seams · Non-goals · Slices (vertical, each = screens + operations it needs)
 +```
@@ -272,16 +285,19 @@ index db512ce..052e1c2 100644
  Diff, then callers of every changed function, functions it calls, tests, README. Signature or behavior changed: find every caller (`codegraph callers <fn>` per changed function when the project has an index, else grep; plus grep for string or dynamic references). The CLI reads the last synced index: run `codegraph sync` first when the answer decides a delete, a rename or "unused". Find the expected load (README, deploy config) and state it.
 diff --git a/skills/wesh-spec-back/SKILL.md b/skills/wesh-spec-back/SKILL.md
 new file mode 100644
-index 0000000..ec37940
+index 0000000..00023c8
 --- /dev/null
 +++ b/skills/wesh-spec-back/SKILL.md
-@@ -0,0 +1,24 @@
+@@ -0,0 +1,27 @@
 +---
 +name: wesh-spec-back
 +description: Enrich WeshCraft back specs (specs/back/*.md) from a FigCraft prototype: validation, authz, errors, data, open questions. Never invents endpoints. Use for "enrich/complete back spec".
 +---
 +
 +Entities, fields and operations are derived from the prototype (explicit bindings and annotations, or inferred from repeated components and action labels) and contract-checked. Do not add, rename or drop them in prose. You write only the Notes block (`weshcraft_write_notes`).
++
++
++Read `specs/FUNCTIONS.md` first: an operation's function (and the data it reads and writes) frames its validation, authorization and errors.
 +
 +## Read first
 +`specs/back/domain.md`, `api.md`, `openapi.json`, `conventions.md`, the public API and MCP specs under `specs/front/api` and `specs/front/mcp` when present, `specs/LINKS.md` (or `weshcraft_links`): which layers trigger, submit to and show each operation's data; the screens each operation cites. Existing back-end code: models, routes, auth, validation library, error format, migrations. Reuse them; name the file you would extend.
@@ -302,16 +318,19 @@ index 0000000..ec37940
 +- Under 60 lines per spec. No preamble.
 diff --git a/skills/wesh-spec-front/SKILL.md b/skills/wesh-spec-front/SKILL.md
 new file mode 100644
-index 0000000..fd9d0bb
+index 0000000..785ff80
 --- /dev/null
 +++ b/skills/wesh-spec-front/SKILL.md
-@@ -0,0 +1,30 @@
+@@ -0,0 +1,33 @@
 +---
 +name: wesh-spec-front
 +description: Enrich WeshCraft front specs (specs/front/*.md) from a FigCraft prototype: states, a11y, analytics, open questions. Never changes generated facts. Use for "enrich/complete front spec".
 +---
 +
 +Spec facts (layout, copy, typography, colours, interactions, components, sizes) are generated from the prototype and contract-checked. Do not restate, reword or "fix" them. You write only the Notes block (`weshcraft_write_notes`, or between the `weshcraft:notes` markers when editing files).
++
++
++Read the screen's function in `specs/FUNCTIONS.md` first: its purpose frames the screen's states, empty cases and acceptance criteria.
 +
 +## Read first
 +The spec (`weshcraft_read_spec`), the screens it links, `weshcraft_manifest {screen}` for ids. Existing code for the same screen or component, when the repo has it: match its patterns.

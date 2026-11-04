@@ -836,3 +836,70 @@ test('plugin: a busy project port moves to the next one, and every session finds
     assert.equal(await fixed.alive(), false, 'a port set by the user is not moved');
   } finally { A.stop(); B.stop(); squatter.close(); }
 });
+
+test('product functions: suggested, declared in the design, followed by every spec, checked by parity', async () => {
+  const { buildFunctions } = await import('../src/model/functions.mjs');
+  const { callDesignTool } = await import('../src/design/tools.mjs');
+  // suggested: a flow is one function; variants of a screen and screens about the same data group together
+  const onb = buildManifest((await new FileSource(ONBOARDING).load()).model);
+  assert.equal(onb.functions.declared, false);
+  assert.deepEqual(onb.functions.items.map(f => [f.name, f.screens.length]), [['Onboarding', 4]], 'the prototype flow');
+  const app = buildManifest((await new FileSource(path.join(here, 'fixtures/ridgeline-app.figcraft')).load()).model);
+  assert.deepEqual(app.functions.items.map(f => f.name), ['Home', 'Trail'], 'Home — Light / Dark together');
+  assert.deepEqual(app.functions.items[0].entities, [{ name: 'Trail', access: 'reads' }]);
+  // a service without screens: API tags, then the operations' data; MCP tools follow their operation
+  const svc = buildManifest(emptyModel(), { surface: loadSurfaceFile(BILLING) });
+  const inv = svc.functions.items.find(f => f.name === 'Invoices');
+  assert.ok(inv && inv.tools.includes('create_invoice') && inv.actors.includes('agent') && inv.actors.includes('api'));
+  assert.deepEqual(svc.functions.unassigned, { screens: [], operations: [], tools: [] }, 'everything somewhere');
+  // declared in a surface file
+  const declaredSvc = buildFunctions(svc, [{ name: 'Bill customers', summary: 'Create, send and track invoices', operations: ['get /invoices', 'POST /invoices'] }]);
+  assert.equal(declaredSvc.declared, true);
+  assert.ok(declaredSvc.items[0].operations.length > 2, 'operations on the same data join their function');
+  assert.ok(declaredSvc.unassigned.operations.length >= 1, 'the rest is reported, not guessed');
+
+  // declared in the design, through the agent tool; one undo step; specs follow
+  const dir = tmp();
+  fs.mkdirSync(path.join(dir, 'design'));
+  fs.copyFileSync(ACCOUNT, path.join(dir, 'design/App.figcraft.json'));
+  const ws = new Workspace({ outDir: dir });
+  ws.useSource(openEditable(path.join(dir, 'design/App.figcraft.json')));
+  await ws.run();
+  const call = async a => JSON.parse((await callDesignTool(ws, 'design_functions', a)).content[0].text);
+  const first = await call({});
+  assert.equal(first.declared, false);
+  assert.ok(first.note && first.functions.length === 1);
+  let r = await call({ functions: [{ name: 'Join', summary: 'Create an account', screens: ['Sign up'] }, { name: 'Manage profile', summary: 'See and edit your profile', screens: ['Profile'] }], wait: true });
+  assert.equal(r.parity.ok, true);
+  const now = await call({});
+  assert.equal(now.declared, true);
+  assert.deepEqual(now.functions.map(f => [f.name, f.next]), [['Join', ['Manage profile']], ['Manage profile', []]], 'the journey follows the prototype links');
+  assert.deepEqual(now.functions[1].data, ['Subscription (reads)', 'User (reads, writes)'], 'PATCH /users/me writes User');
+  const md = p => fs.readFileSync(path.join(dir, p), 'utf8');
+  assert.match(md('specs/FUNCTIONS.md'), /```mermaid[\s\S]*fn_join ==>\|leads to\| fn_manage_profile[\s\S]*## Join\n\nCreate an account/);
+  assert.match(md('specs/front/screens/scr-sign-up.md'), /\| Function \| \[Join\]\(\.\.\/\.\.\/FUNCTIONS\.md#fn-join\)/);
+  assert.match(md('specs/back/api.md'), /Function: \[Manage profile\]\(\.\.\/FUNCTIONS\.md#fn-manage-profile\)/);
+  assert.match(md('specs/front/flows.md'), /subgraph fn_join\["Join"\]/);
+  assert.equal(readContract(md('specs/front/screens/scr-profile.md')).function, 'fn-manage-profile');
+  // saved in the design file, readable by FigCraft (page pluginData)
+  const doc = JSON.parse(fs.readFileSync(path.join(dir, 'design/App.figcraft.json'), 'utf8'));
+  assert.equal(JSON.parse(doc.nodes[String(doc.pages[0])].pluginData.weshcraft).functions.length, 2);
+  // one change: a screen moves; the other function is left empty (warned), undo restores
+  r = await call({ set: { name: 'Join', addScreens: ['Profile'] }, wait: true });
+  assert.ok(r.parity.issues.some(i => /Manage profile has no screen/.test(i)));
+  ws.source.store.undo();
+  await ws.settled();
+  assert.deepEqual((await call({})).functions.map(f => f.screens.length), [1, 1]);
+  // drift: a screen spec naming another function fails parity
+  const f = path.join(dir, 'specs/front/screens/scr-profile.md');
+  fs.writeFileSync(f, md('specs/front/screens/scr-profile.md').replace('"function": "fn-manage-profile"', '"function": "fn-join"'));
+  const rep = checkParity(ws.manifest, dir);
+  assert.ok(rep.issues.some(i => i.code === 'function-differs'));
+  // a removed function's screens are reported
+  await call({ remove: 'Manage profile', wait: true });
+  assert.deepEqual((await call({})).notCovered.screens, ['Profile #3']);
+  assert.ok(ws.report.issues.some(i => i.code === 'not-in-a-function'));
+  // bad input is refused, nothing changes
+  await assert.rejects(callDesignTool(ws, 'design_functions', { functions: [{ name: 'A' }, { name: 'a' }] }), /two functions are called/);
+  assert.equal(ws.source.store.getFunctions().length, 1);
+});
