@@ -24,13 +24,19 @@ or the patch (made against wesh `d07619a`):
 cd /path/to/wesh && git apply /path/to/weshcraft/wesh-bundle/wesh-plan-view-mode.patch
 ```
 
+On a wesh that already has an earlier version of this bundle (wesh `5aa41b9` or later), the script brings it up to date; the only change from `5aa41b9` is also given as a patch:
+
+```bash
+cd /path/to/wesh && git apply /path/to/weshcraft/wesh-bundle/wesh-update-from-5aa41b9.patch
+```
+
 Then reinstall wesh:
 
 ```bash
 cd /path/to/wesh && node install.mjs
 ```
 
-Checked: wesh's own suite passes with the update (124/124, `cd bench && npm test`), and `node install.mjs --target claude` installs the three skills.
+Checked: wesh's own suite passes with the update (124/124 from `d07619a`, 126/126 from `5aa41b9`; `cd bench && npm test`), and `node install.mjs --target claude` installs the three skills.
 
 ## Use
 

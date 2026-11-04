@@ -88,7 +88,7 @@ index df06071..ef74e50 100644
  // wesh's own files in a project: they are not the project's code, so the code graph must not index them.
 diff --git a/skills/wesh-plan-view-mode/FORMAT.md b/skills/wesh-plan-view-mode/FORMAT.md
 new file mode 100644
-index 0000000..3cd39f3
+index 0000000..6606c07
 --- /dev/null
 +++ b/skills/wesh-plan-view-mode/FORMAT.md
 @@ -0,0 +1,98 @@
@@ -186,7 +186,7 @@ index 0000000..3cd39f3
 +Code says what it implements with a tag in a comment next to the symbol: `// @weshcraft scr-sign-up`, `# @weshcraft POST /users`, `/** @weshcraft fn-join, User */`. Refs: a key (`fn-…`, `scr-…`, `cmp-…`, `op-…`), `METHOD /path`, an entity name, an MCP tool name; each spec header gives its element's tag (`Code tag`). Any language; dependencies, build output, `prototype/` and `specs/` are not scanned.
 +
 +From the tags, every run (and `weshcraft trace`, `weshcraft_trace`) writes:
-+- `design/weshcraft.graph.mjs`: the product as JavaScript that is never imported or run, one exported function per product function (`fn…`), screen (`screen…`), component (`component…`), operation (`op…`), entity (`entity…`) and MCP tool (`tool…`), each documented (purpose, spec link, tag, non-JS code locations) and calling what it is made of: the product its functions in journey order, a function its screens, operations and tools, a screen its components, operations and the entities it shows, an operation the entity it returns, a tool its operation. Each one also imports and calls the exported JavaScript/TypeScript symbols tagged for it; code in other languages is named in its comment. Code graphs index it like the rest of the code: `codegraph explore "how does Sign up work"` returns the function, its screens and operations and the code behind them; `codegraph callers SignUpPage` names the screen it implements; `codegraph impact fetchMe --depth 4` reaches the screens and functions a change touches. Kept out of paths code graphs treat as tests (`specs/`, `test/`).
++- `weshcraft.graph.mjs` next to the design file (usually `design/weshcraft.graph.mjs`; `design/` for a service without one): the product as JavaScript that is never imported or run, one exported function per product function (`fn…`), screen (`screen…`), component (`component…`), operation (`op…`), entity (`entity…`) and MCP tool (`tool…`), each documented (purpose, spec link, tag, non-JS code locations) and calling what it is made of: the product its functions in journey order, a function its screens, operations and tools, a screen its components, operations and the entities it shows, an operation the entity it returns, a tool its operation. Each one also imports and calls the exported JavaScript/TypeScript symbols tagged for it; code in other languages is named in its comment. Code graphs index it like the rest of the code: `codegraph explore "how does Sign up work"` returns the function, its screens and operations and the code behind them; `codegraph callers SignUpPage` names the screen it implements; `codegraph impact fetchMe --depth 4` reaches the screens and functions a change touches. Kept out of paths code graphs treat as tests (`specs/`, `test/`).
 +- `specs/TRACE.md` and `specs/trace.json`: per function, each element with its tag and code locations; what has no code yet; tags that name nothing.
 +
 +Parity (warnings): `trace-unknown` (a tag that names nothing in the design), `trace-stale` / `trace-missing` (the product graph does not match the design and the tagged code: `weshcraft generate` or `weshcraft trace`).
@@ -288,7 +288,7 @@ index 766c70b..934921f 100644
  
  ```
 diff --git a/skills/wesh-review/SKILL.md b/skills/wesh-review/SKILL.md
-index db512ce..126a326 100644
+index db512ce..0e80fb4 100644
 --- a/skills/wesh-review/SKILL.md
 +++ b/skills/wesh-review/SKILL.md
 @@ -8,7 +8,7 @@ Review like the senior dev who gets paged when it breaks. Priority: correct, saf
@@ -296,7 +296,7 @@ index db512ce..126a326 100644
  ## 1. Target
  Named target: uncommitted/staged changes, a branch or ref (`git diff <ref>...HEAD`), a PR, files, a folder, or `repo`. Nothing named: uncommitted changes, else the last commit. Bad ref or empty diff: say so and stop.
 -Spec: the `--spec` path, issue refs in commit messages, or a matching file under `docs/`/`specs/`. None found: skip the spec axis.
-+Spec: the `--spec` path, issue refs in commit messages, or a matching file under `docs/`/`specs/`. None found: skip the spec axis. WeshCraft advanced spec (`specs/manifest.json`, schema `weshcraft/manifest@*`): run `weshcraft check` first (out of sync is a finding); the spec is each screen's §Acceptance criteria, `specs/back/api.md`, `specs/back/openapi.json` and `specs/LINKS.md`; cite layers as `#id`. Which code implements which screen or operation: `specs/TRACE.md` (`@weshcraft <ref>` tags) and `codegraph impact <symbol> --depth 4` (reaches the screens and functions in `design/weshcraft.graph.mjs`); changed code that implements an element but carries no tag is a finding.
++Spec: the `--spec` path, issue refs in commit messages, or a matching file under `docs/`/`specs/`. None found: skip the spec axis. WeshCraft advanced spec (`specs/manifest.json`, schema `weshcraft/manifest@*`): run `weshcraft check` first (out of sync is a finding); the spec is each screen's §Acceptance criteria, `specs/back/api.md`, `specs/back/openapi.json` and `specs/LINKS.md`; cite layers as `#id`. Which code implements which screen or operation: `specs/TRACE.md` (`@weshcraft <ref>` tags) and `codegraph impact <symbol> --depth 4` (reaches the screens and functions in `weshcraft.graph.mjs`, next to the design); changed code that implements an element but carries no tag is a finding.
  
  ## 2. Read what the change touches
  Diff, then callers of every changed function, functions it calls, tests, README. Signature or behavior changed: find every caller (`codegraph callers <fn>` per changed function when the project has an index, else grep; plus grep for string or dynamic references). The CLI reads the last synced index: run `codegraph sync` first when the answer decides a delete, a rename or "unused". Find the expected load (README, deploy config) and state it.

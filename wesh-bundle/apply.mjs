@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 // Adds WeshCraft view mode to a wesh checkout: /wesh-plan-view-mode (slash-only) plus the
 // wesh-spec-front and wesh-spec-back skills, and registers them where wesh lists its skills.
-// Idempotent: running it twice changes nothing the second time.
+// Idempotent: running it twice changes nothing the second time; on a wesh with an earlier bundle it
+// brings the skills and the wesh-review clause up to date.
 //   node apply.mjs /path/to/wesh            then, in wesh:  node install.mjs
 import fs from 'node:fs';
 import path from 'node:path';
@@ -37,7 +38,14 @@ for (const name of ['wesh-plan-view-mode', 'wesh-spec-front', 'wesh-spec-back'])
 
 // wesh-plan and wesh-review recognise the advanced spec format.
 edit('skills/wesh-plan/SKILL.md', s => (s.includes('wesh-plan-view-mode') ? s : s.replace('## 3. Write the spec\n', '## 3. Write the spec\nUI work with a FigCraft prototype, or a repo that already holds `specs/manifest.json` (WeshCraft advanced spec): suggest `/wesh-plan-view-mode` instead; it writes design, prototype and contract-checked front/back specs and keeps them in git.\n')));
-edit('skills/wesh-review/SKILL.md', s => (s.includes('weshcraft') ? s : s.replace('None found: skip the spec axis.', 'None found: skip the spec axis. WeshCraft advanced spec (`specs/manifest.json`, schema `weshcraft/manifest@*`): run `weshcraft check` first (out of sync is a finding); the spec is each screen\'s §Acceptance criteria, `specs/back/api.md`, `specs/back/openapi.json` and `specs/LINKS.md`; cite layers as `#id`. Which code implements which screen or operation: `specs/TRACE.md` (`@weshcraft <ref>` tags) and `codegraph impact <symbol> --depth 4` (reaches the screens and functions in `design/weshcraft.graph.mjs`); changed code that implements an element but carries no tag is a finding.')));
+const REVIEW_SPEC = 'WeshCraft advanced spec (`specs/manifest.json`, schema `weshcraft/manifest@*`): run `weshcraft check` first (out of sync is a finding); the spec is each screen\'s §Acceptance criteria, `specs/back/api.md`, `specs/back/openapi.json` and `specs/LINKS.md`; cite layers as `#id`.';
+const REVIEW_TRACE = ' Which code implements which screen or operation: `specs/TRACE.md` (`@weshcraft <ref>` tags) and `codegraph impact <symbol> --depth 4` (reaches the screens and functions in `weshcraft.graph.mjs`, next to the design); changed code that implements an element but carries no tag is a finding.';
+edit('skills/wesh-review/SKILL.md', s => {
+  if (!s.includes('weshcraft')) return s.replace('None found: skip the spec axis.', `None found: skip the spec axis. ${REVIEW_SPEC}${REVIEW_TRACE}`);
+  // an earlier bundle: add what is new
+  if (!s.includes('specs/TRACE.md')) return s.replace('`specs/LINKS.md`; cite layers as `#id`.', `\`specs/LINKS.md\`; cite layers as \`#id\`.${REVIEW_TRACE}`);
+  return s;
+});
 
 const USER_ONLY_OLD = "'wesh-level', 'wesh-plan', 'wesh-handoff', 'wesh-slim', 'wesh-debt'";
 const USER_ONLY_NEW = "'wesh-level', 'wesh-plan', 'wesh-plan-view-mode', 'wesh-handoff', 'wesh-slim', 'wesh-debt'";
