@@ -3,7 +3,7 @@
  "source": {
   "name": "WeshCraft Console",
   "truncated": false,
-  "hash": "60e569c9b2fe7a39"
+  "hash": "d378e26074d3cd4f"
  },
  "screens": [
   {
@@ -20,7 +20,7 @@
     "hex": "#f5f7f6",
     "alpha": 1
    },
-   "fingerprint": "d07496eb08b3",
+   "fingerprint": "dbd1d9140820",
    "texts": [
     {
      "id": 8,
@@ -105,7 +105,7 @@
     {
      "id": 43,
      "name": "Overview",
-     "characters": "Dashboard",
+     "characters": "Console",
      "font": "Inter Bold 30",
      "color": "#14201c",
      "token": null

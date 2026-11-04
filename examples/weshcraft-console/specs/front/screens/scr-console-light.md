@@ -6,7 +6,7 @@
 | Page | Console |
 | Frame | 1440 × 960 px |
 | Dev status | not marked |
-| Fingerprint | `d07496eb08b3` |
+| Fingerprint | `dbd1d9140820` |
 | Prototype | [prototype/index.html#scr-console-light](../../prototype/index.html#scr-console-light) |
 
 ## Purpose
@@ -58,7 +58,7 @@ Hierarchy, sizes and auto layout exactly as designed (px). Instances are specifi
   - `#40` **Main** — frame · 1192×960 · auto layout vertical, gap 24 · padding 32/32/32/32 · align min/min · size fill×fill
     - `#41` **Top bar** — frame · 1128×62 · auto layout horizontal, gap 16 · align spaceBetween/center · size fill×hug
       - `#42` **Title** — frame · 335×62 · auto layout vertical, gap 2 · align min/min · size hug×hug
-        - `#43` **Overview** — text · 161×38 · size hug×hug — “Dashboard”
+        - `#43` **Overview** — text · 161×38 · size hug×hug — “Console”
         - `#44` **Bookings and revenue, 1 March to 31 May** — text · 335×22 · size hug×hug — “design → prototype → contract-checked specs”
       - `#45` **Tools** — frame · 413×46 · auto layout horizontal, gap 12 · align min/center · size hug×hug
         - `#46` **Search** — frame · 260×46 · auto layout horizontal, gap 10 · padding 11/14/11/14 · align min/center · size fixed×hug · radius 14
@@ -232,7 +232,7 @@ Shown verbatim. Typography and colour per layer; contrast is WCAG 2.1 against th
 | `#36` | TB | TB | Inter Medium 12px / 16 | #1f6f5c on #ddefe8 | 5.04:1 ✅ |
 | `#38` | Tomas Beck | Maya Chen | Inter Medium 14px / 20 | #14201c on #f5f7f6 | 15.58:1 ✅ |
 | `#39` | Operations | WeshCraft | Inter Regular 13px / 18 | #5c6b66 on #f5f7f6 | 5.2:1 ✅ |
-| `#43` | Overview | Dashboard | Inter Bold 30px / 38 | #14201c on #f5f7f6 | 15.58:1 ✅ |
+| `#43` | Overview | Console | Inter Bold 30px / 38 | #14201c on #f5f7f6 | 15.58:1 ✅ |
 | `#44` | Bookings and revenue, 1 March to 31 May | design → prototype → contract-checked specs | Inter Regular 15px / 22 | #5c6b66 on #f5f7f6 | 5.2:1 ✅ |
 | `#49` | Search bookings | Search specs | Inter Regular 15px / 22 | #5c6b66 on #ffffff | 5.6:1 ✅ |
 | `#54` | Export | Publish | Inter Medium 14px / 20 | #ffffff on #1f6f5c | 6.02:1 ✅ |
@@ -439,7 +439,7 @@ _No notes yet. Agent or human additions go here; WeshCraft keeps this block when
   },
   {
    "node": 43,
-   "text": "Dashboard"
+   "text": "Console"
   },
   {
    "node": 44,
@@ -710,7 +710,7 @@ _No notes yet. Agent or human additions go here; WeshCraft keeps this block when
    "text": "112"
   }
  ],
- "fingerprint": "d07496eb08b3",
+ "fingerprint": "dbd1d9140820",
  "inputs": [
   46,
   47
@@ -924,6 +924,6 @@ _No notes yet. Agent or human additions go here; WeshCraft keeps this block when
   1440,
   960
  ],
- "sourceHash": "60e569c9b2fe7a39"
+ "sourceHash": "d378e26074d3cd4f"
 }
 -->
