@@ -211,7 +211,7 @@ html.oc #moreDlg .sheet-group button:hover, html.oc #moreDlg .sheet-group button
   /* one row of columns at every width: the spec list, the view, the spec. « and » fold each side
      per section; the dividers set the widths (--oc-list, --oc-spec, --oc-edl, --oc-edr: set while
      dragging, not saved). */
-  html.oc body { display: grid; --L: minmax(200px, 250px); --S: minmax(320px, .9fr); }
+  html.oc body { display: grid; grid-template-rows: minmax(0, 1fr) auto; height: 100vh; --L: minmax(200px, 250px); --S: minmax(320px, .9fr); } /* no header row: the blocks fill the height, the log line at the bottom */
   html.oc body.editing { --L: minmax(170px, 220px); --S: minmax(300px, .62fr); }
   html.oc body > * + * { margin-top: 0; }
   html.oc .layout { position: relative; grid-template-rows: minmax(0, 1fr); grid-template-columns: var(--oc-list, var(--L)) minmax(0, 1fr) var(--oc-spec, var(--S)) !important; }

@@ -86,6 +86,12 @@ try {
     // the prototype keeps its own choices
     await f.locator('.rail .tab[data-tab="proto"]').click(); await sleep(600);
     g = await geo();
+    { await f.locator('.rail .tab[data-tab="architecture"]').click(); await sleep(600);
+      if (await fr.evaluate(() => !document.body.classList.contains('no-right'))) { await pane('right').click(); await sleep(400); } // a short section alone (as in a tall panel)
+      const h = await fr.evaluate(() => ({ vh: innerHeight, layout: document.querySelector('.layout').getBoundingClientRect().bottom, log: document.querySelector('.log').getBoundingClientRect().bottom }));
+      ok(`${w}: a short section still fills the height, log line at the bottom`, h.log >= h.vh - 2 && h.layout >= h.vh - 40, JSON.stringify(h));
+      await pane('right').click(); await sleep(300);
+      await f.locator('.rail .tab[data-tab="proto"]').click(); await sleep(600); }
     ok(`${w}: rail switches section, title follows`, g.section === 'proto' && g.title === 'Prototype' && await f.locator('.tabpanel[data-panel="proto"]').isVisible(), JSON.stringify([g.section, g.title]));
     ok(`${w}: prototype: list and spec shown (its own choice)`, g.builder && g.reader && g.stage.width > 250, JSON.stringify(g.stage));
     { const w0 = await width('.builder'); await drag('list', 40); const w1 = await width('.builder'); ok(`${w}: divider resizes the spec list`, Math.abs(w1 - w0 - 40) <= 3, `${Math.round(w0)} → ${Math.round(w1)}`); }
