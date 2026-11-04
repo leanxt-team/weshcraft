@@ -3,15 +3,15 @@
   "info": {
     "title": "WeshCraft Console API",
     "version": "0.1.0",
-    "x-weshcraft-source-hash": "d5a504f901758656"
+    "x-weshcraft-source-hash": "60e569c9b2fe7a39"
   },
   "paths": {
     "/jobs": {
       "get": {
-        "operationId": "listJobScrDashboardLight",
-        "summary": "List Job",
+        "operationId": "getJobs2",
+        "summary": "GET /jobs → Job",
         "tags": [
-          "Dashboard — Light"
+          "Console — Light"
         ],
         "responses": {
           "200": {
@@ -19,21 +19,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "items": {
-                      "type": "array",
-                      "items": {
-                        "$ref": "#/components/schemas/Job"
-                      }
-                    },
-                    "next": {
-                      "type": [
-                        "string",
-                        "null"
-                      ]
-                    }
-                  }
+                  "$ref": "#/components/schemas/Job"
                 }
               }
             }
@@ -52,55 +38,27 @@
             "description": "Unauthenticated"
           }
         },
-        "parameters": [
-          {
-            "name": "cursor",
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "limit",
-            "in": "query",
-            "schema": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 100,
-              "default": 20
-            }
-          }
-        ],
         "x-weshcraft": {
           "keys": [
-            "op-list-job-scr-dashboard-light",
-            "op-get-jobs-6",
-            "op-list-job-scr-dashboard-dark",
-            "op-get-jobs-71"
+            "op-get-jobs-2"
           ],
           "screens": [
-            "scr-dashboard-light",
-            "scr-dashboard-light",
-            "scr-dashboard-dark",
-            "scr-dashboard-dark"
+            "scr-console-light"
           ],
           "trigger": null,
-          "confidence": "inferred",
+          "confidence": "explicit",
           "sources": [
-            39,
-            43,
-            47,
-            51
+            2
           ]
         }
       }
     },
     "/specs/publish": {
       "post": {
-        "operationId": "postSpecsPublish23",
+        "operationId": "postSpecsPublish54",
         "summary": "POST /specs/publish → Spec",
         "tags": [
-          "Dashboard — Light"
+          "Console — Light"
         ],
         "responses": {
           "201": {
@@ -134,9 +92,9 @@
               "schema": {
                 "type": "object",
                 "properties": {
-                  "search_jobs": {
+                  "search": {
                     "type": "string",
-                    "x-weshcraft-node": 21
+                    "x-weshcraft-node": 47
                   }
                 }
               }
@@ -145,27 +103,25 @@
         },
         "x-weshcraft": {
           "keys": [
-            "op-post-specs-publish-23",
-            "op-post-specs-publish-88"
+            "op-post-specs-publish-54"
           ],
           "screens": [
-            "scr-dashboard-light",
-            "scr-dashboard-dark"
+            "scr-console-light"
           ],
-          "trigger": 23,
+          "trigger": 54,
           "confidence": "explicit",
           "sources": [
-            23
+            54
           ]
         }
       }
     },
     "/parity": {
       "get": {
-        "operationId": "getParity25",
+        "operationId": "getParity56",
         "summary": "GET /parity → Parity",
         "tags": [
-          "Dashboard — Light"
+          "Console — Light"
         ],
         "responses": {
           "200": {
@@ -194,27 +150,72 @@
         },
         "x-weshcraft": {
           "keys": [
-            "op-get-parity-25",
-            "op-get-parity-90"
+            "op-get-parity-56"
           ],
           "screens": [
-            "scr-dashboard-light",
-            "scr-dashboard-dark"
+            "scr-console-light"
           ],
-          "trigger": 25,
+          "trigger": 56,
           "confidence": "explicit",
           "sources": [
-            25
+            56
+          ]
+        }
+      }
+    },
+    "/parity/trend": {
+      "get": {
+        "operationId": "getParityTrend80",
+        "summary": "GET /parity/trend → Parity",
+        "tags": [
+          "Console — Light"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Parity"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthenticated"
+          }
+        },
+        "x-weshcraft": {
+          "keys": [
+            "op-get-parity-trend-80"
+          ],
+          "screens": [
+            "scr-console-light"
+          ],
+          "trigger": 80,
+          "confidence": "explicit",
+          "sources": [
+            80
           ]
         }
       }
     },
     "/links": {
       "get": {
-        "operationId": "getLinks55",
+        "operationId": "getLinks101",
         "summary": "GET /links → Link",
         "tags": [
-          "Dashboard — Light"
+          "Console — Light"
         ],
         "responses": {
           "200": {
@@ -243,27 +244,25 @@
         },
         "x-weshcraft": {
           "keys": [
-            "op-get-links-55",
-            "op-get-links-116"
+            "op-get-links-101"
           ],
           "screens": [
-            "scr-dashboard-light",
-            "scr-dashboard-dark"
+            "scr-console-light"
           ],
-          "trigger": 55,
+          "trigger": 101,
           "confidence": "explicit",
           "sources": [
-            55
+            101
           ]
         }
       }
     },
-    "/events": {
+    "/parity/history": {
       "get": {
-        "operationId": "getEvents66",
-        "summary": "GET /events → Event",
+        "operationId": "getParityHistory123",
+        "summary": "GET /parity/history → Parity",
         "tags": [
-          "Dashboard — Light"
+          "Console — Light"
         ],
         "responses": {
           "200": {
@@ -271,7 +270,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Event"
+                  "$ref": "#/components/schemas/Parity"
                 }
               }
             }
@@ -292,27 +291,25 @@
         },
         "x-weshcraft": {
           "keys": [
-            "op-get-events-66",
-            "op-get-events-127"
+            "op-get-parity-history-123"
           ],
           "screens": [
-            "scr-dashboard-light",
-            "scr-dashboard-dark"
+            "scr-console-light"
           ],
-          "trigger": 66,
+          "trigger": 123,
           "confidence": "explicit",
           "sources": [
-            66
+            123
           ]
         }
       }
     },
-    "/specs/{id}": {
+    "/specs": {
       "get": {
-        "operationId": "getSpecsId131",
-        "summary": "GET /specs/{id} → Spec",
+        "operationId": "getSpecs144",
+        "summary": "GET /specs → Spec",
         "tags": [
-          "Spec detail"
+          "Console — Light"
         ],
         "responses": {
           "200": {
@@ -341,15 +338,15 @@
         },
         "x-weshcraft": {
           "keys": [
-            "op-get-specs-id-131"
+            "op-get-specs-144"
           ],
           "screens": [
-            "scr-spec-detail"
+            "scr-console-light"
           ],
-          "trigger": null,
+          "trigger": 144,
           "confidence": "explicit",
           "sources": [
-            131
+            144
           ]
         }
       }
@@ -357,29 +354,6 @@
   },
   "components": {
     "schemas": {
-      "Event": {
-        "type": "object",
-        "required": [
-          "id"
-        ],
-        "properties": {
-          "id": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "message": {
-            "type": "string",
-            "x-weshcraft-nodes": [
-              68,
-              69,
-              70,
-              129,
-              130
-            ],
-            "x-weshcraft-confidence": "explicit"
-          }
-        }
-      },
       "Job": {
         "type": "object",
         "required": [
@@ -393,41 +367,52 @@
           "file": {
             "type": "string",
             "x-weshcraft-nodes": [
-              40,
-              44,
-              48,
-              52,
-              105,
-              109,
-              113
+              156,
+              164,
+              172,
+              180
             ],
-            "x-weshcraft-confidence": "inferred"
+            "x-weshcraft-confidence": "explicit"
           },
-          "status": {
+          "group": {
             "type": "string",
             "x-weshcraft-nodes": [
-              41,
-              45,
-              49,
-              53,
-              106,
-              110,
-              114
+              157,
+              165,
+              173,
+              181
             ],
-            "x-weshcraft-confidence": "inferred"
+            "x-weshcraft-confidence": "explicit"
           },
           "updated": {
             "type": "string",
             "x-weshcraft-nodes": [
-              42,
-              46,
-              50,
-              54,
-              107,
-              111,
-              115
+              158,
+              166,
+              174,
+              182
             ],
-            "x-weshcraft-confidence": "inferred"
+            "x-weshcraft-confidence": "explicit"
+          },
+          "status": {
+            "type": "string",
+            "x-weshcraft-nodes": [
+              161,
+              169,
+              177,
+              185
+            ],
+            "x-weshcraft-confidence": "explicit"
+          },
+          "checks": {
+            "type": "string",
+            "x-weshcraft-nodes": [
+              162,
+              170,
+              178,
+              186
+            ],
+            "x-weshcraft-confidence": "explicit"
           }
         }
       },
@@ -444,12 +429,18 @@
           "rel": {
             "type": "string",
             "x-weshcraft-nodes": [
-              59,
-              62,
-              65,
-              120,
-              123,
-              126
+              113,
+              117,
+              121
+            ],
+            "x-weshcraft-confidence": "explicit"
+          },
+          "share": {
+            "type": "string",
+            "x-weshcraft-nodes": [
+              114,
+              118,
+              122
             ],
             "x-weshcraft-confidence": "explicit"
           }
@@ -468,107 +459,28 @@
           "score": {
             "type": "string",
             "x-weshcraft-nodes": [
-              27,
-              92
+              59
             ],
             "x-weshcraft-confidence": "explicit"
           },
           "checks": {
             "type": "string",
             "x-weshcraft-nodes": [
-              30,
-              95
+              65
             ],
             "x-weshcraft-confidence": "explicit"
           },
           "errors": {
             "type": "string",
             "x-weshcraft-nodes": [
-              33,
-              98
+              71
             ],
             "x-weshcraft-confidence": "explicit"
           },
           "screens": {
             "type": "string",
             "x-weshcraft-nodes": [
-              36,
-              101
-            ],
-            "x-weshcraft-confidence": "explicit"
-          }
-        }
-      },
-      "Spec": {
-        "type": "object",
-        "required": [
-          "id"
-        ],
-        "properties": {
-          "id": {
-            "type": "string",
-            "format": "uuid"
-          },
-          "title": {
-            "type": "string",
-            "x-weshcraft-nodes": [
-              134
-            ],
-            "x-weshcraft-confidence": "explicit"
-          },
-          "file": {
-            "type": "string",
-            "x-weshcraft-nodes": [
-              135
-            ],
-            "x-weshcraft-confidence": "explicit"
-          },
-          "status": {
-            "type": "string",
-            "x-weshcraft-nodes": [
-              137
-            ],
-            "x-weshcraft-confidence": "explicit"
-          },
-          "heading": {
-            "type": "string",
-            "x-weshcraft-nodes": [
-              139
-            ],
-            "x-weshcraft-confidence": "explicit"
-          },
-          "fingerprint": {
-            "type": "string",
-            "x-weshcraft-nodes": [
-              148
-            ],
-            "x-weshcraft-confidence": "explicit"
-          },
-          "checks": {
-            "type": "string",
-            "x-weshcraft-nodes": [
-              150
-            ],
-            "x-weshcraft-confidence": "explicit"
-          },
-          "errors": {
-            "type": "string",
-            "x-weshcraft-nodes": [
-              152
-            ],
-            "x-weshcraft-confidence": "explicit"
-          },
-          "layer": {
-            "type": "string",
-            "x-weshcraft-nodes": [
-              154
-            ],
-            "x-weshcraft-confidence": "explicit"
-          },
-          "owner": {
-            "type": "string",
-            "x-weshcraft-nodes": [
-              156
+              77
             ],
             "x-weshcraft-confidence": "explicit"
           }

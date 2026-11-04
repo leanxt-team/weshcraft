@@ -2,141 +2,73 @@
 
 Every operation a screen needs, grouped by screen. Conventions (auth, errors, pagination) are in [conventions](conventions.md); the machine-readable contract is [`openapi.json`](openapi.json).
 
-## Dashboard — Light
+## Console — Light
 
-<a id="op-list-job-scr-dashboard-light"></a>
-### `GET /jobs` — List Job
-
-- Screen: [Dashboard — Light](../front/screens/scr-dashboard-light.md), on screen load
-- Kind: list · confidence: inferred
-- Front end: ☰ `#39` Job row 1 · ☰ `#43` Job row 2 · ☰ `#47` Job row 3 · ☰ `#51` Job row 4
-- Returns: `Job[]` (paginated)
-- Errors: 400 validation (field errors shown next to the inputs), 401 unauthenticated, 409 conflict, 5xx shown as a retryable banner.
-
-<a id="op-get-jobs-6"></a>
+<a id="op-get-jobs-2"></a>
 ### `GET /jobs` — GET /jobs → Job
 
-- Screen: [Dashboard — Light](../front/screens/scr-dashboard-light.md), on screen load
+- Screen: [Console — Light](../front/screens/scr-console-light.md), on screen load
 - Kind: annotated · confidence: explicit
-- Response shown: `Job.file` (`#40` `#44` `#48` `#52`), `Job.status` (`#41` `#45` `#49` `#53`), `Job.updated` (`#42` `#46` `#50` `#54`)
+- Response shown: `Job.file` (`#156` `#164` `#172` `#180`), `Job.group` (`#157` `#165` `#173` `#181`), `Job.updated` (`#158` `#166` `#174` `#182`), `Job.status` (`#161` `#169` `#177` `#185`), `Job.checks` (`#162` `#170` `#178` `#186`)
 - Returns: `Job`
 - Errors: 400 validation (field errors shown next to the inputs), 401 unauthenticated, 409 conflict, 5xx shown as a retryable banner.
 
-<a id="op-post-specs-publish-23"></a>
+<a id="op-post-specs-publish-54"></a>
 ### `POST /specs/publish` — POST /specs/publish → Spec
 
-- Screen: [Dashboard — Light](../front/screens/scr-dashboard-light.md), triggered by `#23`
+- Screen: [Console — Light](../front/screens/scr-console-light.md), triggered by `#54`
 - Kind: annotated · confidence: explicit
-- Front end: ▶ `#23` Publish · ⇢ `#21` Search jobs
+- Front end: ▶ `#54` Publish · ⇢ `#46` Search · ⇢ `#47` Search
 - Returns: `Spec`
-- Request body: `search_jobs` from `#21`
+- Request body: `search` from `#46`, `search` from `#47`
 - Errors: 400 validation (field errors shown next to the inputs), 401 unauthenticated, 409 conflict, 5xx shown as a retryable banner.
 
-<a id="op-get-parity-25"></a>
+<a id="op-get-parity-56"></a>
 ### `GET /parity` — GET /parity → Parity
 
-- Screen: [Dashboard — Light](../front/screens/scr-dashboard-light.md), triggered by `#25`
+- Screen: [Console — Light](../front/screens/scr-console-light.md), triggered by `#56`
 - Kind: annotated · confidence: explicit
-- Front end: ▶ `#25` Parity
-- Response shown: `Parity.score` (`#27`), `Parity.checks` (`#30`), `Parity.errors` (`#33`), `Parity.screens` (`#36`)
+- Front end: ▶ `#56` Parity
 - Returns: `Parity`
 - Errors: 400 validation (field errors shown next to the inputs), 401 unauthenticated, 409 conflict, 5xx shown as a retryable banner.
 
-<a id="op-get-links-55"></a>
-### `GET /links` — GET /links → Link
+<a id="op-get-parity-trend-80"></a>
+### `GET /parity/trend` — GET /parity/trend → Parity
 
-- Screen: [Dashboard — Light](../front/screens/scr-dashboard-light.md), triggered by `#55`
+- Screen: [Console — Light](../front/screens/scr-console-light.md), triggered by `#80`
 - Kind: annotated · confidence: explicit
-- Front end: ▶ `#55` Front ⇄ back
-- Response shown: `Link.rel` (`#59` `#62` `#65`)
-- Returns: `Link`
-- Errors: 400 validation (field errors shown next to the inputs), 401 unauthenticated, 409 conflict, 5xx shown as a retryable banner.
-
-<a id="op-get-events-66"></a>
-### `GET /events` — GET /events → Event
-
-- Screen: [Dashboard — Light](../front/screens/scr-dashboard-light.md), triggered by `#66`
-- Kind: annotated · confidence: explicit
-- Front end: ▶ `#66` Live feed
-- Response shown: `Event.message` (`#68` `#69` `#70`)
-- Returns: `Event`
-- Errors: 400 validation (field errors shown next to the inputs), 401 unauthenticated, 409 conflict, 5xx shown as a retryable banner.
-
-## Dashboard — Dark
-
-<a id="op-list-job-scr-dashboard-dark"></a>
-### `GET /jobs` — List Job
-
-- Screen: [Dashboard — Dark](../front/screens/scr-dashboard-dark.md), on screen load
-- Kind: list · confidence: inferred
-- Front end: ☰ `#104` Job row 1 · ☰ `#108` Job row 2 · ☰ `#112` Job row 3
-- Returns: `Job[]` (paginated)
-- Errors: 400 validation (field errors shown next to the inputs), 401 unauthenticated, 409 conflict, 5xx shown as a retryable banner.
-
-<a id="op-get-jobs-71"></a>
-### `GET /jobs` — GET /jobs → Job
-
-- Screen: [Dashboard — Dark](../front/screens/scr-dashboard-dark.md), on screen load
-- Kind: annotated · confidence: explicit
-- Response shown: `Job.file` (`#105` `#109` `#113`), `Job.status` (`#106` `#110` `#114`), `Job.updated` (`#107` `#111` `#115`)
-- Returns: `Job`
-- Errors: 400 validation (field errors shown next to the inputs), 401 unauthenticated, 409 conflict, 5xx shown as a retryable banner.
-
-<a id="op-post-specs-publish-88"></a>
-### `POST /specs/publish` — POST /specs/publish → Spec
-
-- Screen: [Dashboard — Dark](../front/screens/scr-dashboard-dark.md), triggered by `#88`
-- Kind: annotated · confidence: explicit
-- Front end: ▶ `#88` Publish · ⇢ `#86` Search jobs
-- Returns: `Spec`
-- Request body: `search_jobs` from `#86`
-- Errors: 400 validation (field errors shown next to the inputs), 401 unauthenticated, 409 conflict, 5xx shown as a retryable banner.
-
-<a id="op-get-parity-90"></a>
-### `GET /parity` — GET /parity → Parity
-
-- Screen: [Dashboard — Dark](../front/screens/scr-dashboard-dark.md), triggered by `#90`
-- Kind: annotated · confidence: explicit
-- Front end: ▶ `#90` Parity
-- Response shown: `Parity.score` (`#92`), `Parity.checks` (`#95`), `Parity.errors` (`#98`), `Parity.screens` (`#101`)
+- Front end: ▶ `#80` Parity over time
 - Returns: `Parity`
 - Errors: 400 validation (field errors shown next to the inputs), 401 unauthenticated, 409 conflict, 5xx shown as a retryable banner.
 
-<a id="op-get-links-116"></a>
+<a id="op-get-links-101"></a>
 ### `GET /links` — GET /links → Link
 
-- Screen: [Dashboard — Dark](../front/screens/scr-dashboard-dark.md), triggered by `#116`
+- Screen: [Console — Light](../front/screens/scr-console-light.md), triggered by `#101`
 - Kind: annotated · confidence: explicit
-- Front end: ▶ `#116` Front ⇄ back
-- Response shown: `Link.rel` (`#120` `#123` `#126`)
+- Front end: ▶ `#101` Spec jobs by group
+- Response shown: `Link.rel` (`#113` `#117` `#121`), `Link.share` (`#114` `#118` `#122`)
 - Returns: `Link`
 - Errors: 400 validation (field errors shown next to the inputs), 401 unauthenticated, 409 conflict, 5xx shown as a retryable banner.
 
-<a id="op-get-events-127"></a>
-### `GET /events` — GET /events → Event
+<a id="op-get-parity-history-123"></a>
+### `GET /parity/history` — GET /parity/history → Parity
 
-- Screen: [Dashboard — Dark](../front/screens/scr-dashboard-dark.md), triggered by `#127`
+- Screen: [Console — Light](../front/screens/scr-console-light.md), triggered by `#123`
 - Kind: annotated · confidence: explicit
-- Front end: ▶ `#127` Live feed
-- Response shown: `Event.message` (`#129` `#130`)
-- Returns: `Event`
+- Front end: ▶ `#123` Checks per run
+- Response shown: `Parity.score` (`#59`), `Parity.checks` (`#65`), `Parity.errors` (`#71`), `Parity.screens` (`#77`)
+- Returns: `Parity`
 - Errors: 400 validation (field errors shown next to the inputs), 401 unauthenticated, 409 conflict, 5xx shown as a retryable banner.
 
-## Spec detail
+<a id="op-get-specs-144"></a>
+### `GET /specs` — GET /specs → Spec
 
-<a id="op-get-specs-id-131"></a>
-### `GET /specs/{id}` — GET /specs/{id} → Spec
-
-- Screen: [Spec detail](../front/screens/scr-spec-detail.md), on screen load
+- Screen: [Console — Light](../front/screens/scr-console-light.md), triggered by `#144`
 - Kind: annotated · confidence: explicit
-- Response shown: `Spec.title` (`#134`), `Spec.file` (`#135`), `Spec.status` (`#137`), `Spec.heading` (`#139`), `Spec.fingerprint` (`#148`), `Spec.checks` (`#150`), `Spec.errors` (`#152`), `Spec.layer` (`#154`), `Spec.owner` (`#156`)
+- Front end: ▶ `#144` Spec jobs
 - Returns: `Spec`
 - Errors: 400 validation (field errors shown next to the inputs), 401 unauthenticated, 409 conflict, 5xx shown as a retryable banner.
-
-## Open questions
-
-- `GET /jobs` (List Job) is inferred from a repeated component: confirm path, payload and whether it is needed.
-- `GET /jobs` (List Job) is inferred from a repeated component: confirm path, payload and whether it is needed.
 
 ## Notes
 
@@ -149,97 +81,55 @@ _No notes yet. Agent or human additions go here; WeshCraft keeps this block when
  "kind": "back-api",
  "operations": [
   {
-   "key": "op-list-job-scr-dashboard-light",
+   "key": "op-get-jobs-2",
    "method": "GET",
    "path": "/jobs",
-   "screen": "scr-dashboard-light",
+   "screen": "scr-console-light",
    "trigger": null
   },
   {
-   "key": "op-get-jobs-6",
-   "method": "GET",
-   "path": "/jobs",
-   "screen": "scr-dashboard-light",
-   "trigger": null
-  },
-  {
-   "key": "op-post-specs-publish-23",
+   "key": "op-post-specs-publish-54",
    "method": "POST",
    "path": "/specs/publish",
-   "screen": "scr-dashboard-light",
-   "trigger": 23
+   "screen": "scr-console-light",
+   "trigger": 54
   },
   {
-   "key": "op-get-parity-25",
+   "key": "op-get-parity-56",
    "method": "GET",
    "path": "/parity",
-   "screen": "scr-dashboard-light",
-   "trigger": 25
+   "screen": "scr-console-light",
+   "trigger": 56
   },
   {
-   "key": "op-get-links-55",
+   "key": "op-get-parity-trend-80",
+   "method": "GET",
+   "path": "/parity/trend",
+   "screen": "scr-console-light",
+   "trigger": 80
+  },
+  {
+   "key": "op-get-links-101",
    "method": "GET",
    "path": "/links",
-   "screen": "scr-dashboard-light",
-   "trigger": 55
+   "screen": "scr-console-light",
+   "trigger": 101
   },
   {
-   "key": "op-get-events-66",
+   "key": "op-get-parity-history-123",
    "method": "GET",
-   "path": "/events",
-   "screen": "scr-dashboard-light",
-   "trigger": 66
+   "path": "/parity/history",
+   "screen": "scr-console-light",
+   "trigger": 123
   },
   {
-   "key": "op-list-job-scr-dashboard-dark",
+   "key": "op-get-specs-144",
    "method": "GET",
-   "path": "/jobs",
-   "screen": "scr-dashboard-dark",
-   "trigger": null
-  },
-  {
-   "key": "op-get-jobs-71",
-   "method": "GET",
-   "path": "/jobs",
-   "screen": "scr-dashboard-dark",
-   "trigger": null
-  },
-  {
-   "key": "op-post-specs-publish-88",
-   "method": "POST",
-   "path": "/specs/publish",
-   "screen": "scr-dashboard-dark",
-   "trigger": 88
-  },
-  {
-   "key": "op-get-parity-90",
-   "method": "GET",
-   "path": "/parity",
-   "screen": "scr-dashboard-dark",
-   "trigger": 90
-  },
-  {
-   "key": "op-get-links-116",
-   "method": "GET",
-   "path": "/links",
-   "screen": "scr-dashboard-dark",
-   "trigger": 116
-  },
-  {
-   "key": "op-get-events-127",
-   "method": "GET",
-   "path": "/events",
-   "screen": "scr-dashboard-dark",
-   "trigger": 127
-  },
-  {
-   "key": "op-get-specs-id-131",
-   "method": "GET",
-   "path": "/specs/{id}",
-   "screen": "scr-spec-detail",
-   "trigger": null
+   "path": "/specs",
+   "screen": "scr-console-light",
+   "trigger": 144
   }
  ],
- "sourceHash": "d5a504f901758656"
+ "sourceHash": "60e569c9b2fe7a39"
 }
 -->

@@ -1,6 +1,6 @@
 # Front ⇄ back links
 
-Every place where the prototype meets the back end: 17 operation links and 49 data links across 3 screens. No gaps.
+Every place where the prototype meets the back end: 8 operation links and 30 data links across 1 screens. No gaps.
 
 Legend: ▶ triggers an operation · ⇢ submits a request field · ☰ list filled by an operation · ◉ shows an entity field · ⚙ MCP tool calls it · ↗ public endpoint.
 
@@ -9,275 +9,158 @@ Legend: ▶ triggers an operation · ⇢ submits a request field · ☰ list fil
 ```mermaid
 flowchart LR
   subgraph Front[Front end]
-    scr_dashboard_light["Dashboard — Light"]
-    scr_dashboard_dark["Dashboard — Dark"]
-    scr_spec_detail["Spec detail"]
+    scr_console_light["Console — Light"]
   end
   subgraph API
-    op_list_job_scr_dashboard_light["GET /jobs"]
-    op_get_jobs_6["GET /jobs"]
-    op_post_specs_publish_23["POST /specs/publish"]
-    op_get_parity_25["GET /parity"]
-    op_get_links_55["GET /links"]
-    op_get_events_66["GET /events"]
-    op_list_job_scr_dashboard_dark["GET /jobs"]
-    op_get_jobs_71["GET /jobs"]
-    op_post_specs_publish_88["POST /specs/publish"]
-    op_get_parity_90["GET /parity"]
-    op_get_links_116["GET /links"]
-    op_get_events_127["GET /events"]
-    op_get_specs_id_131["GET /specs/{id}"]
+    op_get_jobs_2["GET /jobs"]
+    op_post_specs_publish_54["POST /specs/publish"]
+    op_get_parity_56["GET /parity"]
+    op_get_parity_trend_80["GET /parity/trend"]
+    op_get_links_101["GET /links"]
+    op_get_parity_history_123["GET /parity/history"]
+    op_get_specs_144["GET /specs"]
   end
   subgraph Domain
-    ent_Event[("Event")]
     ent_Job[("Job")]
     ent_Link[("Link")]
     ent_Parity[("Parity")]
-    ent_Spec[("Spec")]
   end
-  scr_dashboard_light <-.->|list| op_list_job_scr_dashboard_light
-  op_list_job_scr_dashboard_light -->|returns| ent_Job
-  scr_dashboard_light -->|calls| op_get_jobs_6
-  op_get_jobs_6 -->|returns| ent_Job
-  scr_dashboard_light -->|calls| op_post_specs_publish_23
-  op_post_specs_publish_23 -->|returns| ent_Spec
-  scr_dashboard_light -->|calls| op_get_parity_25
-  op_get_parity_25 -->|returns| ent_Parity
-  scr_dashboard_light -->|calls| op_get_links_55
-  op_get_links_55 -->|returns| ent_Link
-  scr_dashboard_light -->|calls| op_get_events_66
-  op_get_events_66 -->|returns| ent_Event
-  scr_dashboard_dark <-.->|list| op_list_job_scr_dashboard_dark
-  op_list_job_scr_dashboard_dark -->|returns| ent_Job
-  scr_dashboard_dark -->|calls| op_get_jobs_71
-  op_get_jobs_71 -->|returns| ent_Job
-  scr_dashboard_dark -->|calls| op_post_specs_publish_88
-  op_post_specs_publish_88 -->|returns| ent_Spec
-  scr_dashboard_dark -->|calls| op_get_parity_90
-  op_get_parity_90 -->|returns| ent_Parity
-  scr_dashboard_dark -->|calls| op_get_links_116
-  op_get_links_116 -->|returns| ent_Link
-  scr_dashboard_dark -->|calls| op_get_events_127
-  op_get_events_127 -->|returns| ent_Event
-  scr_spec_detail -->|calls| op_get_specs_id_131
-  op_get_specs_id_131 -->|returns| ent_Spec
-  ent_Event -.->|shown on| scr_dashboard_light
-  ent_Event -.->|shown on| scr_dashboard_dark
-  ent_Job -.->|shown on| scr_dashboard_light
-  ent_Job -.->|shown on| scr_dashboard_dark
-  ent_Link -.->|shown on| scr_dashboard_light
-  ent_Link -.->|shown on| scr_dashboard_dark
-  ent_Parity -.->|shown on| scr_dashboard_light
-  ent_Parity -.->|shown on| scr_dashboard_dark
-  ent_Spec -.->|shown on| scr_spec_detail
+  scr_console_light -->|calls| op_get_jobs_2
+  op_get_jobs_2 -->|returns| ent_Job
+  scr_console_light -->|calls| op_post_specs_publish_54
+  op_post_specs_publish_54 -->|returns| ent_Spec
+  scr_console_light -->|calls| op_get_parity_56
+  op_get_parity_56 -->|returns| ent_Parity
+  scr_console_light -->|calls| op_get_parity_trend_80
+  op_get_parity_trend_80 -->|returns| ent_Parity
+  scr_console_light -->|calls| op_get_links_101
+  op_get_links_101 -->|returns| ent_Link
+  scr_console_light -->|calls| op_get_parity_history_123
+  op_get_parity_history_123 -->|returns| ent_Parity
+  scr_console_light -->|calls| op_get_specs_144
+  op_get_specs_144 -->|returns| ent_Spec
+  ent_Job -.->|shown on| scr_console_light
+  ent_Link -.->|shown on| scr_console_light
+  ent_Parity -.->|shown on| scr_console_light
 ```
 
 ## Operations → front end
 
-### [`GET /jobs`](back/api.md#op-list-job-scr-dashboard-light) — List Job
+### [`GET /jobs`](back/api.md#op-get-jobs-2) — GET /jobs → Job
 
-Screen: [Dashboard — Light](front/screens/scr-dashboard-light.md) · list · inferred · returns [`Job[]`](back/domain.md#entity-job)
-
-| Link | Layer | Element |
-|---|---|---|
-| ☰ is filled by | `#39` | Job row 1 |
-| ☰ is filled by | `#43` | Job row 2 |
-| ☰ is filled by | `#47` | Job row 3 |
-| ☰ is filled by | `#51` | Job row 4 |
-
-### [`GET /jobs`](back/api.md#op-get-jobs-6) — GET /jobs → Job
-
-Screen: [Dashboard — Light](front/screens/scr-dashboard-light.md) · annotated · explicit · returns [`Job`](back/domain.md#entity-job)
+Screen: [Console — Light](front/screens/scr-console-light.md) · annotated · explicit · returns [`Job`](back/domain.md#entity-job)
 
 | Link | Layer | Element |
 |---|---|---|
-| ◉ response `Job.file` shown | `#40` | specs/front/screens/scr-home-light.md |
-| ◉ response `Job.file` shown | `#44` | specs/front/screens/scr-trail-light.md |
-| ◉ response `Job.file` shown | `#48` | specs/back/api.md |
-| ◉ response `Job.file` shown | `#52` | specs/LINKS.md |
-| ◉ response `Job.status` shown | `#41` | done |
-| ◉ response `Job.status` shown | `#45` | done |
-| ◉ response `Job.status` shown | `#49` | changed |
-| ◉ response `Job.status` shown | `#53` | done |
-| ◉ response `Job.updated` shown | `#42` | 2 min ago |
-| ◉ response `Job.updated` shown | `#46` | 3 min ago |
-| ◉ response `Job.updated` shown | `#50` | 5 min ago |
-| ◉ response `Job.updated` shown | `#54` | 5 min ago |
+| ◉ response `Job.file` shown | `#156` | specs/front/screens/scr-home-light.md |
+| ◉ response `Job.file` shown | `#164` | specs/back/api.md |
+| ◉ response `Job.file` shown | `#172` | specs/LINKS.md |
+| ◉ response `Job.file` shown | `#180` | specs/back/domain.md |
+| ◉ response `Job.group` shown | `#157` | front |
+| ◉ response `Job.group` shown | `#165` | back |
+| ◉ response `Job.group` shown | `#173` | links |
+| ◉ response `Job.group` shown | `#181` | back |
+| ◉ response `Job.updated` shown | `#158` | 2 min ago |
+| ◉ response `Job.updated` shown | `#166` | 3 min ago |
+| ◉ response `Job.updated` shown | `#174` | 5 min ago |
+| ◉ response `Job.updated` shown | `#182` | 6 min ago |
+| ◉ response `Job.status` shown | `#161` | done |
+| ◉ response `Job.status` shown | `#169` | done |
+| ◉ response `Job.status` shown | `#177` | changed |
+| ◉ response `Job.status` shown | `#185` | done |
+| ◉ response `Job.checks` shown | `#162` | 153 |
+| ◉ response `Job.checks` shown | `#170` | 96 |
+| ◉ response `Job.checks` shown | `#178` | 48 |
+| ◉ response `Job.checks` shown | `#186` | 112 |
 | — | — | not reached from any layer |
 
-### [`POST /specs/publish`](back/api.md#op-post-specs-publish-23) — POST /specs/publish → Spec
+### [`POST /specs/publish`](back/api.md#op-post-specs-publish-54) — POST /specs/publish → Spec
 
-Screen: [Dashboard — Light](front/screens/scr-dashboard-light.md) · annotated · explicit · returns [`Spec`](back/domain.md#entity-spec)
-
-| Link | Layer | Element |
-|---|---|---|
-| ▶ triggers | `#23` | Publish |
-| ⇢ submits | `#21` | Search jobs |
-
-### [`GET /parity`](back/api.md#op-get-parity-25) — GET /parity → Parity
-
-Screen: [Dashboard — Light](front/screens/scr-dashboard-light.md) · annotated · explicit · returns [`Parity`](back/domain.md#entity-parity)
+Screen: [Console — Light](front/screens/scr-console-light.md) · annotated · explicit · returns [`Spec`](back/domain.md#entity-spec)
 
 | Link | Layer | Element |
 |---|---|---|
-| ▶ triggers | `#25` | Parity |
-| ◉ response `Parity.score` shown | `#27` | {{parity.score}} |
-| ◉ response `Parity.checks` shown | `#30` | {{parity.checks}} |
-| ◉ response `Parity.errors` shown | `#33` | {{parity.errors}} |
-| ◉ response `Parity.screens` shown | `#36` | {{parity.screens}} |
+| ▶ triggers | `#54` | Publish |
+| ⇢ submits | `#46` | Search |
+| ⇢ submits | `#47` | Search |
 
-### [`GET /links`](back/api.md#op-get-links-55) — GET /links → Link
+### [`GET /parity`](back/api.md#op-get-parity-56) — GET /parity → Parity
 
-Screen: [Dashboard — Light](front/screens/scr-dashboard-light.md) · annotated · explicit · returns [`Link`](back/domain.md#entity-link)
+Screen: [Console — Light](front/screens/scr-console-light.md) · annotated · explicit · returns [`Parity`](back/domain.md#entity-parity)
 
 | Link | Layer | Element |
 |---|---|---|
-| ▶ triggers | `#55` | Front ⇄ back |
-| ◉ response `Link.rel` shown | `#59` | {{link.rel}} · {{link.target}} |
-| ◉ response `Link.rel` shown | `#62` | {{link.rel}} · {{link.target}} |
-| ◉ response `Link.rel` shown | `#65` | {{link.rel}} · {{link.target}} |
+| ▶ triggers | `#56` | Parity |
 
-### [`GET /events`](back/api.md#op-get-events-66) — GET /events → Event
+### [`GET /parity/trend`](back/api.md#op-get-parity-trend-80) — GET /parity/trend → Parity
 
-Screen: [Dashboard — Light](front/screens/scr-dashboard-light.md) · annotated · explicit · returns [`Event`](back/domain.md#entity-event)
+Screen: [Console — Light](front/screens/scr-console-light.md) · annotated · explicit · returns [`Parity`](back/domain.md#entity-parity)
 
 | Link | Layer | Element |
 |---|---|---|
-| ▶ triggers | `#66` | Live feed |
-| ◉ response `Event.message` shown | `#68` | {{event.message}} |
-| ◉ response `Event.message` shown | `#69` | {{event.message}} |
-| ◉ response `Event.message` shown | `#70` | {{event.message}} |
+| ▶ triggers | `#80` | Parity over time |
 
-### [`GET /jobs`](back/api.md#op-list-job-scr-dashboard-dark) — List Job
+### [`GET /links`](back/api.md#op-get-links-101) — GET /links → Link
 
-Screen: [Dashboard — Dark](front/screens/scr-dashboard-dark.md) · list · inferred · returns [`Job[]`](back/domain.md#entity-job)
+Screen: [Console — Light](front/screens/scr-console-light.md) · annotated · explicit · returns [`Link`](back/domain.md#entity-link)
 
 | Link | Layer | Element |
 |---|---|---|
-| ☰ is filled by | `#104` | Job row 1 |
-| ☰ is filled by | `#108` | Job row 2 |
-| ☰ is filled by | `#112` | Job row 3 |
+| ▶ triggers | `#101` | Spec jobs by group |
+| ◉ response `Link.rel` shown | `#113` | front |
+| ◉ response `Link.rel` shown | `#117` | back |
+| ◉ response `Link.rel` shown | `#121` | notes |
+| ◉ response `Link.share` shown | `#114` | 62% |
+| ◉ response `Link.share` shown | `#118` | 38% |
+| ◉ response `Link.share` shown | `#122` | 0% |
 
-### [`GET /jobs`](back/api.md#op-get-jobs-71) — GET /jobs → Job
+### [`GET /parity/history`](back/api.md#op-get-parity-history-123) — GET /parity/history → Parity
 
-Screen: [Dashboard — Dark](front/screens/scr-dashboard-dark.md) · annotated · explicit · returns [`Job`](back/domain.md#entity-job)
-
-| Link | Layer | Element |
-|---|---|---|
-| ◉ response `Job.file` shown | `#105` | specs/front/screens/scr-home-light.md |
-| ◉ response `Job.file` shown | `#109` | specs/front/screens/scr-trail-light.md |
-| ◉ response `Job.file` shown | `#113` | specs/back/api.md |
-| ◉ response `Job.status` shown | `#106` | done |
-| ◉ response `Job.status` shown | `#110` | done |
-| ◉ response `Job.status` shown | `#114` | changed |
-| ◉ response `Job.updated` shown | `#107` | 2 min ago |
-| ◉ response `Job.updated` shown | `#111` | 3 min ago |
-| ◉ response `Job.updated` shown | `#115` | 5 min ago |
-| — | — | not reached from any layer |
-
-### [`POST /specs/publish`](back/api.md#op-post-specs-publish-88) — POST /specs/publish → Spec
-
-Screen: [Dashboard — Dark](front/screens/scr-dashboard-dark.md) · annotated · explicit · returns [`Spec`](back/domain.md#entity-spec)
+Screen: [Console — Light](front/screens/scr-console-light.md) · annotated · explicit · returns [`Parity`](back/domain.md#entity-parity)
 
 | Link | Layer | Element |
 |---|---|---|
-| ▶ triggers | `#88` | Publish |
-| ⇢ submits | `#86` | Search jobs |
+| ▶ triggers | `#123` | Checks per run |
+| ◉ response `Parity.score` shown | `#59` | 100% |
+| ◉ response `Parity.checks` shown | `#65` | 576 |
+| ◉ response `Parity.errors` shown | `#71` | 0 |
+| ◉ response `Parity.screens` shown | `#77` | 3 |
 
-### [`GET /parity`](back/api.md#op-get-parity-90) — GET /parity → Parity
+### [`GET /specs`](back/api.md#op-get-specs-144) — GET /specs → Spec
 
-Screen: [Dashboard — Dark](front/screens/scr-dashboard-dark.md) · annotated · explicit · returns [`Parity`](back/domain.md#entity-parity)
-
-| Link | Layer | Element |
-|---|---|---|
-| ▶ triggers | `#90` | Parity |
-| ◉ response `Parity.score` shown | `#92` | {{parity.score}} |
-| ◉ response `Parity.checks` shown | `#95` | {{parity.checks}} |
-| ◉ response `Parity.errors` shown | `#98` | {{parity.errors}} |
-| ◉ response `Parity.screens` shown | `#101` | {{parity.screens}} |
-
-### [`GET /links`](back/api.md#op-get-links-116) — GET /links → Link
-
-Screen: [Dashboard — Dark](front/screens/scr-dashboard-dark.md) · annotated · explicit · returns [`Link`](back/domain.md#entity-link)
+Screen: [Console — Light](front/screens/scr-console-light.md) · annotated · explicit · returns [`Spec`](back/domain.md#entity-spec)
 
 | Link | Layer | Element |
 |---|---|---|
-| ▶ triggers | `#116` | Front ⇄ back |
-| ◉ response `Link.rel` shown | `#120` | {{link.rel}} · {{link.target}} |
-| ◉ response `Link.rel` shown | `#123` | {{link.rel}} · {{link.target}} |
-| ◉ response `Link.rel` shown | `#126` | {{link.rel}} · {{link.target}} |
-
-### [`GET /events`](back/api.md#op-get-events-127) — GET /events → Event
-
-Screen: [Dashboard — Dark](front/screens/scr-dashboard-dark.md) · annotated · explicit · returns [`Event`](back/domain.md#entity-event)
-
-| Link | Layer | Element |
-|---|---|---|
-| ▶ triggers | `#127` | Live feed |
-| ◉ response `Event.message` shown | `#129` | {{event.message}} |
-| ◉ response `Event.message` shown | `#130` | {{event.message}} |
-
-### [`GET /specs/{id}`](back/api.md#op-get-specs-id-131) — GET /specs/{id} → Spec
-
-Screen: [Spec detail](front/screens/scr-spec-detail.md) · annotated · explicit · returns [`Spec`](back/domain.md#entity-spec)
-
-| Link | Layer | Element |
-|---|---|---|
-| ◉ response `Spec.title` shown | `#134` | {{spec.title}} |
-| ◉ response `Spec.file` shown | `#135` | {{spec.file}} |
-| ◉ response `Spec.status` shown | `#137` | {{spec.status}} |
-| ◉ response `Spec.heading` shown | `#139` | {{spec.heading}} |
-| ◉ response `Spec.fingerprint` shown | `#148` | {{spec.fingerprint}} |
-| ◉ response `Spec.checks` shown | `#150` | {{spec.checks}} |
-| ◉ response `Spec.errors` shown | `#152` | {{spec.errors}} |
-| ◉ response `Spec.layer` shown | `#154` | {{spec.layer}} |
-| ◉ response `Spec.owner` shown | `#156` | {{spec.owner}} |
-| — | — | not reached from any layer |
+| ▶ triggers | `#144` | Spec jobs |
 
 ## Domain → front end
-
-### [Event](back/domain.md#entity-event)
-
-| Field | Shown by | Screens | Loaded by |
-|---|---|---|---|
-| `message` | `#68` `#69` `#70` `#129` `#130` | [Dashboard — Light](front/screens/scr-dashboard-light.md), [Dashboard — Dark](front/screens/scr-dashboard-dark.md) | [`GET /events`](back/api.md#op-get-events-66), [`GET /events`](back/api.md#op-get-events-127) |
 
 ### [Job](back/domain.md#entity-job)
 
 | Field | Shown by | Screens | Loaded by |
 |---|---|---|---|
-| `file` | `#40` `#44` `#48` `#52` `#105` `#109` `#113` | [Dashboard — Light](front/screens/scr-dashboard-light.md), [Dashboard — Dark](front/screens/scr-dashboard-dark.md) | [`GET /jobs`](back/api.md#op-get-jobs-6), [`GET /jobs`](back/api.md#op-get-jobs-71) |
-| `status` | `#41` `#45` `#49` `#53` `#106` `#110` `#114` | [Dashboard — Light](front/screens/scr-dashboard-light.md), [Dashboard — Dark](front/screens/scr-dashboard-dark.md) | [`GET /jobs`](back/api.md#op-get-jobs-6), [`GET /jobs`](back/api.md#op-get-jobs-71) |
-| `updated` | `#42` `#46` `#50` `#54` `#107` `#111` `#115` | [Dashboard — Light](front/screens/scr-dashboard-light.md), [Dashboard — Dark](front/screens/scr-dashboard-dark.md) | [`GET /jobs`](back/api.md#op-get-jobs-6), [`GET /jobs`](back/api.md#op-get-jobs-71) |
+| `file` | `#156` `#164` `#172` `#180` | [Console — Light](front/screens/scr-console-light.md) | [`GET /jobs`](back/api.md#op-get-jobs-2) |
+| `group` | `#157` `#165` `#173` `#181` | [Console — Light](front/screens/scr-console-light.md) | [`GET /jobs`](back/api.md#op-get-jobs-2) |
+| `updated` | `#158` `#166` `#174` `#182` | [Console — Light](front/screens/scr-console-light.md) | [`GET /jobs`](back/api.md#op-get-jobs-2) |
+| `status` | `#161` `#169` `#177` `#185` | [Console — Light](front/screens/scr-console-light.md) | [`GET /jobs`](back/api.md#op-get-jobs-2) |
+| `checks` | `#162` `#170` `#178` `#186` | [Console — Light](front/screens/scr-console-light.md) | [`GET /jobs`](back/api.md#op-get-jobs-2) |
 
 ### [Link](back/domain.md#entity-link)
 
 | Field | Shown by | Screens | Loaded by |
 |---|---|---|---|
-| `rel` | `#59` `#62` `#65` `#120` `#123` `#126` | [Dashboard — Light](front/screens/scr-dashboard-light.md), [Dashboard — Dark](front/screens/scr-dashboard-dark.md) | [`GET /links`](back/api.md#op-get-links-55), [`GET /links`](back/api.md#op-get-links-116) |
+| `rel` | `#113` `#117` `#121` | [Console — Light](front/screens/scr-console-light.md) | [`GET /links`](back/api.md#op-get-links-101) |
+| `share` | `#114` `#118` `#122` | [Console — Light](front/screens/scr-console-light.md) | [`GET /links`](back/api.md#op-get-links-101) |
 
 ### [Parity](back/domain.md#entity-parity)
 
 | Field | Shown by | Screens | Loaded by |
 |---|---|---|---|
-| `score` | `#27` `#92` | [Dashboard — Light](front/screens/scr-dashboard-light.md), [Dashboard — Dark](front/screens/scr-dashboard-dark.md) | [`GET /parity`](back/api.md#op-get-parity-25), [`GET /parity`](back/api.md#op-get-parity-90) |
-| `checks` | `#30` `#95` | [Dashboard — Light](front/screens/scr-dashboard-light.md), [Dashboard — Dark](front/screens/scr-dashboard-dark.md) | [`GET /parity`](back/api.md#op-get-parity-25), [`GET /parity`](back/api.md#op-get-parity-90) |
-| `errors` | `#33` `#98` | [Dashboard — Light](front/screens/scr-dashboard-light.md), [Dashboard — Dark](front/screens/scr-dashboard-dark.md) | [`GET /parity`](back/api.md#op-get-parity-25), [`GET /parity`](back/api.md#op-get-parity-90) |
-| `screens` | `#36` `#101` | [Dashboard — Light](front/screens/scr-dashboard-light.md), [Dashboard — Dark](front/screens/scr-dashboard-dark.md) | [`GET /parity`](back/api.md#op-get-parity-25), [`GET /parity`](back/api.md#op-get-parity-90) |
-
-### [Spec](back/domain.md#entity-spec)
-
-| Field | Shown by | Screens | Loaded by |
-|---|---|---|---|
-| `title` | `#134` | [Spec detail](front/screens/scr-spec-detail.md) | [`GET /specs/{id}`](back/api.md#op-get-specs-id-131) |
-| `file` | `#135` | [Spec detail](front/screens/scr-spec-detail.md) | [`GET /specs/{id}`](back/api.md#op-get-specs-id-131) |
-| `status` | `#137` | [Spec detail](front/screens/scr-spec-detail.md) | [`GET /specs/{id}`](back/api.md#op-get-specs-id-131) |
-| `heading` | `#139` | [Spec detail](front/screens/scr-spec-detail.md) | [`GET /specs/{id}`](back/api.md#op-get-specs-id-131) |
-| `fingerprint` | `#148` | [Spec detail](front/screens/scr-spec-detail.md) | [`GET /specs/{id}`](back/api.md#op-get-specs-id-131) |
-| `checks` | `#150` | [Spec detail](front/screens/scr-spec-detail.md) | [`GET /specs/{id}`](back/api.md#op-get-specs-id-131) |
-| `errors` | `#152` | [Spec detail](front/screens/scr-spec-detail.md) | [`GET /specs/{id}`](back/api.md#op-get-specs-id-131) |
-| `layer` | `#154` | [Spec detail](front/screens/scr-spec-detail.md) | [`GET /specs/{id}`](back/api.md#op-get-specs-id-131) |
-| `owner` | `#156` | [Spec detail](front/screens/scr-spec-detail.md) | [`GET /specs/{id}`](back/api.md#op-get-specs-id-131) |
+| `score` | `#59` | [Console — Light](front/screens/scr-console-light.md) | [`GET /parity/history`](back/api.md#op-get-parity-history-123) |
+| `checks` | `#65` | [Console — Light](front/screens/scr-console-light.md) | [`GET /parity/history`](back/api.md#op-get-parity-history-123) |
+| `errors` | `#71` | [Console — Light](front/screens/scr-console-light.md) | [`GET /parity/history`](back/api.md#op-get-parity-history-123) |
+| `screens` | `#77` | [Console — Light](front/screens/scr-console-light.md) | [`GET /parity/history`](back/api.md#op-get-parity-history-123) |
 
 ## Gaps
 
@@ -293,338 +176,198 @@ _No notes yet._
 {
  "edges": [
   {
-   "node": 39,
-   "op": "op-list-job-scr-dashboard-light",
-   "rel": "lists"
+   "node": 54,
+   "op": "op-post-specs-publish-54",
+   "rel": "triggers"
   },
   {
-   "node": 43,
-   "op": "op-list-job-scr-dashboard-light",
-   "rel": "lists"
+   "node": 46,
+   "op": "op-post-specs-publish-54",
+   "rel": "submits"
   },
   {
    "node": 47,
-   "op": "op-list-job-scr-dashboard-light",
-   "rel": "lists"
-  },
-  {
-   "node": 51,
-   "op": "op-list-job-scr-dashboard-light",
-   "rel": "lists"
-  },
-  {
-   "node": 23,
-   "op": "op-post-specs-publish-23",
-   "rel": "triggers"
-  },
-  {
-   "node": 21,
-   "op": "op-post-specs-publish-23",
+   "op": "op-post-specs-publish-54",
    "rel": "submits"
   },
   {
-   "node": 25,
-   "op": "op-get-parity-25",
+   "node": 56,
+   "op": "op-get-parity-56",
    "rel": "triggers"
   },
   {
-   "node": 55,
-   "op": "op-get-links-55",
+   "node": 80,
+   "op": "op-get-parity-trend-80",
    "rel": "triggers"
   },
   {
-   "node": 66,
-   "op": "op-get-events-66",
+   "node": 101,
+   "op": "op-get-links-101",
    "rel": "triggers"
   },
   {
-   "node": 104,
-   "op": "op-list-job-scr-dashboard-dark",
-   "rel": "lists"
-  },
-  {
-   "node": 108,
-   "op": "op-list-job-scr-dashboard-dark",
-   "rel": "lists"
-  },
-  {
-   "node": 112,
-   "op": "op-list-job-scr-dashboard-dark",
-   "rel": "lists"
-  },
-  {
-   "node": 88,
-   "op": "op-post-specs-publish-88",
+   "node": 123,
+   "op": "op-get-parity-history-123",
    "rel": "triggers"
   },
   {
-   "node": 86,
-   "op": "op-post-specs-publish-88",
-   "rel": "submits"
-  },
-  {
-   "node": 90,
-   "op": "op-get-parity-90",
+   "node": 144,
+   "op": "op-get-specs-144",
    "rel": "triggers"
   },
   {
-   "node": 116,
-   "op": "op-get-links-116",
-   "rel": "triggers"
-  },
-  {
-   "node": 127,
-   "op": "op-get-events-127",
-   "rel": "triggers"
-  },
-  {
-   "field": "Event.message",
-   "node": 68,
-   "rel": "displays"
-  },
-  {
-   "field": "Event.message",
-   "node": 69,
-   "rel": "displays"
-  },
-  {
-   "field": "Event.message",
-   "node": 70,
-   "rel": "displays"
-  },
-  {
-   "field": "Event.message",
-   "node": 129,
-   "rel": "displays"
-  },
-  {
-   "field": "Event.message",
-   "node": 130,
+   "field": "Job.file",
+   "node": 156,
    "rel": "displays"
   },
   {
    "field": "Job.file",
-   "node": 40,
+   "node": 164,
    "rel": "displays"
   },
   {
    "field": "Job.file",
-   "node": 44,
+   "node": 172,
    "rel": "displays"
   },
   {
    "field": "Job.file",
-   "node": 48,
+   "node": 180,
    "rel": "displays"
   },
   {
-   "field": "Job.file",
-   "node": 52,
+   "field": "Job.group",
+   "node": 157,
    "rel": "displays"
   },
   {
-   "field": "Job.file",
-   "node": 105,
+   "field": "Job.group",
+   "node": 165,
    "rel": "displays"
   },
   {
-   "field": "Job.file",
-   "node": 109,
+   "field": "Job.group",
+   "node": 173,
    "rel": "displays"
   },
   {
-   "field": "Job.file",
+   "field": "Job.group",
+   "node": 181,
+   "rel": "displays"
+  },
+  {
+   "field": "Job.updated",
+   "node": 158,
+   "rel": "displays"
+  },
+  {
+   "field": "Job.updated",
+   "node": 166,
+   "rel": "displays"
+  },
+  {
+   "field": "Job.updated",
+   "node": 174,
+   "rel": "displays"
+  },
+  {
+   "field": "Job.updated",
+   "node": 182,
+   "rel": "displays"
+  },
+  {
+   "field": "Job.status",
+   "node": 161,
+   "rel": "displays"
+  },
+  {
+   "field": "Job.status",
+   "node": 169,
+   "rel": "displays"
+  },
+  {
+   "field": "Job.status",
+   "node": 177,
+   "rel": "displays"
+  },
+  {
+   "field": "Job.status",
+   "node": 185,
+   "rel": "displays"
+  },
+  {
+   "field": "Job.checks",
+   "node": 162,
+   "rel": "displays"
+  },
+  {
+   "field": "Job.checks",
+   "node": 170,
+   "rel": "displays"
+  },
+  {
+   "field": "Job.checks",
+   "node": 178,
+   "rel": "displays"
+  },
+  {
+   "field": "Job.checks",
+   "node": 186,
+   "rel": "displays"
+  },
+  {
+   "field": "Link.rel",
    "node": 113,
    "rel": "displays"
   },
   {
-   "field": "Job.status",
-   "node": 41,
+   "field": "Link.rel",
+   "node": 117,
    "rel": "displays"
   },
   {
-   "field": "Job.status",
-   "node": 45,
+   "field": "Link.rel",
+   "node": 121,
    "rel": "displays"
   },
   {
-   "field": "Job.status",
-   "node": 49,
-   "rel": "displays"
-  },
-  {
-   "field": "Job.status",
-   "node": 53,
-   "rel": "displays"
-  },
-  {
-   "field": "Job.status",
-   "node": 106,
-   "rel": "displays"
-  },
-  {
-   "field": "Job.status",
-   "node": 110,
-   "rel": "displays"
-  },
-  {
-   "field": "Job.status",
+   "field": "Link.share",
    "node": 114,
    "rel": "displays"
   },
   {
-   "field": "Job.updated",
-   "node": 42,
+   "field": "Link.share",
+   "node": 118,
    "rel": "displays"
   },
   {
-   "field": "Job.updated",
-   "node": 46,
+   "field": "Link.share",
+   "node": 122,
    "rel": "displays"
   },
   {
-   "field": "Job.updated",
-   "node": 50,
-   "rel": "displays"
-  },
-  {
-   "field": "Job.updated",
-   "node": 54,
-   "rel": "displays"
-  },
-  {
-   "field": "Job.updated",
-   "node": 107,
-   "rel": "displays"
-  },
-  {
-   "field": "Job.updated",
-   "node": 111,
-   "rel": "displays"
-  },
-  {
-   "field": "Job.updated",
-   "node": 115,
-   "rel": "displays"
-  },
-  {
-   "field": "Link.rel",
+   "field": "Parity.score",
    "node": 59,
    "rel": "displays"
   },
   {
-   "field": "Link.rel",
-   "node": 62,
-   "rel": "displays"
-  },
-  {
-   "field": "Link.rel",
+   "field": "Parity.checks",
    "node": 65,
    "rel": "displays"
   },
   {
-   "field": "Link.rel",
-   "node": 120,
-   "rel": "displays"
-  },
-  {
-   "field": "Link.rel",
-   "node": 123,
-   "rel": "displays"
-  },
-  {
-   "field": "Link.rel",
-   "node": 126,
-   "rel": "displays"
-  },
-  {
-   "field": "Parity.score",
-   "node": 27,
-   "rel": "displays"
-  },
-  {
-   "field": "Parity.score",
-   "node": 92,
-   "rel": "displays"
-  },
-  {
-   "field": "Parity.checks",
-   "node": 30,
-   "rel": "displays"
-  },
-  {
-   "field": "Parity.checks",
-   "node": 95,
-   "rel": "displays"
-  },
-  {
    "field": "Parity.errors",
-   "node": 33,
-   "rel": "displays"
-  },
-  {
-   "field": "Parity.errors",
-   "node": 98,
+   "node": 71,
    "rel": "displays"
   },
   {
    "field": "Parity.screens",
-   "node": 36,
-   "rel": "displays"
-  },
-  {
-   "field": "Parity.screens",
-   "node": 101,
-   "rel": "displays"
-  },
-  {
-   "field": "Spec.title",
-   "node": 134,
-   "rel": "displays"
-  },
-  {
-   "field": "Spec.file",
-   "node": 135,
-   "rel": "displays"
-  },
-  {
-   "field": "Spec.status",
-   "node": 137,
-   "rel": "displays"
-  },
-  {
-   "field": "Spec.heading",
-   "node": 139,
-   "rel": "displays"
-  },
-  {
-   "field": "Spec.fingerprint",
-   "node": 148,
-   "rel": "displays"
-  },
-  {
-   "field": "Spec.checks",
-   "node": 150,
-   "rel": "displays"
-  },
-  {
-   "field": "Spec.errors",
-   "node": 152,
-   "rel": "displays"
-  },
-  {
-   "field": "Spec.layer",
-   "node": 154,
-   "rel": "displays"
-  },
-  {
-   "field": "Spec.owner",
-   "node": 156,
+   "node": 77,
    "rel": "displays"
   }
  ],
  "gaps": 0,
  "kind": "links",
- "sourceHash": "d5a504f901758656"
+ "sourceHash": "60e569c9b2fe7a39"
 }
 -->

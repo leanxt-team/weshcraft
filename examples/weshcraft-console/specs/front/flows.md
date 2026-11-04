@@ -2,15 +2,12 @@
 
 ```mermaid
 flowchart LR
-  scr_dashboard_light["Dashboard — Light"]
-  scr_dashboard_dark["Dashboard — Dark"]
-  scr_spec_detail["Spec detail"]
-  scr_spec_detail -- "← Specs" --> scr_dashboard_light
+  scr_console_light["Console — Light"]
 ```
 
 | From | Element | To | Transition |
 |---|---|---|---|
-| Spec detail | `#133` ← Specs | Dashboard — Light | instant |
+| — | — | — | — |
 
 ## Notes
 
@@ -20,14 +17,8 @@ _No notes yet. Agent or human additions go here; WeshCraft keeps this block when
 
 <!-- weshcraft:contract
 {
- "edges": [
-  {
-   "from": "scr-spec-detail",
-   "node": 133,
-   "to": "scr-dashboard-light"
-  }
- ],
+ "edges": [],
  "kind": "front-flows",
- "sourceHash": "d5a504f901758656"
+ "sourceHash": "60e569c9b2fe7a39"
 }
 -->

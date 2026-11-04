@@ -2,6 +2,71 @@
 
 Every regeneration that changed the prototype, newest first. Written by WeshCraft from the manifest; `#id` cites the layer.
 
+<!-- weshcraft:change 60e569c9b2fe7a39 -->
+### 2026-11-04 00:04 UTC · `f3439d0656eb5a1a` → `60e569c9b2fe7a39`
+
+- + Screen **Console — Light** added
+- + Entity **Job** (file, group, updated, status, checks)
+- + Entity **Link** (rel, share)
+- + Entity **Parity** (score, checks, errors, screens)
+- + `GET /jobs` on scr-console-light (explicit)
+- + `POST /specs/publish` on scr-console-light (explicit)
+- + `GET /parity` on scr-console-light (explicit)
+- + `GET /parity/trend` on scr-console-light (explicit)
+- + `GET /links` on scr-console-light (explicit)
+- + `GET /parity/history` on scr-console-light (explicit)
+- + `GET /specs` on scr-console-light (explicit)
+- ~ Front ⇄ back links: +38 −0
+
+<!-- weshcraft:change f3439d0656eb5a1a -->
+### 2026-11-04 00:02 UTC · `8e9827ca19d6a3bc` → `f3439d0656eb5a1a`
+
+- − Screen **Console — Light** removed
+- − Entity **Job** removed
+- − Entity **Link** removed
+- − Entity **Parity** removed
+- − `GET /jobs` on scr-console-light removed
+- − `POST /specs/publish` on scr-console-light removed
+- − `GET /parity` on scr-console-light removed
+- − `GET /parity/trend` on scr-console-light removed
+- − `GET /links` on scr-console-light removed
+- − `GET /parity/history` on scr-console-light removed
+- − `GET /specs` on scr-console-light removed
+- ~ Front ⇄ back links: +0 −38
+
+<!-- weshcraft:change 8e9827ca19d6a3bc -->
+### 2026-11-04 00:00 UTC · `d5a504f901758656` → `8e9827ca19d6a3bc`
+
+- + Screen **Console — Light** added
+- − Screen **Dashboard — Light** removed
+- − Screen **Dashboard — Dark** removed
+- − Screen **Spec detail** removed
+- − Component **Job row** removed
+- + Field `Job.group` added
+- + Field `Job.checks` added
+- + Field `Link.share` added
+- − Entity **Event** removed
+- − Entity **Spec** removed
+- + `GET /jobs` on scr-console-light (explicit)
+- + `POST /specs/publish` on scr-console-light (explicit)
+- + `GET /parity` on scr-console-light (explicit)
+- + `GET /parity/trend` on scr-console-light (explicit)
+- + `GET /links` on scr-console-light (explicit)
+- + `GET /parity/history` on scr-console-light (explicit)
+- + `GET /specs` on scr-console-light (explicit)
+- − `GET /jobs` on scr-dashboard-light removed
+- − `POST /specs/publish` on scr-dashboard-light removed
+- − `GET /parity` on scr-dashboard-light removed
+- − `GET /links` on scr-dashboard-light removed
+- − `GET /events` on scr-dashboard-light removed
+- − `GET /jobs` on scr-dashboard-dark removed
+- − `POST /specs/publish` on scr-dashboard-dark removed
+- − `GET /parity` on scr-dashboard-dark removed
+- − `GET /links` on scr-dashboard-dark removed
+- − `GET /events` on scr-dashboard-dark removed
+- − `GET /specs/{id}` on scr-spec-detail removed
+- ~ Front ⇄ back links: +38 −66
+
 <!-- weshcraft:change d5a504f901758656 -->
 ### 2026-11-03 23:53 UTC · `02428ce47d0b8664` → `d5a504f901758656`
 

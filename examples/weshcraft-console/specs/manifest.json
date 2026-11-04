@@ -3,464 +3,701 @@
  "source": {
   "name": "WeshCraft Console",
   "truncated": false,
-  "hash": "d5a504f901758656"
+  "hash": "60e569c9b2fe7a39"
  },
  "screens": [
   {
-   "id": 6,
-   "key": "scr-dashboard-light",
-   "name": "Dashboard — Light",
-   "page": "App",
+   "id": 2,
+   "key": "scr-console-light",
+   "name": "Console — Light",
+   "page": "Console",
    "section": null,
    "width": 1440,
-   "height": 900,
+   "height": 960,
    "devStatus": null,
    "background": {
     "type": "solid",
-    "hex": "#ffffff",
+    "hex": "#f5f7f6",
     "alpha": 1
    },
-   "fingerprint": "a44925671d07",
+   "fingerprint": "d07496eb08b3",
    "texts": [
     {
      "id": 8,
-     "name": "Brand",
-     "characters": "WeshCraft",
-     "font": "Inter Bold 19",
-     "color": "#0f172a",
-     "token": null
-    },
-    {
-     "id": 9,
-     "name": "Brand sub",
-     "characters": "console",
-     "font": "Inter Regular 11",
-     "color": "#64748b",
-     "token": null
-    },
-    {
-     "id": 10,
-     "name": "Nav Overview",
-     "characters": "Overview",
-     "font": "Inter SemiBold 13",
-     "color": "#6d5ef8",
-     "token": null
-    },
-    {
-     "id": 12,
-     "name": "Nav Specs",
-     "characters": "Specs",
-     "font": "Inter Regular 13",
-     "color": "#64748b",
+     "name": "Ridgeline Analytics",
+     "characters": "WeshCraft Console",
+     "font": "Inter Semi Bold 17",
+     "color": "#14201c",
      "token": null
     },
     {
      "id": 13,
-     "name": "Nav Links",
+     "name": "Overview",
+     "characters": "Overview",
+     "font": "Inter Medium 14",
+     "color": "#1f6f5c",
+     "token": null
+    },
+    {
+     "id": 17,
+     "name": "Bookings",
+     "characters": "Specs",
+     "font": "Inter Regular 15",
+     "color": "#5c6b66",
+     "token": null
+    },
+    {
+     "id": 21,
+     "name": "Routes",
      "characters": "Links",
-     "font": "Inter Regular 13",
-     "color": "#64748b",
+     "font": "Inter Regular 15",
+     "color": "#5c6b66",
      "token": null
     },
     {
-     "id": 14,
-     "name": "Nav Prototype",
+     "id": 25,
+     "name": "Guides",
      "characters": "Prototype",
-     "font": "Inter Regular 13",
-     "color": "#64748b",
-     "token": null
-    },
-    {
-     "id": 15,
-     "name": "Nav Publish",
-     "characters": "Publish",
-     "font": "Inter Regular 13",
-     "color": "#64748b",
-     "token": null
-    },
-    {
-     "id": 16,
-     "name": "Instance",
-     "characters": "live · 192.168.3.159",
-     "font": "Inter Regular 11",
-     "color": "#64748b",
-     "token": null
-    },
-    {
-     "id": 19,
-     "name": "Title",
-     "characters": "WeshCraft console",
-     "font": "Inter Bold 21",
-     "color": "#0f172a",
-     "token": null
-    },
-    {
-     "id": 20,
-     "name": "Subtitle",
-     "characters": "design → prototype → contract-checked specs",
-     "font": "Inter Regular 12",
-     "color": "#64748b",
-     "token": null
-    },
-    {
-     "id": 22,
-     "name": "Placeholder",
-     "characters": "Search specs…",
-     "font": "Inter Regular 12",
-     "color": "#64748b",
-     "token": null
-    },
-    {
-     "id": 24,
-     "name": "Label",
-     "characters": "Publish",
-     "font": "Inter SemiBold 13",
-     "color": "#ffffff",
-     "token": null
-    },
-    {
-     "id": 26,
-     "name": "Label Parity",
-     "characters": "Parity",
-     "font": "Inter Medium 11",
-     "color": "#64748b",
-     "token": null
-    },
-    {
-     "id": 27,
-     "name": "Value Parity",
-     "characters": "{{parity.score}}",
-     "font": "Inter Bold 28",
-     "color": "#10b981",
+     "font": "Inter Regular 15",
+     "color": "#5c6b66",
      "token": null
     },
     {
      "id": 29,
-     "name": "Label Checks",
-     "characters": "Checks",
-     "font": "Inter Medium 11",
-     "color": "#64748b",
-     "token": null
-    },
-    {
-     "id": 30,
-     "name": "Value Checks",
-     "characters": "{{parity.checks}}",
-     "font": "Inter Bold 28",
-     "color": "#0f172a",
-     "token": null
-    },
-    {
-     "id": 32,
-     "name": "Label Errors",
-     "characters": "Errors",
-     "font": "Inter Medium 11",
-     "color": "#64748b",
+     "name": "Messages",
+     "characters": "Feed",
+     "font": "Inter Regular 15",
+     "color": "#5c6b66",
      "token": null
     },
     {
      "id": 33,
-     "name": "Value Errors",
-     "characters": "{{parity.errors}}",
-     "font": "Inter Bold 28",
-     "color": "#ef4444",
-     "token": null
-    },
-    {
-     "id": 35,
-     "name": "Label Screens",
-     "characters": "Screens",
-     "font": "Inter Medium 11",
-     "color": "#64748b",
+     "name": "Settings",
+     "characters": "Settings",
+     "font": "Inter Regular 15",
+     "color": "#5c6b66",
      "token": null
     },
     {
      "id": 36,
-     "name": "Value Screens",
-     "characters": "{{parity.screens}}",
-     "font": "Inter Bold 28",
-     "color": "#0f172a",
+     "name": "TB",
+     "characters": "TB",
+     "font": "Inter Medium 12",
+     "color": "#1f6f5c",
      "token": null
     },
     {
      "id": 38,
-     "name": "Heading",
-     "characters": "Spec jobs",
-     "font": "Inter SemiBold 14",
-     "color": "#0f172a",
+     "name": "Tomas Beck",
+     "characters": "Maya Chen",
+     "font": "Inter Medium 14",
+     "color": "#14201c",
      "token": null
     },
     {
-     "id": 40,
-     "name": "File",
-     "characters": "specs/front/screens/scr-home-light.md",
-     "font": "Inter Medium 13",
-     "color": "#0f172a",
+     "id": 39,
+     "name": "Operations",
+     "characters": "WeshCraft",
+     "font": "Inter Regular 13",
+     "color": "#5c6b66",
      "token": null
     },
     {
-     "id": 41,
-     "name": "Status",
-     "characters": "done",
-     "font": "Inter SemiBold 12",
-     "color": "#10b981",
-     "token": null
-    },
-    {
-     "id": 42,
-     "name": "Updated",
-     "characters": "2 min ago",
-     "font": "Inter Regular 11",
-     "color": "#64748b",
+     "id": 43,
+     "name": "Overview",
+     "characters": "Dashboard",
+     "font": "Inter Bold 30",
+     "color": "#14201c",
      "token": null
     },
     {
      "id": 44,
-     "name": "File",
-     "characters": "specs/front/screens/scr-trail-light.md",
-     "font": "Inter Medium 13",
-     "color": "#0f172a",
-     "token": null
-    },
-    {
-     "id": 45,
-     "name": "Status",
-     "characters": "done",
-     "font": "Inter SemiBold 12",
-     "color": "#10b981",
-     "token": null
-    },
-    {
-     "id": 46,
-     "name": "Updated",
-     "characters": "3 min ago",
-     "font": "Inter Regular 11",
-     "color": "#64748b",
-     "token": null
-    },
-    {
-     "id": 48,
-     "name": "File",
-     "characters": "specs/back/api.md",
-     "font": "Inter Medium 13",
-     "color": "#0f172a",
+     "name": "Bookings and revenue, 1 March to 31 May",
+     "characters": "design → prototype → contract-checked specs",
+     "font": "Inter Regular 15",
+     "color": "#5c6b66",
      "token": null
     },
     {
      "id": 49,
-     "name": "Status",
-     "characters": "changed",
-     "font": "Inter SemiBold 12",
-     "color": "#f59e0b",
-     "token": null
-    },
-    {
-     "id": 50,
-     "name": "Updated",
-     "characters": "5 min ago",
-     "font": "Inter Regular 11",
-     "color": "#64748b",
-     "token": null
-    },
-    {
-     "id": 52,
-     "name": "File",
-     "characters": "specs/LINKS.md",
-     "font": "Inter Medium 13",
-     "color": "#0f172a",
-     "token": null
-    },
-    {
-     "id": 53,
-     "name": "Status",
-     "characters": "done",
-     "font": "Inter SemiBold 12",
-     "color": "#10b981",
+     "name": "Search bookings",
+     "characters": "Search specs",
+     "font": "Inter Regular 15",
+     "color": "#5c6b66",
      "token": null
     },
     {
      "id": 54,
-     "name": "Updated",
-     "characters": "5 min ago",
-     "font": "Inter Regular 11",
-     "color": "#64748b",
+     "name": "Export",
+     "characters": "Publish",
+     "font": "Inter Medium 14",
+     "color": "#ffffff",
      "token": null
     },
     {
-     "id": 56,
-     "name": "Heading",
-     "characters": "Front ⇄ back",
-     "font": "Inter SemiBold 14",
-     "color": "#0f172a",
-     "token": null
-    },
-    {
-     "id": 58,
-     "name": "Relation 0",
-     "characters": "lists",
-     "font": "Inter SemiBold 11",
-     "color": "#6d5ef8",
+     "id": 57,
+     "name": "Revenue",
+     "characters": "Parity",
+     "font": "Inter Regular 13",
+     "color": "#5c6b66",
      "token": null
     },
     {
      "id": 59,
-     "name": "@link.rel",
-     "characters": "{{link.rel}} · {{link.target}}",
-     "font": "Inter Regular 12",
-     "color": "#64748b",
+     "name": "@parity.score",
+     "characters": "100%",
+     "font": "Inter Bold 30",
+     "color": "#14201c",
      "token": null
     },
     {
      "id": 61,
-     "name": "Relation 1",
-     "characters": "displays",
-     "font": "Inter SemiBold 11",
-     "color": "#6d5ef8",
+     "name": "+12.4%",
+     "characters": "in sync",
+     "font": "Inter Medium 12",
+     "color": "#1f6f5c",
      "token": null
     },
     {
-     "id": 62,
-     "name": "@link.rel",
-     "characters": "{{link.rel}} · {{link.target}}",
-     "font": "Inter Regular 12",
-     "color": "#64748b",
-     "token": null
-    },
-    {
-     "id": 64,
-     "name": "Relation 2",
-     "characters": "triggers",
-     "font": "Inter SemiBold 11",
-     "color": "#6d5ef8",
+     "id": 63,
+     "name": "Bookings",
+     "characters": "Checks",
+     "font": "Inter Regular 13",
+     "color": "#5c6b66",
      "token": null
     },
     {
      "id": 65,
-     "name": "@link.rel",
-     "characters": "{{link.rel}} · {{link.target}}",
-     "font": "Inter Regular 12",
-     "color": "#64748b",
+     "name": "@parity.checks",
+     "characters": "576",
+     "font": "Inter Bold 30",
+     "color": "#14201c",
      "token": null
     },
     {
      "id": 67,
-     "name": "Heading",
-     "characters": "Live feed",
-     "font": "Inter SemiBold 14",
-     "color": "#0f172a",
-     "token": null
-    },
-    {
-     "id": 68,
-     "name": "Event 0",
-     "characters": "{{event.message}}",
-     "font": "Inter Regular 12",
-     "color": "#64748b",
+     "name": "+8.1%",
+     "characters": "all green",
+     "font": "Inter Medium 12",
+     "color": "#1f6f5c",
      "token": null
     },
     {
      "id": 69,
-     "name": "Event 1",
-     "characters": "{{event.message}}",
-     "font": "Inter Regular 12",
-     "color": "#64748b",
+     "name": "Average group",
+     "characters": "Errors",
+     "font": "Inter Regular 13",
+     "color": "#5c6b66",
      "token": null
     },
     {
-     "id": 70,
-     "name": "Event 2",
-     "characters": "{{event.message}}",
-     "font": "Inter Regular 12",
-     "color": "#64748b",
+     "id": 71,
+     "name": "@parity.errors",
+     "characters": "0",
+     "font": "Inter Bold 30",
+     "color": "#14201c",
+     "token": null
+    },
+    {
+     "id": 73,
+     "name": "+0.4",
+     "characters": "none",
+     "font": "Inter Medium 12",
+     "color": "#1f6f5c",
+     "token": null
+    },
+    {
+     "id": 75,
+     "name": "Cancellations",
+     "characters": "Screens",
+     "font": "Inter Regular 13",
+     "color": "#5c6b66",
+     "token": null
+    },
+    {
+     "id": 77,
+     "name": "@parity.screens",
+     "characters": "3",
+     "font": "Inter Bold 30",
+     "color": "#14201c",
+     "token": null
+    },
+    {
+     "id": 79,
+     "name": "+0.6%",
+     "characters": "live",
+     "font": "Inter Medium 12",
+     "color": "#b4472e",
+     "token": null
+    },
+    {
+     "id": 82,
+     "name": "Revenue",
+     "characters": "Parity over time",
+     "font": "Inter Semi Bold 17",
+     "color": "#14201c",
+     "token": null
+    },
+    {
+     "id": 83,
+     "name": "This year and last year, by week",
+     "characters": "score per run, last seven runs",
+     "font": "Inter Regular 13",
+     "color": "#5c6b66",
+     "token": null
+    },
+    {
+     "id": 94,
+     "name": "1 Mar",
+     "characters": "run 1",
+     "font": "Inter Medium 12",
+     "color": "#5c6b66",
+     "token": null
+    },
+    {
+     "id": 95,
+     "name": "15 Mar",
+     "characters": "run 2",
+     "font": "Inter Medium 12",
+     "color": "#5c6b66",
+     "token": null
+    },
+    {
+     "id": 96,
+     "name": "29 Mar",
+     "characters": "run 3",
+     "font": "Inter Medium 12",
+     "color": "#5c6b66",
+     "token": null
+    },
+    {
+     "id": 97,
+     "name": "12 Apr",
+     "characters": "run 4",
+     "font": "Inter Medium 12",
+     "color": "#5c6b66",
+     "token": null
+    },
+    {
+     "id": 98,
+     "name": "26 Apr",
+     "characters": "run 5",
+     "font": "Inter Medium 12",
+     "color": "#5c6b66",
+     "token": null
+    },
+    {
+     "id": 99,
+     "name": "10 May",
+     "characters": "run 6",
+     "font": "Inter Medium 12",
+     "color": "#5c6b66",
+     "token": null
+    },
+    {
+     "id": 100,
+     "name": "24 May",
+     "characters": "run 7",
+     "font": "Inter Medium 12",
+     "color": "#5c6b66",
+     "token": null
+    },
+    {
+     "id": 103,
+     "name": "Bookings by kind",
+     "characters": "Spec jobs by group",
+     "font": "Inter Semi Bold 17",
+     "color": "#14201c",
+     "token": null
+    },
+    {
+     "id": 113,
+     "name": "@link.rel",
+     "characters": "front",
+     "font": "Inter Regular 13",
+     "color": "#14201c",
+     "token": null
+    },
+    {
+     "id": 114,
+     "name": "@link.share",
+     "characters": "62%",
+     "font": "Inter Medium 12",
+     "color": "#5c6b66",
+     "token": null
+    },
+    {
+     "id": 117,
+     "name": "@link.rel",
+     "characters": "back",
+     "font": "Inter Regular 13",
+     "color": "#14201c",
+     "token": null
+    },
+    {
+     "id": 118,
+     "name": "@link.share",
+     "characters": "38%",
+     "font": "Inter Medium 12",
+     "color": "#5c6b66",
+     "token": null
+    },
+    {
+     "id": 121,
+     "name": "@link.rel",
+     "characters": "notes",
+     "font": "Inter Regular 13",
+     "color": "#14201c",
+     "token": null
+    },
+    {
+     "id": 122,
+     "name": "@link.share",
+     "characters": "0%",
+     "font": "Inter Medium 12",
+     "color": "#5c6b66",
+     "token": null
+    },
+    {
+     "id": 125,
+     "name": "Busiest days",
+     "characters": "Checks per run",
+     "font": "Inter Semi Bold 17",
+     "color": "#14201c",
+     "token": null
+    },
+    {
+     "id": 126,
+     "name": "Per weekday",
+     "characters": "per job kind",
+     "font": "Inter Regular 13",
+     "color": "#5c6b66",
+     "token": null
+    },
+    {
+     "id": 137,
+     "name": "Mon",
+     "characters": "front",
+     "font": "Inter Medium 12",
+     "color": "#5c6b66",
+     "token": null
+    },
+    {
+     "id": 138,
+     "name": "Tue",
+     "characters": "back",
+     "font": "Inter Medium 12",
+     "color": "#5c6b66",
+     "token": null
+    },
+    {
+     "id": 139,
+     "name": "Wed",
+     "characters": "links",
+     "font": "Inter Medium 12",
+     "color": "#5c6b66",
+     "token": null
+    },
+    {
+     "id": 140,
+     "name": "Thu",
+     "characters": "notes",
+     "font": "Inter Medium 12",
+     "color": "#5c6b66",
+     "token": null
+    },
+    {
+     "id": 141,
+     "name": "Fri",
+     "characters": "api",
+     "font": "Inter Medium 12",
+     "color": "#5c6b66",
+     "token": null
+    },
+    {
+     "id": 142,
+     "name": "Sat",
+     "characters": "spec",
+     "font": "Inter Medium 12",
+     "color": "#5c6b66",
+     "token": null
+    },
+    {
+     "id": 143,
+     "name": "Sun",
+     "characters": "sync",
+     "font": "Inter Medium 12",
+     "color": "#5c6b66",
+     "token": null
+    },
+    {
+     "id": 146,
+     "name": "Latest bookings",
+     "characters": "Spec jobs",
+     "font": "Inter Semi Bold 17",
+     "color": "#14201c",
+     "token": null
+    },
+    {
+     "id": 147,
+     "name": "See all",
+     "characters": "See all",
+     "font": "Inter Regular 13",
+     "color": "#5c6b66",
+     "token": null
+    },
+    {
+     "id": 150,
+     "name": "Walk",
+     "characters": "Spec",
+     "font": "Inter Medium 12",
+     "color": "#5c6b66",
+     "token": null
+    },
+    {
+     "id": 151,
+     "name": "Guide",
+     "characters": "Group",
+     "font": "Inter Medium 12",
+     "color": "#5c6b66",
+     "token": null
+    },
+    {
+     "id": 152,
+     "name": "Date",
+     "characters": "Updated",
+     "font": "Inter Medium 12",
+     "color": "#5c6b66",
+     "token": null
+    },
+    {
+     "id": 153,
+     "name": "Status",
+     "characters": "Status",
+     "font": "Inter Medium 12",
+     "color": "#5c6b66",
+     "token": null
+    },
+    {
+     "id": 154,
+     "name": "Amount",
+     "characters": "Checks",
+     "font": "Inter Medium 12",
+     "color": "#5c6b66",
+     "token": null
+    },
+    {
+     "id": 156,
+     "name": "@job.file",
+     "characters": "specs/front/screens/scr-home-light.md",
+     "font": "Inter Medium 14",
+     "color": "#14201c",
+     "token": null
+    },
+    {
+     "id": 157,
+     "name": "@job.group",
+     "characters": "front",
+     "font": "Inter Regular 13",
+     "color": "#14201c",
+     "token": null
+    },
+    {
+     "id": 158,
+     "name": "@job.updated",
+     "characters": "2 min ago",
+     "font": "Inter Regular 13",
+     "color": "#14201c",
+     "token": null
+    },
+    {
+     "id": 161,
+     "name": "@job.status",
+     "characters": "done",
+     "font": "Inter Medium 12",
+     "color": "#1f6f5c",
+     "token": null
+    },
+    {
+     "id": 162,
+     "name": "@job.checks",
+     "characters": "153",
+     "font": "Inter Regular 13",
+     "color": "#14201c",
+     "token": null
+    },
+    {
+     "id": 164,
+     "name": "@job.file",
+     "characters": "specs/back/api.md",
+     "font": "Inter Medium 14",
+     "color": "#14201c",
+     "token": null
+    },
+    {
+     "id": 165,
+     "name": "@job.group",
+     "characters": "back",
+     "font": "Inter Regular 13",
+     "color": "#14201c",
+     "token": null
+    },
+    {
+     "id": 166,
+     "name": "@job.updated",
+     "characters": "3 min ago",
+     "font": "Inter Regular 13",
+     "color": "#14201c",
+     "token": null
+    },
+    {
+     "id": 169,
+     "name": "@job.status",
+     "characters": "done",
+     "font": "Inter Medium 12",
+     "color": "#1f6f5c",
+     "token": null
+    },
+    {
+     "id": 170,
+     "name": "@job.checks",
+     "characters": "96",
+     "font": "Inter Regular 13",
+     "color": "#14201c",
+     "token": null
+    },
+    {
+     "id": 172,
+     "name": "@job.file",
+     "characters": "specs/LINKS.md",
+     "font": "Inter Medium 14",
+     "color": "#14201c",
+     "token": null
+    },
+    {
+     "id": 173,
+     "name": "@job.group",
+     "characters": "links",
+     "font": "Inter Regular 13",
+     "color": "#14201c",
+     "token": null
+    },
+    {
+     "id": 174,
+     "name": "@job.updated",
+     "characters": "5 min ago",
+     "font": "Inter Regular 13",
+     "color": "#14201c",
+     "token": null
+    },
+    {
+     "id": 177,
+     "name": "@job.status",
+     "characters": "changed",
+     "font": "Inter Medium 12",
+     "color": "#8a5a0b",
+     "token": null
+    },
+    {
+     "id": 178,
+     "name": "@job.checks",
+     "characters": "48",
+     "font": "Inter Regular 13",
+     "color": "#14201c",
+     "token": null
+    },
+    {
+     "id": 180,
+     "name": "@job.file",
+     "characters": "specs/back/domain.md",
+     "font": "Inter Medium 14",
+     "color": "#14201c",
+     "token": null
+    },
+    {
+     "id": 181,
+     "name": "@job.group",
+     "characters": "back",
+     "font": "Inter Regular 13",
+     "color": "#14201c",
+     "token": null
+    },
+    {
+     "id": 182,
+     "name": "@job.updated",
+     "characters": "6 min ago",
+     "font": "Inter Regular 13",
+     "color": "#14201c",
+     "token": null
+    },
+    {
+     "id": 185,
+     "name": "@job.status",
+     "characters": "done",
+     "font": "Inter Medium 12",
+     "color": "#1f6f5c",
+     "token": null
+    },
+    {
+     "id": 186,
+     "name": "@job.checks",
+     "characters": "112",
+     "font": "Inter Regular 13",
+     "color": "#14201c",
      "token": null
     }
    ],
-   "instances": [
-    {
-     "id": 39,
-     "name": "Job row 1",
-     "component": 2,
-     "props": {
-      "File": "specs/front/screens/scr-home-light.md",
-      "Status": "done",
-      "Updated": "2 min ago"
-     }
-    },
-    {
-     "id": 43,
-     "name": "Job row 2",
-     "component": 2,
-     "props": {
-      "File": "specs/front/screens/scr-trail-light.md",
-      "Status": "done",
-      "Updated": "3 min ago"
-     }
-    },
-    {
-     "id": 47,
-     "name": "Job row 3",
-     "component": 2,
-     "props": {
-      "File": "specs/back/api.md",
-      "Status": "changed",
-      "Updated": "5 min ago"
-     }
-    },
-    {
-     "id": 51,
-     "name": "Job row 4",
-     "component": 2,
-     "props": {
-      "File": "specs/LINKS.md",
-      "Status": "done",
-      "Updated": "5 min ago"
-     }
-    }
-   ],
+   "instances": [],
    "actions": [],
    "inputs": [
     {
-     "id": 21,
-     "name": "Search jobs",
-     "placeholder": "Search specs…",
+     "id": 46,
+     "name": "Search",
+     "placeholder": "Search specs",
+     "kind": "search"
+    },
+    {
+     "id": 47,
+     "name": "Search",
+     "placeholder": "",
      "kind": "search"
     }
    ],
    "bindings": [
     {
-     "id": 27,
-     "name": "Value Parity",
+     "id": 59,
+     "name": "@parity.score",
      "entity": "Parity",
      "field": "score",
      "type": "string",
      "confidence": "explicit"
     },
     {
-     "id": 30,
-     "name": "Value Checks",
+     "id": 65,
+     "name": "@parity.checks",
      "entity": "Parity",
      "field": "checks",
      "type": "string",
      "confidence": "explicit"
     },
     {
-     "id": 33,
-     "name": "Value Errors",
+     "id": 71,
+     "name": "@parity.errors",
      "entity": "Parity",
      "field": "errors",
      "type": "string",
      "confidence": "explicit"
     },
     {
-     "id": 36,
-     "name": "Value Screens",
+     "id": 77,
+     "name": "@parity.screens",
      "entity": "Parity",
      "field": "screens",
      "type": "string",
      "confidence": "explicit"
     },
     {
-     "id": 59,
+     "id": 113,
      "name": "@link.rel",
      "entity": "Link",
      "field": "rel",
@@ -468,7 +705,15 @@
      "confidence": "explicit"
     },
     {
-     "id": 62,
+     "id": 114,
+     "name": "@link.share",
+     "entity": "Link",
+     "field": "share",
+     "type": "string",
+     "confidence": "explicit"
+    },
+    {
+     "id": 117,
      "name": "@link.rel",
      "entity": "Link",
      "field": "rel",
@@ -476,7 +721,15 @@
      "confidence": "explicit"
     },
     {
-     "id": 65,
+     "id": 118,
+     "name": "@link.share",
+     "entity": "Link",
+     "field": "share",
+     "type": "string",
+     "confidence": "explicit"
+    },
+    {
+     "id": 121,
      "name": "@link.rel",
      "entity": "Link",
      "field": "rel",
@@ -484,84 +737,251 @@
      "confidence": "explicit"
     },
     {
-     "id": 68,
-     "name": "Event 0",
-     "entity": "Event",
-     "field": "message",
+     "id": 122,
+     "name": "@link.share",
+     "entity": "Link",
+     "field": "share",
      "type": "string",
      "confidence": "explicit"
     },
     {
-     "id": 69,
-     "name": "Event 1",
-     "entity": "Event",
-     "field": "message",
+     "id": 156,
+     "name": "@job.file",
+     "entity": "Job",
+     "field": "file",
      "type": "string",
      "confidence": "explicit"
     },
     {
-     "id": 70,
-     "name": "Event 2",
-     "entity": "Event",
-     "field": "message",
+     "id": 157,
+     "name": "@job.group",
+     "entity": "Job",
+     "field": "group",
+     "type": "string",
+     "confidence": "explicit"
+    },
+    {
+     "id": 158,
+     "name": "@job.updated",
+     "entity": "Job",
+     "field": "updated",
+     "type": "string",
+     "confidence": "explicit"
+    },
+    {
+     "id": 161,
+     "name": "@job.status",
+     "entity": "Job",
+     "field": "status",
+     "type": "string",
+     "confidence": "explicit"
+    },
+    {
+     "id": 162,
+     "name": "@job.checks",
+     "entity": "Job",
+     "field": "checks",
+     "type": "string",
+     "confidence": "explicit"
+    },
+    {
+     "id": 164,
+     "name": "@job.file",
+     "entity": "Job",
+     "field": "file",
+     "type": "string",
+     "confidence": "explicit"
+    },
+    {
+     "id": 165,
+     "name": "@job.group",
+     "entity": "Job",
+     "field": "group",
+     "type": "string",
+     "confidence": "explicit"
+    },
+    {
+     "id": 166,
+     "name": "@job.updated",
+     "entity": "Job",
+     "field": "updated",
+     "type": "string",
+     "confidence": "explicit"
+    },
+    {
+     "id": 169,
+     "name": "@job.status",
+     "entity": "Job",
+     "field": "status",
+     "type": "string",
+     "confidence": "explicit"
+    },
+    {
+     "id": 170,
+     "name": "@job.checks",
+     "entity": "Job",
+     "field": "checks",
+     "type": "string",
+     "confidence": "explicit"
+    },
+    {
+     "id": 172,
+     "name": "@job.file",
+     "entity": "Job",
+     "field": "file",
+     "type": "string",
+     "confidence": "explicit"
+    },
+    {
+     "id": 173,
+     "name": "@job.group",
+     "entity": "Job",
+     "field": "group",
+     "type": "string",
+     "confidence": "explicit"
+    },
+    {
+     "id": 174,
+     "name": "@job.updated",
+     "entity": "Job",
+     "field": "updated",
+     "type": "string",
+     "confidence": "explicit"
+    },
+    {
+     "id": 177,
+     "name": "@job.status",
+     "entity": "Job",
+     "field": "status",
+     "type": "string",
+     "confidence": "explicit"
+    },
+    {
+     "id": 178,
+     "name": "@job.checks",
+     "entity": "Job",
+     "field": "checks",
+     "type": "string",
+     "confidence": "explicit"
+    },
+    {
+     "id": 180,
+     "name": "@job.file",
+     "entity": "Job",
+     "field": "file",
+     "type": "string",
+     "confidence": "explicit"
+    },
+    {
+     "id": 181,
+     "name": "@job.group",
+     "entity": "Job",
+     "field": "group",
+     "type": "string",
+     "confidence": "explicit"
+    },
+    {
+     "id": 182,
+     "name": "@job.updated",
+     "entity": "Job",
+     "field": "updated",
+     "type": "string",
+     "confidence": "explicit"
+    },
+    {
+     "id": 185,
+     "name": "@job.status",
+     "entity": "Job",
+     "field": "status",
+     "type": "string",
+     "confidence": "explicit"
+    },
+    {
+     "id": 186,
+     "name": "@job.checks",
+     "entity": "Job",
+     "field": "checks",
      "type": "string",
      "confidence": "explicit"
     }
    ],
    "annotations": [
     {
-     "id": 6,
-     "name": "Dashboard — Light",
-     "text": "WeshCraft",
+     "id": 2,
+     "name": "Console — Light",
+     "text": "WeshCraft Console",
      "label": "GET /jobs → Job",
      "category": "development",
      "properties": []
     },
     {
-     "id": 23,
-     "name": "Publish specs",
+     "id": 54,
+     "name": "Export",
      "text": "Publish",
      "label": "POST /specs/publish → Spec",
      "category": "development",
      "properties": []
     },
     {
-     "id": 25,
-     "name": "KPI Parity",
+     "id": 56,
+     "name": "Revenue",
      "text": "Parity",
      "label": "GET /parity → Parity",
      "category": "development",
      "properties": []
     },
     {
-     "id": 55,
-     "name": "Front ⇄ back",
-     "text": "Front ⇄ back",
+     "id": 80,
+     "name": "Revenue",
+     "text": "Parity over time",
+     "label": "GET /parity/trend → Parity",
+     "category": "development",
+     "properties": []
+    },
+    {
+     "id": 101,
+     "name": "Bookings by kind",
+     "text": "Spec jobs by group",
      "label": "GET /links → Link",
      "category": "development",
      "properties": []
     },
     {
-     "id": 66,
-     "name": "Live feed",
-     "text": "Live feed",
-     "label": "GET /events → Event",
+     "id": 123,
+     "name": "Busiest days",
+     "text": "Checks per run",
+     "label": "GET /parity/history → Parity",
+     "category": "development",
+     "properties": []
+    },
+    {
+     "id": 144,
+     "name": "Latest bookings",
+     "text": "Spec jobs",
+     "label": "GET /specs → Spec",
      "category": "development",
      "properties": []
     }
    ],
    "colors": [
-    "#0f172a",
-    "#10b981",
-    "#64748b",
-    "#6d5ef8",
-    "#ede9fe",
-    "#ef4444",
-    "#f59e0b",
-    "#f7f8fc",
+    "#14201c",
+    "#1f6f5c",
+    "#5c6b66",
+    "#6fb09b",
+    "#8a5a0b",
+    "#b4472e",
+    "#ddefe8",
+    "#f2a541",
+    "#f5f7f6",
+    "#fbe9e4",
+    "#fcefd9",
     "#ffffff"
    ],
    "nodeIds": [
+    2,
+    3,
+    4,
+    5,
     6,
     7,
     8,
@@ -626,517 +1046,7 @@
     67,
     68,
     69,
-    70
-   ]
-  },
-  {
-   "id": 71,
-   "key": "scr-dashboard-dark",
-   "name": "Dashboard — Dark",
-   "page": "App",
-   "section": null,
-   "width": 1440,
-   "height": 900,
-   "devStatus": null,
-   "background": {
-    "type": "solid",
-    "hex": "#0b0d14",
-    "alpha": 1
-   },
-   "fingerprint": "9b171528c819",
-   "texts": [
-    {
-     "id": 73,
-     "name": "Brand",
-     "characters": "WeshCraft",
-     "font": "Inter Bold 19",
-     "color": "#e8ecf8",
-     "token": null
-    },
-    {
-     "id": 74,
-     "name": "Brand sub",
-     "characters": "console",
-     "font": "Inter Regular 11",
-     "color": "#8a93ad",
-     "token": null
-    },
-    {
-     "id": 75,
-     "name": "Nav Overview",
-     "characters": "Overview",
-     "font": "Inter SemiBold 13",
-     "color": "#8b5cf6",
-     "token": null
-    },
-    {
-     "id": 77,
-     "name": "Nav Specs",
-     "characters": "Specs",
-     "font": "Inter Regular 13",
-     "color": "#8a93ad",
-     "token": null
-    },
-    {
-     "id": 78,
-     "name": "Nav Links",
-     "characters": "Links",
-     "font": "Inter Regular 13",
-     "color": "#8a93ad",
-     "token": null
-    },
-    {
-     "id": 79,
-     "name": "Nav Prototype",
-     "characters": "Prototype",
-     "font": "Inter Regular 13",
-     "color": "#8a93ad",
-     "token": null
-    },
-    {
-     "id": 80,
-     "name": "Nav Publish",
-     "characters": "Publish",
-     "font": "Inter Regular 13",
-     "color": "#8a93ad",
-     "token": null
-    },
-    {
-     "id": 81,
-     "name": "Instance",
-     "characters": "live · 192.168.3.159",
-     "font": "Inter Regular 11",
-     "color": "#8a93ad",
-     "token": null
-    },
-    {
-     "id": 84,
-     "name": "Title",
-     "characters": "WeshCraft console",
-     "font": "Inter Bold 21",
-     "color": "#e8ecf8",
-     "token": null
-    },
-    {
-     "id": 85,
-     "name": "Subtitle",
-     "characters": "design → prototype → contract-checked specs",
-     "font": "Inter Regular 12",
-     "color": "#8a93ad",
-     "token": null
-    },
-    {
-     "id": 87,
-     "name": "Placeholder",
-     "characters": "Search specs…",
-     "font": "Inter Regular 12",
-     "color": "#8a93ad",
-     "token": null
-    },
-    {
-     "id": 89,
-     "name": "Label",
-     "characters": "Publish",
-     "font": "Inter SemiBold 13",
-     "color": "#ffffff",
-     "token": null
-    },
-    {
-     "id": 91,
-     "name": "Label Parity",
-     "characters": "Parity",
-     "font": "Inter Medium 11",
-     "color": "#8a93ad",
-     "token": null
-    },
-    {
-     "id": 92,
-     "name": "Value Parity",
-     "characters": "{{parity.score}}",
-     "font": "Inter Bold 28",
-     "color": "#34d399",
-     "token": null
-    },
-    {
-     "id": 94,
-     "name": "Label Checks",
-     "characters": "Checks",
-     "font": "Inter Medium 11",
-     "color": "#8a93ad",
-     "token": null
-    },
-    {
-     "id": 95,
-     "name": "Value Checks",
-     "characters": "{{parity.checks}}",
-     "font": "Inter Bold 28",
-     "color": "#e8ecf8",
-     "token": null
-    },
-    {
-     "id": 97,
-     "name": "Label Errors",
-     "characters": "Errors",
-     "font": "Inter Medium 11",
-     "color": "#8a93ad",
-     "token": null
-    },
-    {
-     "id": 98,
-     "name": "Value Errors",
-     "characters": "{{parity.errors}}",
-     "font": "Inter Bold 28",
-     "color": "#fb7185",
-     "token": null
-    },
-    {
-     "id": 100,
-     "name": "Label Screens",
-     "characters": "Screens",
-     "font": "Inter Medium 11",
-     "color": "#8a93ad",
-     "token": null
-    },
-    {
-     "id": 101,
-     "name": "Value Screens",
-     "characters": "{{parity.screens}}",
-     "font": "Inter Bold 28",
-     "color": "#e8ecf8",
-     "token": null
-    },
-    {
-     "id": 103,
-     "name": "Heading",
-     "characters": "Spec jobs",
-     "font": "Inter SemiBold 14",
-     "color": "#e8ecf8",
-     "token": null
-    },
-    {
-     "id": 105,
-     "name": "File",
-     "characters": "specs/front/screens/scr-home-light.md",
-     "font": "Inter Medium 13",
-     "color": "#e8ecf8",
-     "token": null
-    },
-    {
-     "id": 106,
-     "name": "Status",
-     "characters": "done",
-     "font": "Inter SemiBold 12",
-     "color": "#34d399",
-     "token": null
-    },
-    {
-     "id": 107,
-     "name": "Updated",
-     "characters": "2 min ago",
-     "font": "Inter Regular 11",
-     "color": "#8a93ad",
-     "token": null
-    },
-    {
-     "id": 109,
-     "name": "File",
-     "characters": "specs/front/screens/scr-trail-light.md",
-     "font": "Inter Medium 13",
-     "color": "#e8ecf8",
-     "token": null
-    },
-    {
-     "id": 110,
-     "name": "Status",
-     "characters": "done",
-     "font": "Inter SemiBold 12",
-     "color": "#34d399",
-     "token": null
-    },
-    {
-     "id": 111,
-     "name": "Updated",
-     "characters": "3 min ago",
-     "font": "Inter Regular 11",
-     "color": "#8a93ad",
-     "token": null
-    },
-    {
-     "id": 113,
-     "name": "File",
-     "characters": "specs/back/api.md",
-     "font": "Inter Medium 13",
-     "color": "#e8ecf8",
-     "token": null
-    },
-    {
-     "id": 114,
-     "name": "Status",
-     "characters": "changed",
-     "font": "Inter SemiBold 12",
-     "color": "#fbbf24",
-     "token": null
-    },
-    {
-     "id": 115,
-     "name": "Updated",
-     "characters": "5 min ago",
-     "font": "Inter Regular 11",
-     "color": "#8a93ad",
-     "token": null
-    },
-    {
-     "id": 117,
-     "name": "Heading",
-     "characters": "Front ⇄ back",
-     "font": "Inter SemiBold 14",
-     "color": "#e8ecf8",
-     "token": null
-    },
-    {
-     "id": 119,
-     "name": "Relation 0",
-     "characters": "lists",
-     "font": "Inter SemiBold 11",
-     "color": "#8b5cf6",
-     "token": null
-    },
-    {
-     "id": 120,
-     "name": "@link.rel",
-     "characters": "{{link.rel}} · {{link.target}}",
-     "font": "Inter Regular 12",
-     "color": "#8a93ad",
-     "token": null
-    },
-    {
-     "id": 122,
-     "name": "Relation 1",
-     "characters": "displays",
-     "font": "Inter SemiBold 11",
-     "color": "#8b5cf6",
-     "token": null
-    },
-    {
-     "id": 123,
-     "name": "@link.rel",
-     "characters": "{{link.rel}} · {{link.target}}",
-     "font": "Inter Regular 12",
-     "color": "#8a93ad",
-     "token": null
-    },
-    {
-     "id": 125,
-     "name": "Relation 2",
-     "characters": "triggers",
-     "font": "Inter SemiBold 11",
-     "color": "#8b5cf6",
-     "token": null
-    },
-    {
-     "id": 126,
-     "name": "@link.rel",
-     "characters": "{{link.rel}} · {{link.target}}",
-     "font": "Inter Regular 12",
-     "color": "#8a93ad",
-     "token": null
-    },
-    {
-     "id": 128,
-     "name": "Heading",
-     "characters": "Live feed",
-     "font": "Inter SemiBold 14",
-     "color": "#e8ecf8",
-     "token": null
-    },
-    {
-     "id": 129,
-     "name": "Event 0",
-     "characters": "{{event.message}}",
-     "font": "Inter Regular 12",
-     "color": "#8a93ad",
-     "token": null
-    },
-    {
-     "id": 130,
-     "name": "Event 1",
-     "characters": "{{event.message}}",
-     "font": "Inter Regular 12",
-     "color": "#8a93ad",
-     "token": null
-    }
-   ],
-   "instances": [
-    {
-     "id": 104,
-     "name": "Job row 1",
-     "component": 2,
-     "props": {
-      "File": "specs/front/screens/scr-home-light.md",
-      "Status": "done",
-      "Updated": "2 min ago"
-     }
-    },
-    {
-     "id": 108,
-     "name": "Job row 2",
-     "component": 2,
-     "props": {
-      "File": "specs/front/screens/scr-trail-light.md",
-      "Status": "done",
-      "Updated": "3 min ago"
-     }
-    },
-    {
-     "id": 112,
-     "name": "Job row 3",
-     "component": 2,
-     "props": {
-      "File": "specs/back/api.md",
-      "Status": "changed",
-      "Updated": "5 min ago"
-     }
-    }
-   ],
-   "actions": [],
-   "inputs": [
-    {
-     "id": 86,
-     "name": "Search jobs",
-     "placeholder": "Search specs…",
-     "kind": "search"
-    }
-   ],
-   "bindings": [
-    {
-     "id": 92,
-     "name": "Value Parity",
-     "entity": "Parity",
-     "field": "score",
-     "type": "string",
-     "confidence": "explicit"
-    },
-    {
-     "id": 95,
-     "name": "Value Checks",
-     "entity": "Parity",
-     "field": "checks",
-     "type": "string",
-     "confidence": "explicit"
-    },
-    {
-     "id": 98,
-     "name": "Value Errors",
-     "entity": "Parity",
-     "field": "errors",
-     "type": "string",
-     "confidence": "explicit"
-    },
-    {
-     "id": 101,
-     "name": "Value Screens",
-     "entity": "Parity",
-     "field": "screens",
-     "type": "string",
-     "confidence": "explicit"
-    },
-    {
-     "id": 120,
-     "name": "@link.rel",
-     "entity": "Link",
-     "field": "rel",
-     "type": "string",
-     "confidence": "explicit"
-    },
-    {
-     "id": 123,
-     "name": "@link.rel",
-     "entity": "Link",
-     "field": "rel",
-     "type": "string",
-     "confidence": "explicit"
-    },
-    {
-     "id": 126,
-     "name": "@link.rel",
-     "entity": "Link",
-     "field": "rel",
-     "type": "string",
-     "confidence": "explicit"
-    },
-    {
-     "id": 129,
-     "name": "Event 0",
-     "entity": "Event",
-     "field": "message",
-     "type": "string",
-     "confidence": "explicit"
-    },
-    {
-     "id": 130,
-     "name": "Event 1",
-     "entity": "Event",
-     "field": "message",
-     "type": "string",
-     "confidence": "explicit"
-    }
-   ],
-   "annotations": [
-    {
-     "id": 71,
-     "name": "Dashboard — Dark",
-     "text": "WeshCraft",
-     "label": "GET /jobs → Job",
-     "category": "development",
-     "properties": []
-    },
-    {
-     "id": 88,
-     "name": "Publish specs",
-     "text": "Publish",
-     "label": "POST /specs/publish → Spec",
-     "category": "development",
-     "properties": []
-    },
-    {
-     "id": 90,
-     "name": "KPI Parity",
-     "text": "Parity",
-     "label": "GET /parity → Parity",
-     "category": "development",
-     "properties": []
-    },
-    {
-     "id": 116,
-     "name": "Front ⇄ back",
-     "text": "Front ⇄ back",
-     "label": "GET /links → Link",
-     "category": "development",
-     "properties": []
-    },
-    {
-     "id": 127,
-     "name": "Live feed",
-     "text": "Live feed",
-     "label": "GET /events → Event",
-     "category": "development",
-     "properties": []
-    }
-   ],
-   "colors": [
-    "#0b0d14",
-    "#141824",
-    "#1b2030",
-    "#241e3c",
-    "#34d399",
-    "#8a93ad",
-    "#8b5cf6",
-    "#e8ecf8",
-    "#fb7185",
-    "#fbbf24",
-    "#ffffff"
-   ],
-   "nodeIds": [
+    70,
     71,
     72,
     73,
@@ -1196,303 +1106,7 @@
     127,
     128,
     129,
-    130
-   ]
-  },
-  {
-   "id": 131,
-   "key": "scr-spec-detail",
-   "name": "Spec detail",
-   "page": "App",
-   "section": null,
-   "width": 1440,
-   "height": 900,
-   "devStatus": null,
-   "background": {
-    "type": "solid",
-    "hex": "#ffffff",
-    "alpha": 1
-   },
-   "fingerprint": "1110a0b804bd",
-   "texts": [
-    {
-     "id": 133,
-     "name": "Back to specs",
-     "characters": "← Specs",
-     "font": "Inter Medium 13",
-     "color": "#6d5ef8",
-     "token": null
-    },
-    {
-     "id": 134,
-     "name": "Title",
-     "characters": "{{spec.title}}",
-     "font": "Inter Bold 21",
-     "color": "#0f172a",
-     "token": null
-    },
-    {
-     "id": 135,
-     "name": "File",
-     "characters": "{{spec.file}}",
-     "font": "Inter Regular 12",
-     "color": "#64748b",
-     "token": null
-    },
-    {
-     "id": 137,
-     "name": "Label",
-     "characters": "{{spec.status}}",
-     "font": "Inter SemiBold 13",
-     "color": "#6d5ef8",
-     "token": null
-    },
-    {
-     "id": 139,
-     "name": "Heading",
-     "characters": "{{spec.heading}}",
-     "font": "Inter SemiBold 17",
-     "color": "#0f172a",
-     "token": null
-    },
-    {
-     "id": 140,
-     "name": "Paragraph 0",
-     "characters": "Purpose",
-     "font": "Inter SemiBold 13",
-     "color": "#0f172a",
-     "token": null
-    },
-    {
-     "id": 141,
-     "name": "Paragraph 1",
-     "characters": "The screen shows every text layer, component instance and interaction exactly as designed.",
-     "font": "Inter Regular 12",
-     "color": "#64748b",
-     "token": null
-    },
-    {
-     "id": 142,
-     "name": "Paragraph 2",
-     "characters": "The screen shows every text layer, component instance and interaction exactly as designed.",
-     "font": "Inter Regular 12",
-     "color": "#64748b",
-     "token": null
-    },
-    {
-     "id": 143,
-     "name": "Paragraph 3",
-     "characters": "The screen shows every text layer, component instance and interaction exactly as designed.",
-     "font": "Inter Regular 12",
-     "color": "#64748b",
-     "token": null
-    },
-    {
-     "id": 144,
-     "name": "Paragraph 4",
-     "characters": "Acceptance criteria",
-     "font": "Inter SemiBold 13",
-     "color": "#0f172a",
-     "token": null
-    },
-    {
-     "id": 146,
-     "name": "Heading",
-     "characters": "Contract",
-     "font": "Inter SemiBold 14",
-     "color": "#0f172a",
-     "token": null
-    },
-    {
-     "id": 147,
-     "name": "Key 0",
-     "characters": "Fingerprint",
-     "font": "Inter Regular 12",
-     "color": "#64748b",
-     "token": null
-    },
-    {
-     "id": 148,
-     "name": "Value 0",
-     "characters": "{{spec.fingerprint}}",
-     "font": "Inter Medium 12",
-     "color": "#0f172a",
-     "token": null
-    },
-    {
-     "id": 149,
-     "name": "Key 1",
-     "characters": "Checks",
-     "font": "Inter Regular 12",
-     "color": "#64748b",
-     "token": null
-    },
-    {
-     "id": 150,
-     "name": "Value 1",
-     "characters": "{{spec.checks}}",
-     "font": "Inter Medium 12",
-     "color": "#0f172a",
-     "token": null
-    },
-    {
-     "id": 151,
-     "name": "Key 2",
-     "characters": "Errors",
-     "font": "Inter Regular 12",
-     "color": "#64748b",
-     "token": null
-    },
-    {
-     "id": 152,
-     "name": "Value 2",
-     "characters": "{{spec.errors}}",
-     "font": "Inter Medium 12",
-     "color": "#0f172a",
-     "token": null
-    },
-    {
-     "id": 153,
-     "name": "Key 3",
-     "characters": "Layer",
-     "font": "Inter Regular 12",
-     "color": "#64748b",
-     "token": null
-    },
-    {
-     "id": 154,
-     "name": "Value 3",
-     "characters": "{{spec.layer}}",
-     "font": "Inter Medium 12",
-     "color": "#0f172a",
-     "token": null
-    },
-    {
-     "id": 155,
-     "name": "Key 4",
-     "characters": "Owner",
-     "font": "Inter Regular 12",
-     "color": "#64748b",
-     "token": null
-    },
-    {
-     "id": 156,
-     "name": "Value 4",
-     "characters": "{{spec.owner}}",
-     "font": "Inter Medium 12",
-     "color": "#0f172a",
-     "token": null
-    }
-   ],
-   "instances": [],
-   "actions": [
-    {
-     "id": 133,
-     "name": "Back to specs",
-     "label": "← Specs",
-     "trigger": "onClick",
-     "type": "navigate",
-     "dest": 6,
-     "transition": null,
-     "durationMs": null,
-     "url": null,
-     "destScreen": "scr-dashboard-light"
-    }
-   ],
-   "inputs": [],
-   "bindings": [
-    {
-     "id": 134,
-     "name": "Title",
-     "entity": "Spec",
-     "field": "title",
-     "type": "string",
-     "confidence": "explicit"
-    },
-    {
-     "id": 135,
-     "name": "File",
-     "entity": "Spec",
-     "field": "file",
-     "type": "string",
-     "confidence": "explicit"
-    },
-    {
-     "id": 137,
-     "name": "Label",
-     "entity": "Spec",
-     "field": "status",
-     "type": "string",
-     "confidence": "explicit"
-    },
-    {
-     "id": 139,
-     "name": "Heading",
-     "entity": "Spec",
-     "field": "heading",
-     "type": "string",
-     "confidence": "explicit"
-    },
-    {
-     "id": 148,
-     "name": "Value 0",
-     "entity": "Spec",
-     "field": "fingerprint",
-     "type": "string",
-     "confidence": "explicit"
-    },
-    {
-     "id": 150,
-     "name": "Value 1",
-     "entity": "Spec",
-     "field": "checks",
-     "type": "string",
-     "confidence": "explicit"
-    },
-    {
-     "id": 152,
-     "name": "Value 2",
-     "entity": "Spec",
-     "field": "errors",
-     "type": "string",
-     "confidence": "explicit"
-    },
-    {
-     "id": 154,
-     "name": "Value 3",
-     "entity": "Spec",
-     "field": "layer",
-     "type": "string",
-     "confidence": "explicit"
-    },
-    {
-     "id": 156,
-     "name": "Value 4",
-     "entity": "Spec",
-     "field": "owner",
-     "type": "string",
-     "confidence": "explicit"
-    }
-   ],
-   "annotations": [
-    {
-     "id": 131,
-     "name": "Spec detail",
-     "text": "← Specs",
-     "label": "GET /specs/{id} → Spec",
-     "category": "development",
-     "properties": []
-    }
-   ],
-   "colors": [
-    "#0f172a",
-    "#64748b",
-    "#6d5ef8",
-    "#ede9fe",
-    "#f7f8fc",
-    "#ffffff"
-   ],
-   "nodeIds": [
+    130,
     131,
     132,
     133,
@@ -1518,42 +1132,41 @@
     153,
     154,
     155,
-    156
+    156,
+    157,
+    158,
+    159,
+    160,
+    161,
+    162,
+    163,
+    164,
+    165,
+    166,
+    167,
+    168,
+    169,
+    170,
+    171,
+    172,
+    173,
+    174,
+    175,
+    176,
+    177,
+    178,
+    179,
+    180,
+    181,
+    182,
+    183,
+    184,
+    185,
+    186
    ]
   }
  ],
- "components": [
-  {
-   "id": 2,
-   "key": "cmp-job-row",
-   "name": "Job row",
-   "kind": "component",
-   "description": "One spec job in the queue.",
-   "propDefs": {
-    "File": {
-     "type": "text"
-    },
-    "Status": {
-     "type": "text"
-    },
-    "Updated": {
-     "type": "text"
-    }
-   },
-   "variants": [],
-   "fingerprint": "3664c117a21d",
-   "nodeIds": [
-    2,
-    3,
-    4,
-    5
-   ],
-   "usedIn": [
-    "scr-dashboard-light",
-    "scr-dashboard-dark"
-   ]
-  }
- ],
+ "components": [],
  "tokens": {
   "collections": [],
   "variables": []
@@ -1562,98 +1175,85 @@
  "domain": {
   "entities": [
    {
-    "name": "Event",
+    "name": "Job",
     "confidence": "explicit",
     "sources": [
-     68,
-     69,
-     70,
-     129,
-     130
-    ],
-    "fields": [
-     {
-      "name": "message",
-      "type": "string",
-      "sources": [
-       68,
-       69,
-       70,
-       129,
-       130
-      ],
-      "confidence": "explicit"
-     }
-    ]
-   },
-   {
-    "name": "Job",
-    "confidence": "inferred",
-    "sources": [
-     40,
-     41,
-     42,
-     44,
-     45,
-     46,
-     48,
-     49,
-     50,
-     52,
-     53,
-     54,
-     105,
-     106,
-     107,
-     109,
-     110,
-     111,
-     113,
-     114,
-     115
+     156,
+     157,
+     158,
+     161,
+     162,
+     164,
+     165,
+     166,
+     169,
+     170,
+     172,
+     173,
+     174,
+     177,
+     178,
+     180,
+     181,
+     182,
+     185,
+     186
     ],
     "fields": [
      {
       "name": "file",
       "type": "string",
       "sources": [
-       40,
-       44,
-       48,
-       52,
-       105,
-       109,
-       113
+       156,
+       164,
+       172,
+       180
       ],
-      "confidence": "inferred"
+      "confidence": "explicit"
      },
      {
-      "name": "status",
+      "name": "group",
       "type": "string",
       "sources": [
-       41,
-       45,
-       49,
-       53,
-       106,
-       110,
-       114
+       157,
+       165,
+       173,
+       181
       ],
-      "confidence": "inferred"
+      "confidence": "explicit"
      },
      {
       "name": "updated",
       "type": "string",
       "sources": [
-       42,
-       46,
-       50,
-       54,
-       107,
-       111,
-       115
+       158,
+       166,
+       174,
+       182
       ],
-      "confidence": "inferred"
+      "confidence": "explicit"
+     },
+     {
+      "name": "status",
+      "type": "string",
+      "sources": [
+       161,
+       169,
+       177,
+       185
+      ],
+      "confidence": "explicit"
+     },
+     {
+      "name": "checks",
+      "type": "string",
+      "sources": [
+       162,
+       170,
+       178,
+       186
+      ],
+      "confidence": "explicit"
      }
     ]
    },
@@ -1661,24 +1261,31 @@
     "name": "Link",
     "confidence": "explicit",
     "sources": [
-     59,
-     62,
-     65,
-     120,
-     123,
-     126
+     113,
+     114,
+     117,
+     118,
+     121,
+     122
     ],
     "fields": [
      {
       "name": "rel",
       "type": "string",
       "sources": [
-       59,
-       62,
-       65,
-       120,
-       123,
-       126
+       113,
+       117,
+       121
+      ],
+      "confidence": "explicit"
+     },
+     {
+      "name": "share",
+      "type": "string",
+      "sources": [
+       114,
+       118,
+       122
       ],
       "confidence": "explicit"
      }
@@ -1688,22 +1295,17 @@
     "name": "Parity",
     "confidence": "explicit",
     "sources": [
-     27,
-     30,
-     33,
-     36,
-     92,
-     95,
-     98,
-     101
+     59,
+     65,
+     71,
+     77
     ],
     "fields": [
      {
       "name": "score",
       "type": "string",
       "sources": [
-       27,
-       92
+       59
       ],
       "confidence": "explicit"
      },
@@ -1711,8 +1313,7 @@
       "name": "checks",
       "type": "string",
       "sources": [
-       30,
-       95
+       65
       ],
       "confidence": "explicit"
      },
@@ -1720,8 +1321,7 @@
       "name": "errors",
       "type": "string",
       "sources": [
-       33,
-       98
+       71
       ],
       "confidence": "explicit"
      },
@@ -1729,97 +1329,7 @@
       "name": "screens",
       "type": "string",
       "sources": [
-       36,
-       101
-      ],
-      "confidence": "explicit"
-     }
-    ]
-   },
-   {
-    "name": "Spec",
-    "confidence": "explicit",
-    "sources": [
-     134,
-     135,
-     137,
-     139,
-     148,
-     150,
-     152,
-     154,
-     156
-    ],
-    "fields": [
-     {
-      "name": "title",
-      "type": "string",
-      "sources": [
-       134
-      ],
-      "confidence": "explicit"
-     },
-     {
-      "name": "file",
-      "type": "string",
-      "sources": [
-       135
-      ],
-      "confidence": "explicit"
-     },
-     {
-      "name": "status",
-      "type": "string",
-      "sources": [
-       137
-      ],
-      "confidence": "explicit"
-     },
-     {
-      "name": "heading",
-      "type": "string",
-      "sources": [
-       139
-      ],
-      "confidence": "explicit"
-     },
-     {
-      "name": "fingerprint",
-      "type": "string",
-      "sources": [
-       148
-      ],
-      "confidence": "explicit"
-     },
-     {
-      "name": "checks",
-      "type": "string",
-      "sources": [
-       150
-      ],
-      "confidence": "explicit"
-     },
-     {
-      "name": "errors",
-      "type": "string",
-      "sources": [
-       152
-      ],
-      "confidence": "explicit"
-     },
-     {
-      "name": "layer",
-      "type": "string",
-      "sources": [
-       154
-      ],
-      "confidence": "explicit"
-     },
-     {
-      "name": "owner",
-      "type": "string",
-      "sources": [
-       156
+       77
       ],
       "confidence": "explicit"
      }
@@ -1828,204 +1338,110 @@
   ],
   "operations": [
    {
-    "key": "op-list-job-scr-dashboard-light",
-    "name": "List Job",
-    "method": "GET",
-    "path": "/jobs",
-    "screen": "scr-dashboard-light",
-    "trigger": null,
-    "entity": "Job",
-    "kind": "list",
-    "confidence": "inferred",
-    "sources": [
-     39,
-     43,
-     47,
-     51
-    ]
-   },
-   {
-    "key": "op-get-jobs-6",
+    "key": "op-get-jobs-2",
     "name": "GET /jobs → Job",
     "method": "GET",
     "path": "/jobs",
-    "screen": "scr-dashboard-light",
+    "screen": "scr-console-light",
     "trigger": null,
     "entity": "Job",
     "kind": "annotated",
     "confidence": "explicit",
     "sources": [
-     6
+     2
     ],
     "fields": []
    },
    {
-    "key": "op-post-specs-publish-23",
+    "key": "op-post-specs-publish-54",
     "name": "POST /specs/publish → Spec",
     "method": "POST",
     "path": "/specs/publish",
-    "screen": "scr-dashboard-light",
-    "trigger": 23,
+    "screen": "scr-console-light",
+    "trigger": 54,
     "entity": "Spec",
     "kind": "annotated",
     "confidence": "explicit",
     "sources": [
-     23
+     54
     ],
     "fields": [
-     21
+     46,
+     47
     ]
    },
    {
-    "key": "op-get-parity-25",
+    "key": "op-get-parity-56",
     "name": "GET /parity → Parity",
     "method": "GET",
     "path": "/parity",
-    "screen": "scr-dashboard-light",
-    "trigger": 25,
+    "screen": "scr-console-light",
+    "trigger": 56,
     "entity": "Parity",
     "kind": "annotated",
     "confidence": "explicit",
     "sources": [
-     25
+     56
     ],
     "fields": []
    },
    {
-    "key": "op-get-links-55",
-    "name": "GET /links → Link",
+    "key": "op-get-parity-trend-80",
+    "name": "GET /parity/trend → Parity",
     "method": "GET",
-    "path": "/links",
-    "screen": "scr-dashboard-light",
-    "trigger": 55,
-    "entity": "Link",
-    "kind": "annotated",
-    "confidence": "explicit",
-    "sources": [
-     55
-    ],
-    "fields": []
-   },
-   {
-    "key": "op-get-events-66",
-    "name": "GET /events → Event",
-    "method": "GET",
-    "path": "/events",
-    "screen": "scr-dashboard-light",
-    "trigger": 66,
-    "entity": "Event",
-    "kind": "annotated",
-    "confidence": "explicit",
-    "sources": [
-     66
-    ],
-    "fields": []
-   },
-   {
-    "key": "op-list-job-scr-dashboard-dark",
-    "name": "List Job",
-    "method": "GET",
-    "path": "/jobs",
-    "screen": "scr-dashboard-dark",
-    "trigger": null,
-    "entity": "Job",
-    "kind": "list",
-    "confidence": "inferred",
-    "sources": [
-     104,
-     108,
-     112
-    ]
-   },
-   {
-    "key": "op-get-jobs-71",
-    "name": "GET /jobs → Job",
-    "method": "GET",
-    "path": "/jobs",
-    "screen": "scr-dashboard-dark",
-    "trigger": null,
-    "entity": "Job",
-    "kind": "annotated",
-    "confidence": "explicit",
-    "sources": [
-     71
-    ],
-    "fields": []
-   },
-   {
-    "key": "op-post-specs-publish-88",
-    "name": "POST /specs/publish → Spec",
-    "method": "POST",
-    "path": "/specs/publish",
-    "screen": "scr-dashboard-dark",
-    "trigger": 88,
-    "entity": "Spec",
-    "kind": "annotated",
-    "confidence": "explicit",
-    "sources": [
-     88
-    ],
-    "fields": [
-     86
-    ]
-   },
-   {
-    "key": "op-get-parity-90",
-    "name": "GET /parity → Parity",
-    "method": "GET",
-    "path": "/parity",
-    "screen": "scr-dashboard-dark",
-    "trigger": 90,
+    "path": "/parity/trend",
+    "screen": "scr-console-light",
+    "trigger": 80,
     "entity": "Parity",
     "kind": "annotated",
     "confidence": "explicit",
     "sources": [
-     90
+     80
     ],
     "fields": []
    },
    {
-    "key": "op-get-links-116",
+    "key": "op-get-links-101",
     "name": "GET /links → Link",
     "method": "GET",
     "path": "/links",
-    "screen": "scr-dashboard-dark",
-    "trigger": 116,
+    "screen": "scr-console-light",
+    "trigger": 101,
     "entity": "Link",
     "kind": "annotated",
     "confidence": "explicit",
     "sources": [
-     116
+     101
     ],
     "fields": []
    },
    {
-    "key": "op-get-events-127",
-    "name": "GET /events → Event",
+    "key": "op-get-parity-history-123",
+    "name": "GET /parity/history → Parity",
     "method": "GET",
-    "path": "/events",
-    "screen": "scr-dashboard-dark",
-    "trigger": 127,
-    "entity": "Event",
+    "path": "/parity/history",
+    "screen": "scr-console-light",
+    "trigger": 123,
+    "entity": "Parity",
     "kind": "annotated",
     "confidence": "explicit",
     "sources": [
-     127
+     123
     ],
     "fields": []
    },
    {
-    "key": "op-get-specs-id-131",
-    "name": "GET /specs/{id} → Spec",
+    "key": "op-get-specs-144",
+    "name": "GET /specs → Spec",
     "method": "GET",
-    "path": "/specs/{id}",
-    "screen": "scr-spec-detail",
-    "trigger": null,
+    "path": "/specs",
+    "screen": "scr-console-light",
+    "trigger": 144,
     "entity": "Spec",
     "kind": "annotated",
     "confidence": "explicit",
     "sources": [
-     131
+     144
     ],
     "fields": []
    }
@@ -2034,515 +1450,300 @@
  "links": {
   "edges": [
    {
-    "rel": "lists",
-    "node": 39,
-    "screen": "scr-dashboard-light",
-    "label": "Job row 1",
-    "op": "op-list-job-scr-dashboard-light"
-   },
-   {
-    "rel": "lists",
-    "node": 43,
-    "screen": "scr-dashboard-light",
-    "label": "Job row 2",
-    "op": "op-list-job-scr-dashboard-light"
-   },
-   {
-    "rel": "lists",
-    "node": 47,
-    "screen": "scr-dashboard-light",
-    "label": "Job row 3",
-    "op": "op-list-job-scr-dashboard-light"
-   },
-   {
-    "rel": "lists",
-    "node": 51,
-    "screen": "scr-dashboard-light",
-    "label": "Job row 4",
-    "op": "op-list-job-scr-dashboard-light"
-   },
-   {
     "rel": "triggers",
-    "node": 23,
-    "screen": "scr-dashboard-light",
-    "label": "Publish",
-    "op": "op-post-specs-publish-23"
-   },
-   {
-    "rel": "submits",
-    "node": 21,
-    "screen": "scr-dashboard-light",
-    "label": "Search jobs",
-    "op": "op-post-specs-publish-23"
-   },
-   {
-    "rel": "triggers",
-    "node": 25,
-    "screen": "scr-dashboard-light",
-    "label": "Parity",
-    "op": "op-get-parity-25"
-   },
-   {
-    "rel": "triggers",
-    "node": 55,
-    "screen": "scr-dashboard-light",
-    "label": "Front ⇄ back",
-    "op": "op-get-links-55"
-   },
-   {
-    "rel": "triggers",
-    "node": 66,
-    "screen": "scr-dashboard-light",
-    "label": "Live feed",
-    "op": "op-get-events-66"
-   },
-   {
-    "rel": "lists",
-    "node": 104,
-    "screen": "scr-dashboard-dark",
-    "label": "Job row 1",
-    "op": "op-list-job-scr-dashboard-dark"
-   },
-   {
-    "rel": "lists",
-    "node": 108,
-    "screen": "scr-dashboard-dark",
-    "label": "Job row 2",
-    "op": "op-list-job-scr-dashboard-dark"
-   },
-   {
-    "rel": "lists",
-    "node": 112,
-    "screen": "scr-dashboard-dark",
-    "label": "Job row 3",
-    "op": "op-list-job-scr-dashboard-dark"
-   },
-   {
-    "rel": "triggers",
-    "node": 88,
-    "screen": "scr-dashboard-dark",
-    "label": "Publish",
-    "op": "op-post-specs-publish-88"
-   },
-   {
-    "rel": "submits",
-    "node": 86,
-    "screen": "scr-dashboard-dark",
-    "label": "Search jobs",
-    "op": "op-post-specs-publish-88"
-   },
-   {
-    "rel": "triggers",
-    "node": 90,
-    "screen": "scr-dashboard-dark",
-    "label": "Parity",
-    "op": "op-get-parity-90"
-   },
-   {
-    "rel": "triggers",
-    "node": 116,
-    "screen": "scr-dashboard-dark",
-    "label": "Front ⇄ back",
-    "op": "op-get-links-116"
-   },
-   {
-    "rel": "triggers",
-    "node": 127,
-    "screen": "scr-dashboard-dark",
-    "label": "Live feed",
-    "op": "op-get-events-127"
-   },
-   {
-    "rel": "displays",
-    "node": 68,
-    "screen": "scr-dashboard-light",
-    "label": "{{event.message}}",
-    "field": "Event.message",
-    "via": "op-get-events-66"
-   },
-   {
-    "rel": "displays",
-    "node": 69,
-    "screen": "scr-dashboard-light",
-    "label": "{{event.message}}",
-    "field": "Event.message",
-    "via": "op-get-events-66"
-   },
-   {
-    "rel": "displays",
-    "node": 70,
-    "screen": "scr-dashboard-light",
-    "label": "{{event.message}}",
-    "field": "Event.message",
-    "via": "op-get-events-66"
-   },
-   {
-    "rel": "displays",
-    "node": 129,
-    "screen": "scr-dashboard-dark",
-    "label": "{{event.message}}",
-    "field": "Event.message",
-    "via": "op-get-events-127"
-   },
-   {
-    "rel": "displays",
-    "node": 130,
-    "screen": "scr-dashboard-dark",
-    "label": "{{event.message}}",
-    "field": "Event.message",
-    "via": "op-get-events-127"
-   },
-   {
-    "rel": "displays",
-    "node": 40,
-    "screen": "scr-dashboard-light",
-    "label": "specs/front/screens/scr-home-light.md",
-    "field": "Job.file",
-    "via": "op-get-jobs-6"
-   },
-   {
-    "rel": "displays",
-    "node": 44,
-    "screen": "scr-dashboard-light",
-    "label": "specs/front/screens/scr-trail-light.md",
-    "field": "Job.file",
-    "via": "op-get-jobs-6"
-   },
-   {
-    "rel": "displays",
-    "node": 48,
-    "screen": "scr-dashboard-light",
-    "label": "specs/back/api.md",
-    "field": "Job.file",
-    "via": "op-get-jobs-6"
-   },
-   {
-    "rel": "displays",
-    "node": 52,
-    "screen": "scr-dashboard-light",
-    "label": "specs/LINKS.md",
-    "field": "Job.file",
-    "via": "op-get-jobs-6"
-   },
-   {
-    "rel": "displays",
-    "node": 105,
-    "screen": "scr-dashboard-dark",
-    "label": "specs/front/screens/scr-home-light.md",
-    "field": "Job.file",
-    "via": "op-get-jobs-71"
-   },
-   {
-    "rel": "displays",
-    "node": 109,
-    "screen": "scr-dashboard-dark",
-    "label": "specs/front/screens/scr-trail-light.md",
-    "field": "Job.file",
-    "via": "op-get-jobs-71"
-   },
-   {
-    "rel": "displays",
-    "node": 113,
-    "screen": "scr-dashboard-dark",
-    "label": "specs/back/api.md",
-    "field": "Job.file",
-    "via": "op-get-jobs-71"
-   },
-   {
-    "rel": "displays",
-    "node": 41,
-    "screen": "scr-dashboard-light",
-    "label": "done",
-    "field": "Job.status",
-    "via": "op-get-jobs-6"
-   },
-   {
-    "rel": "displays",
-    "node": 45,
-    "screen": "scr-dashboard-light",
-    "label": "done",
-    "field": "Job.status",
-    "via": "op-get-jobs-6"
-   },
-   {
-    "rel": "displays",
-    "node": 49,
-    "screen": "scr-dashboard-light",
-    "label": "changed",
-    "field": "Job.status",
-    "via": "op-get-jobs-6"
-   },
-   {
-    "rel": "displays",
-    "node": 53,
-    "screen": "scr-dashboard-light",
-    "label": "done",
-    "field": "Job.status",
-    "via": "op-get-jobs-6"
-   },
-   {
-    "rel": "displays",
-    "node": 106,
-    "screen": "scr-dashboard-dark",
-    "label": "done",
-    "field": "Job.status",
-    "via": "op-get-jobs-71"
-   },
-   {
-    "rel": "displays",
-    "node": 110,
-    "screen": "scr-dashboard-dark",
-    "label": "done",
-    "field": "Job.status",
-    "via": "op-get-jobs-71"
-   },
-   {
-    "rel": "displays",
-    "node": 114,
-    "screen": "scr-dashboard-dark",
-    "label": "changed",
-    "field": "Job.status",
-    "via": "op-get-jobs-71"
-   },
-   {
-    "rel": "displays",
-    "node": 42,
-    "screen": "scr-dashboard-light",
-    "label": "2 min ago",
-    "field": "Job.updated",
-    "via": "op-get-jobs-6"
-   },
-   {
-    "rel": "displays",
-    "node": 46,
-    "screen": "scr-dashboard-light",
-    "label": "3 min ago",
-    "field": "Job.updated",
-    "via": "op-get-jobs-6"
-   },
-   {
-    "rel": "displays",
-    "node": 50,
-    "screen": "scr-dashboard-light",
-    "label": "5 min ago",
-    "field": "Job.updated",
-    "via": "op-get-jobs-6"
-   },
-   {
-    "rel": "displays",
     "node": 54,
-    "screen": "scr-dashboard-light",
-    "label": "5 min ago",
-    "field": "Job.updated",
-    "via": "op-get-jobs-6"
+    "screen": "scr-console-light",
+    "label": "Publish",
+    "op": "op-post-specs-publish-54"
    },
    {
-    "rel": "displays",
-    "node": 107,
-    "screen": "scr-dashboard-dark",
-    "label": "2 min ago",
-    "field": "Job.updated",
-    "via": "op-get-jobs-71"
+    "rel": "submits",
+    "node": 46,
+    "screen": "scr-console-light",
+    "label": "Search",
+    "op": "op-post-specs-publish-54"
    },
    {
-    "rel": "displays",
-    "node": 111,
-    "screen": "scr-dashboard-dark",
-    "label": "3 min ago",
-    "field": "Job.updated",
-    "via": "op-get-jobs-71"
+    "rel": "submits",
+    "node": 47,
+    "screen": "scr-console-light",
+    "label": "Search",
+    "op": "op-post-specs-publish-54"
    },
    {
-    "rel": "displays",
-    "node": 115,
-    "screen": "scr-dashboard-dark",
-    "label": "5 min ago",
-    "field": "Job.updated",
-    "via": "op-get-jobs-71"
+    "rel": "triggers",
+    "node": 56,
+    "screen": "scr-console-light",
+    "label": "Parity",
+    "op": "op-get-parity-56"
    },
    {
-    "rel": "displays",
-    "node": 59,
-    "screen": "scr-dashboard-light",
-    "label": "{{link.rel}} · {{link.target}}",
-    "field": "Link.rel",
-    "via": "op-get-links-55"
+    "rel": "triggers",
+    "node": 80,
+    "screen": "scr-console-light",
+    "label": "Parity over time",
+    "op": "op-get-parity-trend-80"
    },
    {
-    "rel": "displays",
-    "node": 62,
-    "screen": "scr-dashboard-light",
-    "label": "{{link.rel}} · {{link.target}}",
-    "field": "Link.rel",
-    "via": "op-get-links-55"
-   },
-   {
-    "rel": "displays",
-    "node": 65,
-    "screen": "scr-dashboard-light",
-    "label": "{{link.rel}} · {{link.target}}",
-    "field": "Link.rel",
-    "via": "op-get-links-55"
-   },
-   {
-    "rel": "displays",
-    "node": 120,
-    "screen": "scr-dashboard-dark",
-    "label": "{{link.rel}} · {{link.target}}",
-    "field": "Link.rel",
-    "via": "op-get-links-116"
-   },
-   {
-    "rel": "displays",
-    "node": 123,
-    "screen": "scr-dashboard-dark",
-    "label": "{{link.rel}} · {{link.target}}",
-    "field": "Link.rel",
-    "via": "op-get-links-116"
-   },
-   {
-    "rel": "displays",
-    "node": 126,
-    "screen": "scr-dashboard-dark",
-    "label": "{{link.rel}} · {{link.target}}",
-    "field": "Link.rel",
-    "via": "op-get-links-116"
-   },
-   {
-    "rel": "displays",
-    "node": 27,
-    "screen": "scr-dashboard-light",
-    "label": "{{parity.score}}",
-    "field": "Parity.score",
-    "via": "op-get-parity-25"
-   },
-   {
-    "rel": "displays",
-    "node": 92,
-    "screen": "scr-dashboard-dark",
-    "label": "{{parity.score}}",
-    "field": "Parity.score",
-    "via": "op-get-parity-90"
-   },
-   {
-    "rel": "displays",
-    "node": 30,
-    "screen": "scr-dashboard-light",
-    "label": "{{parity.checks}}",
-    "field": "Parity.checks",
-    "via": "op-get-parity-25"
-   },
-   {
-    "rel": "displays",
-    "node": 95,
-    "screen": "scr-dashboard-dark",
-    "label": "{{parity.checks}}",
-    "field": "Parity.checks",
-    "via": "op-get-parity-90"
-   },
-   {
-    "rel": "displays",
-    "node": 33,
-    "screen": "scr-dashboard-light",
-    "label": "{{parity.errors}}",
-    "field": "Parity.errors",
-    "via": "op-get-parity-25"
-   },
-   {
-    "rel": "displays",
-    "node": 98,
-    "screen": "scr-dashboard-dark",
-    "label": "{{parity.errors}}",
-    "field": "Parity.errors",
-    "via": "op-get-parity-90"
-   },
-   {
-    "rel": "displays",
-    "node": 36,
-    "screen": "scr-dashboard-light",
-    "label": "{{parity.screens}}",
-    "field": "Parity.screens",
-    "via": "op-get-parity-25"
-   },
-   {
-    "rel": "displays",
+    "rel": "triggers",
     "node": 101,
-    "screen": "scr-dashboard-dark",
-    "label": "{{parity.screens}}",
-    "field": "Parity.screens",
-    "via": "op-get-parity-90"
+    "screen": "scr-console-light",
+    "label": "Spec jobs by group",
+    "op": "op-get-links-101"
    },
    {
-    "rel": "displays",
-    "node": 134,
-    "screen": "scr-spec-detail",
-    "label": "{{spec.title}}",
-    "field": "Spec.title",
-    "via": "op-get-specs-id-131"
+    "rel": "triggers",
+    "node": 123,
+    "screen": "scr-console-light",
+    "label": "Checks per run",
+    "op": "op-get-parity-history-123"
    },
    {
-    "rel": "displays",
-    "node": 135,
-    "screen": "scr-spec-detail",
-    "label": "{{spec.file}}",
-    "field": "Spec.file",
-    "via": "op-get-specs-id-131"
-   },
-   {
-    "rel": "displays",
-    "node": 137,
-    "screen": "scr-spec-detail",
-    "label": "{{spec.status}}",
-    "field": "Spec.status",
-    "via": "op-get-specs-id-131"
-   },
-   {
-    "rel": "displays",
-    "node": 139,
-    "screen": "scr-spec-detail",
-    "label": "{{spec.heading}}",
-    "field": "Spec.heading",
-    "via": "op-get-specs-id-131"
-   },
-   {
-    "rel": "displays",
-    "node": 148,
-    "screen": "scr-spec-detail",
-    "label": "{{spec.fingerprint}}",
-    "field": "Spec.fingerprint",
-    "via": "op-get-specs-id-131"
-   },
-   {
-    "rel": "displays",
-    "node": 150,
-    "screen": "scr-spec-detail",
-    "label": "{{spec.checks}}",
-    "field": "Spec.checks",
-    "via": "op-get-specs-id-131"
-   },
-   {
-    "rel": "displays",
-    "node": 152,
-    "screen": "scr-spec-detail",
-    "label": "{{spec.errors}}",
-    "field": "Spec.errors",
-    "via": "op-get-specs-id-131"
-   },
-   {
-    "rel": "displays",
-    "node": 154,
-    "screen": "scr-spec-detail",
-    "label": "{{spec.layer}}",
-    "field": "Spec.layer",
-    "via": "op-get-specs-id-131"
+    "rel": "triggers",
+    "node": 144,
+    "screen": "scr-console-light",
+    "label": "Spec jobs",
+    "op": "op-get-specs-144"
    },
    {
     "rel": "displays",
     "node": 156,
-    "screen": "scr-spec-detail",
-    "label": "{{spec.owner}}",
-    "field": "Spec.owner",
-    "via": "op-get-specs-id-131"
+    "screen": "scr-console-light",
+    "label": "specs/front/screens/scr-home-light.md",
+    "field": "Job.file",
+    "via": "op-get-jobs-2"
+   },
+   {
+    "rel": "displays",
+    "node": 164,
+    "screen": "scr-console-light",
+    "label": "specs/back/api.md",
+    "field": "Job.file",
+    "via": "op-get-jobs-2"
+   },
+   {
+    "rel": "displays",
+    "node": 172,
+    "screen": "scr-console-light",
+    "label": "specs/LINKS.md",
+    "field": "Job.file",
+    "via": "op-get-jobs-2"
+   },
+   {
+    "rel": "displays",
+    "node": 180,
+    "screen": "scr-console-light",
+    "label": "specs/back/domain.md",
+    "field": "Job.file",
+    "via": "op-get-jobs-2"
+   },
+   {
+    "rel": "displays",
+    "node": 157,
+    "screen": "scr-console-light",
+    "label": "front",
+    "field": "Job.group",
+    "via": "op-get-jobs-2"
+   },
+   {
+    "rel": "displays",
+    "node": 165,
+    "screen": "scr-console-light",
+    "label": "back",
+    "field": "Job.group",
+    "via": "op-get-jobs-2"
+   },
+   {
+    "rel": "displays",
+    "node": 173,
+    "screen": "scr-console-light",
+    "label": "links",
+    "field": "Job.group",
+    "via": "op-get-jobs-2"
+   },
+   {
+    "rel": "displays",
+    "node": 181,
+    "screen": "scr-console-light",
+    "label": "back",
+    "field": "Job.group",
+    "via": "op-get-jobs-2"
+   },
+   {
+    "rel": "displays",
+    "node": 158,
+    "screen": "scr-console-light",
+    "label": "2 min ago",
+    "field": "Job.updated",
+    "via": "op-get-jobs-2"
+   },
+   {
+    "rel": "displays",
+    "node": 166,
+    "screen": "scr-console-light",
+    "label": "3 min ago",
+    "field": "Job.updated",
+    "via": "op-get-jobs-2"
+   },
+   {
+    "rel": "displays",
+    "node": 174,
+    "screen": "scr-console-light",
+    "label": "5 min ago",
+    "field": "Job.updated",
+    "via": "op-get-jobs-2"
+   },
+   {
+    "rel": "displays",
+    "node": 182,
+    "screen": "scr-console-light",
+    "label": "6 min ago",
+    "field": "Job.updated",
+    "via": "op-get-jobs-2"
+   },
+   {
+    "rel": "displays",
+    "node": 161,
+    "screen": "scr-console-light",
+    "label": "done",
+    "field": "Job.status",
+    "via": "op-get-jobs-2"
+   },
+   {
+    "rel": "displays",
+    "node": 169,
+    "screen": "scr-console-light",
+    "label": "done",
+    "field": "Job.status",
+    "via": "op-get-jobs-2"
+   },
+   {
+    "rel": "displays",
+    "node": 177,
+    "screen": "scr-console-light",
+    "label": "changed",
+    "field": "Job.status",
+    "via": "op-get-jobs-2"
+   },
+   {
+    "rel": "displays",
+    "node": 185,
+    "screen": "scr-console-light",
+    "label": "done",
+    "field": "Job.status",
+    "via": "op-get-jobs-2"
+   },
+   {
+    "rel": "displays",
+    "node": 162,
+    "screen": "scr-console-light",
+    "label": "153",
+    "field": "Job.checks",
+    "via": "op-get-jobs-2"
+   },
+   {
+    "rel": "displays",
+    "node": 170,
+    "screen": "scr-console-light",
+    "label": "96",
+    "field": "Job.checks",
+    "via": "op-get-jobs-2"
+   },
+   {
+    "rel": "displays",
+    "node": 178,
+    "screen": "scr-console-light",
+    "label": "48",
+    "field": "Job.checks",
+    "via": "op-get-jobs-2"
+   },
+   {
+    "rel": "displays",
+    "node": 186,
+    "screen": "scr-console-light",
+    "label": "112",
+    "field": "Job.checks",
+    "via": "op-get-jobs-2"
+   },
+   {
+    "rel": "displays",
+    "node": 113,
+    "screen": "scr-console-light",
+    "label": "front",
+    "field": "Link.rel",
+    "via": "op-get-links-101"
+   },
+   {
+    "rel": "displays",
+    "node": 117,
+    "screen": "scr-console-light",
+    "label": "back",
+    "field": "Link.rel",
+    "via": "op-get-links-101"
+   },
+   {
+    "rel": "displays",
+    "node": 121,
+    "screen": "scr-console-light",
+    "label": "notes",
+    "field": "Link.rel",
+    "via": "op-get-links-101"
+   },
+   {
+    "rel": "displays",
+    "node": 114,
+    "screen": "scr-console-light",
+    "label": "62%",
+    "field": "Link.share",
+    "via": "op-get-links-101"
+   },
+   {
+    "rel": "displays",
+    "node": 118,
+    "screen": "scr-console-light",
+    "label": "38%",
+    "field": "Link.share",
+    "via": "op-get-links-101"
+   },
+   {
+    "rel": "displays",
+    "node": 122,
+    "screen": "scr-console-light",
+    "label": "0%",
+    "field": "Link.share",
+    "via": "op-get-links-101"
+   },
+   {
+    "rel": "displays",
+    "node": 59,
+    "screen": "scr-console-light",
+    "label": "100%",
+    "field": "Parity.score",
+    "via": "op-get-parity-history-123"
+   },
+   {
+    "rel": "displays",
+    "node": 65,
+    "screen": "scr-console-light",
+    "label": "576",
+    "field": "Parity.checks",
+    "via": "op-get-parity-history-123"
+   },
+   {
+    "rel": "displays",
+    "node": 71,
+    "screen": "scr-console-light",
+    "label": "0",
+    "field": "Parity.errors",
+    "via": "op-get-parity-history-123"
+   },
+   {
+    "rel": "displays",
+    "node": 77,
+    "screen": "scr-console-light",
+    "label": "3",
+    "field": "Parity.screens",
+    "via": "op-get-parity-history-123"
    }
   ],
   "gaps": []
