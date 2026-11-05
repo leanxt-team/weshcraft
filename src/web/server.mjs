@@ -11,6 +11,7 @@ import { openEditable } from '../design/source.mjs';
 import { designApi } from './design-api.mjs';
 import { accessSummary } from '../publish/credentials.mjs';
 import { collectFiles } from '../publish/git.mjs';
+import { ROOT, DESIGN } from '../layout.mjs';
 
 const PUBLIC = path.join(path.dirname(fileURLToPath(import.meta.url)), 'public');
 const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.json': 'application/json; charset=utf-8', '.md': 'text/markdown; charset=utf-8', '.png': 'image/png', '.svg': 'image/svg+xml', '.figcraft': 'application/zip', '.zip': 'application/zip' };
@@ -109,7 +110,11 @@ export function startServer(o) {
       if (p === '/' || p === '/index.html') return serveFile(res, PUBLIC, 'index.html');
       if (p.startsWith('/app/')) return serveFile(res, PUBLIC, p.slice(5));
       // Only what WeshCraft writes: the output folder may be the user's repository root.
-      if (/^\/out\/(prototype|specs)\//.test(p)) return serveFile(res, ws.outDir, decodeURIComponent(p.slice(5)));
+      if (p.startsWith('/out/')) {
+        const rel = decodeURIComponent(p.slice(5));
+        if (!rel.startsWith(`${ROOT}/`)) return send(res, 404, { error: 'not found' });
+        return serveFile(res, ws.outDir, rel);
+      }
 
       if (p === '/api/ping') return send(res, 200, { ok: true, app: 'weshcraft', outDir: ws.outDir });
       if (p === '/api/state') return send(res, 200, { ...ws.state(), source: ws.describe().split(`${ws.outDir}${path.sep}`).join(''), sync: o.syncer?.status() ?? null, figcraftWebUrl: o.figcraftWebUrl ?? null, tokens: await accessSummary(), mcpUrl: '/mcp' });
@@ -142,7 +147,7 @@ export function startServer(o) {
         const buf = await readBody(req, MAX_UPLOAD);
         const name = (url.searchParams.get('name') || 'design.figcraft').replace(/[^\w.-]+/g, '_').replace(/^\.+/, '') || 'design.figcraft';
         if (!/\.(figcraft|json)$/i.test(name)) return send(res, 400, { error: 'upload a .figcraft file' });
-        const dir = o.uploadsDir || path.join(ws.outDir, 'design');
+        const dir = o.uploadsDir || path.join(ws.outDir, DESIGN);
         fs.mkdirSync(dir, { recursive: true });
         const file = path.join(dir, name);
         fs.writeFileSync(file, buf);

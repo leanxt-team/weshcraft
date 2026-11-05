@@ -121,6 +121,34 @@ function screensOf(model) {
   return out;
 }
 
+/**
+ * The design's pages, with the screens on each. The prototype writes one file per page, so the
+ * page a screen lives on is part of the inventory (and the screen's spec links to that file).
+ */
+function pagesOf(model, screens, flows) {
+  const keys = new Map();
+  const byId = new Map();
+  const pages = model.pages.map(pid => {
+    const page = model.nodes.get(pid);
+    let key = `page-${slug(page.name)}`;
+    const k = keys.get(key) ?? 0;
+    keys.set(key, k + 1);
+    if (k) key = `${key}-${k + 1}`;
+    const p = { id: pid, key, name: page.name, screens: [] };
+    byId.set(pid, p);
+    return p;
+  });
+  for (const s of screens) {
+    const p = byId.get(s.pageId);
+    if (p) p.screens.push(s.key);
+  }
+  // The prototype opens on the page of the first flow's start screen: that page is index.html.
+  const start = flows[0]?.start ?? null;
+  const first = pages.find(p => p.screens.includes(start)) ?? pages.find(p => p.screens.length) ?? pages[0];
+  for (const p of pages) p.file = p === first ? 'index.html' : `${p.key}.html`;
+  return pages;
+}
+
 function componentsOf(model) {
   const out = [];
   for (const n of model.nodes.values()) {
@@ -365,7 +393,7 @@ export function buildManifest(model, { sourceName = model.name, surface = null }
     if (k) key = `${key}-${k + 1}`;
     const c = screenContents(model, node, tok);
     return {
-      id: node.id, key, name: node.name, page: page.name, section, width: node.width, height: node.height,
+      id: node.id, key, name: node.name, page: page.name, pageId: page.id, section, width: node.width, height: node.height,
       devStatus: node.devStatus, background: node.fills[0] ?? null,
       fingerprint: fingerprint(model, node.id), ...c,
     };
@@ -387,10 +415,13 @@ export function buildManifest(model, { sourceName = model.name, surface = null }
   const domain = domainOf(model, screens, components);
   const links = buildLinks(screens, domain);
   const surf = surface ? surfaceInto(surface, domain, links) : null;
+  const pages = pagesOf(model, screens, flows);
+  const pageKeyOf = new Map(pages.map(p => [p.id, p.key]));
+  for (const s of screens) s.pageKey = pageKeyOf.get(s.pageId) ?? null;
   const manifest = {
     schema: 'weshcraft/manifest@2',
     source: { name: screens.length ? sourceName : surf?.name ?? sourceName, truncated: !!model.truncated },
-    screens, components, tokens: tokensOf(model), flows, domain, links,
+    screens, components, tokens: tokensOf(model), flows, domain, links, pages,
     ...(surf ? { surface: surf } : {}),
   };
   // Product functions: declared in the design (or the surface file), else suggested.

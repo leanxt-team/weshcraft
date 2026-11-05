@@ -1,7 +1,7 @@
 // WeshCraft for OpenCode 2 (2.2+) and OpenChamber, which runs on the OpenCode server.
 //
-// In a project with a design (design/*.figcraft) and/or a non-visual front (weshcraft.surface.json,
-// openapi.*, design/*.mcp.json), configured by .opencode/weshcraft.json or the plugin's options:
+// In a project with a design (wcraft/design/*.figcraft) and/or a non-visual front (weshcraft.surface.json,
+// openapi.*, wcraft/design/*.mcp.json), configured by .opencode/weshcraft.json or the plugin's options:
 //   - starts `weshcraft serve` for the project (one per project, stable port, reused by sessions);
 //     its own file watcher regenerates the specs when a design, OpenAPI or MCP file changes
 //   - registers WeshCraft's one light set of tools by proxying the server's MCP endpoint: status, read,
@@ -17,6 +17,7 @@ import crypto from 'node:crypto';
 import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { projectDesign } from '../src/design/discover.mjs';
+import { DESIGN } from '../src/layout.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const BIN = path.join(ROOT, 'bin', 'weshcraft.mjs');
@@ -33,14 +34,14 @@ const NODE_BIN = (() => {
 export function detectConfig(dir, options = {}) {
   const file = path.join(dir, '.opencode', 'weshcraft.json');
   let cfg = { ...options };
-  // The project's design: the one chosen before, design/*.figcraft, or the only one in the repo.
+  // The project's design: the one chosen before, wcraft/design/*.figcraft, or the only one in the repo.
   if (!cfg.file && !cfg.attach && !cfg.mcp) { const found = projectDesign(dir); if (found) cfg.file = found.file; }
   if (fs.existsSync(file)) {
     try { cfg = { ...cfg, ...JSON.parse(fs.readFileSync(file, 'utf8')) }; } catch (e) { return { error: `.opencode/weshcraft.json: ${e.message}` }; }
   }
   const exists = p => fs.existsSync(path.join(dir, p));
   const list = d => (exists(d) ? fs.readdirSync(path.join(dir, d)).map(n => path.posix.join(d, n)) : []);
-  const candidates = [...list('.'), ...list('design'), ...list('api')].map(p => p.replace(/^\.\//, ''));
+  const candidates = [...list('.'), ...list(DESIGN), ...list('design'), ...list('api')].map(p => p.replace(/^\.\//, ''));
   if (!cfg.file && !cfg.attach && !cfg.mcp) cfg.file = candidates.find(p => /\.figcraft(\.json)?$/i.test(p));
   if (!cfg.surface && !cfg.mcpServer) {
     const surface = candidates.find(p => /weshcraft\.surface\.json$/i.test(p))
@@ -217,7 +218,7 @@ export function createPlugin(deps = {}) {
         await ctx.tool?.transform?.(editor => {
           editor.namespace({ name: 'weshcraft', description: 'WeshCraft: a spec-oriented design tool for this project.' });
           editor.add({
-            name: 'new', description: 'Start WeshCraft in this project with a new design (design/<name>.figcraft), or connect to the one the user opened in OpenChamber. Call it when the user wants a design, screens, a prototype or specs here; then weshcraft_edit designs and the specs follow every change.',
+            name: 'new', description: 'Start WeshCraft in this project with a new design (wcraft/design/<name>.figcraft), or connect to the one the user opened in OpenChamber. Call it when the user wants a design, screens, a prototype or specs here; then weshcraft_edit designs and the specs follow every change.',
             input: { type: 'object', properties: { name: { type: 'string' } }, additionalProperties: false }, options: { namespace: 'weshcraft' },
             execute: async input => {
               cfg = detectConfig(dir, { ...(ctx.options ?? {}), force: true });

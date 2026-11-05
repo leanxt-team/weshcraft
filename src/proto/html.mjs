@@ -268,8 +268,30 @@ function linkIndex(manifest) {
   return idx;
 }
 
-/** The clickable prototype: every screen, FigCraft prototype links wired, fonts from Google Fonts. */
+/**
+ * The prototype's pages: one file per page of the design (the surface catalog is a page too).
+ * `index.html` is the page the prototype opens on: the one the first flow starts in.
+ */
+export function prototypePages(manifest) {
+  const pages = (manifest.pages ?? []).map(p => ({ key: p.key, name: p.name, screens: p.screens ?? [], file: p.file ?? `${p.key}.html` }));
+  if (manifest.surface) pages.push({ key: 'page-surface', name: 'API & MCP', screens: [], file: 'page-surface.html', surface: true });
+  if (!pages.length) return [];
+  if (!pages.some(p => p.file === 'index.html')) {
+    const start = manifest.flows?.[0]?.start ?? null;
+    const first = pages.find(p => p.screens.includes(start)) ?? pages.find(p => p.screens.length) ?? pages[0];
+    first.file = 'index.html';
+  }
+  return pages;
+}
+
+/** The clickable prototype, one file per page: the screens of that page, wired to the design. */
 export function renderPrototype(model, manifest, { title = manifest.source.name } = {}) {
+  const pages = prototypePages(manifest);
+  return pages.map(page => ({ file: page.file, html: renderPage(model, manifest, page, pages, { title }) }));
+}
+
+/** One page of the prototype: its screens, the top bar with the other pages, fonts from Google Fonts. */
+function renderPage(model, manifest, page, pages, { title }) {
   const keyById = new Map(manifest.screens.map(s => [s.id, s.key]));
   const screenOf = id => {
     let n = model.nodes.get(id);
@@ -281,10 +303,17 @@ export function renderPrototype(model, manifest, { title = manifest.source.name 
   const fontLink = fonts.size
     ? `<link rel="stylesheet" href="https://fonts.googleapis.com/css2?${[...fonts].sort().map(f => `family=${encodeURIComponent(f).replace(/%20/g, '+')}:ital,wght@0,100..900;1,100..900`).join('&')}&display=swap">`
     : '';
-  const catalog = catalogSections(manifest);
-  const start = manifest.flows[0]?.start ?? manifest.screens[0]?.key ?? catalog.keys[0]?.[0];
+  const catalog = page.surface ? catalogSections(manifest) : { html: '', keys: [] };
   const links = linkIndex(manifest);
-  const screens = manifest.screens.map(s => `<section class="sc-screen" id="${s.key}" data-screen="${s.key}" aria-label="${escapeHtml(s.name)}"${s.key === start ? '' : ' hidden'}>${renderScreen(model, s.id, screenOf, links)}</section>`).join('\n');
+  const mine = page.screens.map(k => manifest.screens.find(s => s.key === k)).filter(Boolean);
+  const start = mine[0]?.key ?? catalog.keys[0]?.[0] ?? '';
+  const screens = mine.map(s => `<section class="sc-screen" id="${s.key}" data-screen="${s.key}" aria-label="${escapeHtml(s.name)}"${s.key === start ? '' : ' hidden'}>${renderScreen(model, s.id, screenOf, links)}</section>`).join('\n');
+  // The top bar: the pages of the design. The bar is in every page file, so a page opened on its
+  // own still shows where it sits.
+  const tabs = pages.map(p => `<a class="sc-page" href="${p.file}" data-file="${p.file}"${p.file === page.file ? ' aria-current="page"' : ''}>${escapeHtml(p.name)}</a>`).join('');
+  // Where the other pages' screens live: a link that crosses a page opens that page.
+  const pageOf = {};
+  for (const p of pages) for (const k of p.screens) if (p.file !== page.file) pageOf[k] = p.file;
   const tokens = manifest.tokens.variables.filter(v => v.type === 'color');
   const firstMode = v => Object.values(v.values)[0];
   const tokenCss = tokens.length ? `:root{${tokens.map(v => `${v.cssVar}:${firstMode(v)?.hex ?? 'initial'}`).join(';')}}` : '';
@@ -302,15 +331,27 @@ ${fontLink}
 ${tokenCss}
 html,body{margin:0;background:#1e1e1e;min-height:100%}
 html.sc-embed,html.sc-embed body{background:transparent}
-body{display:flex;flex-direction:column;align-items:center;gap:18px;padding:20px 16px 32px;font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text",Inter,system-ui,sans-serif}
-nav.sc-nav{display:flex;flex-wrap:nowrap;gap:2px;justify-content:flex-start;max-width:calc(100vw - 24px);overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch;padding:4px;border-radius:99px;background:rgba(255,255,255,.14);-webkit-backdrop-filter:blur(24px) saturate(180%);backdrop-filter:blur(24px) saturate(180%);box-shadow:inset 0 1px 0 rgba(255,255,255,.25),0 6px 20px rgba(0,0,0,.18)}
+body{display:flex;flex-direction:column;align-items:center;gap:18px;padding:0 16px 32px;font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text",Inter,system-ui,sans-serif}
+header.sc-pages{position:sticky;top:0;z-index:30;width:100%;margin:0 -16px;padding:0;background:rgba(30,30,30,.78);backdrop-filter:blur(24px) saturate(180%);-webkit-backdrop-filter:blur(24px) saturate(180%);border-bottom:1px solid rgba(255,255,255,.09)}
+nav.sc-pages{display:flex;gap:2px;align-items:center;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch;padding:9px 16px}
+nav.sc-pages::-webkit-scrollbar{display:none}
+a.sc-page{flex:none;white-space:nowrap;text-decoration:none;font:500 12.5px -apple-system,BlinkMacSystemFont,"SF Pro Text",Inter,system-ui,sans-serif;color:rgba(255,255,255,.72);padding:6px 13px;border-radius:9px;cursor:pointer}
+a.sc-page:hover{background:rgba(255,255,255,.12);color:#fff}
+a.sc-page[aria-current="page"]{background:rgba(255,255,255,.92);color:#1d1d1f}
+html.sc-embed header.sc-pages{background:rgba(247,248,250,.82);border-bottom-color:rgba(15,23,42,.09)}
+html.sc-embed a.sc-page{color:rgba(60,60,67,.82)}
+html.sc-embed a.sc-page:hover{background:rgba(15,23,42,.07);color:#1d1d1f}
+html.sc-embed a.sc-page[aria-current="page"]{background:#fff;color:#1d1d1f}
+@media (prefers-color-scheme:dark){html.sc-embed header.sc-pages{background:rgba(44,46,54,.78);border-bottom-color:rgba(255,255,255,.1)}html.sc-embed a.sc-page{color:rgba(235,235,245,.8)}html.sc-embed a.sc-page[aria-current="page"]{background:rgba(255,255,255,.92);color:#1d1d1f}}
+nav.sc-nav{display:flex;flex-wrap:nowrap;gap:2px;justify-content:flex-start;max-width:calc(100vw - 24px);overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch;padding:4px;border-radius:99px;background:rgba(255,255,255,.14);-webkit-backdrop-filter:blur(24px) saturate(180%);backdrop-filter:blur(24px) saturate(180%);box-shadow:inset 0 1px 0 rgba(255,255,255,.25),0 6px 20px rgba(0,0,0,.18);margin-top:14px}
 nav.sc-nav::-webkit-scrollbar{display:none}
-nav.sc-nav button{flex:none;white-space:nowrap;background:none;color:rgba(255,255,255,.85);border:0;border-radius:99px;padding:6px 13px;font:500 12.5px -apple-system,BlinkMacSystemFont,Inter,system-ui,sans-serif;cursor:pointer}
+nav.sc-nav button{flex:none;white-space:nowrap;background:none;color:rgba(255,255,255,.85);border:0;border-radius:99px;padding:6px 13px;font:500 12.5px -apple-system,BlinkMacSystemFont,"SF Pro Text",Inter,system-ui,sans-serif;cursor:pointer}
 nav.sc-nav button[aria-current="true"]{background:rgba(255,255,255,.9);color:#1d1d1f;box-shadow:0 1px 4px rgba(0,0,0,.2)}
 html.sc-embed nav.sc-nav{background:rgba(255,255,255,.55);box-shadow:inset 0 1px 0 rgba(255,255,255,.8),0 6px 20px rgba(15,23,42,.1)}
 html.sc-embed nav.sc-nav button{color:rgba(60,60,67,.85)}
 html.sc-embed nav.sc-nav button[aria-current="true"]{background:#fff;color:#1d1d1f}
 @media (prefers-color-scheme:dark){html.sc-embed nav.sc-nav{background:rgba(44,46,54,.55);box-shadow:inset 0 1px 0 rgba(255,255,255,.12),0 6px 20px rgba(0,0,0,.3)}html.sc-embed nav.sc-nav button{color:rgba(235,235,245,.75)}html.sc-embed nav.sc-nav button[aria-current="true"]{background:rgba(255,255,255,.92);color:#1d1d1f}}
+@media (max-width:480px){nav.sc-nav button{padding:6px 11px;font-size:12px}a.sc-page{padding:6px 11px;font-size:12px}}
 .sc-screen{max-width:100%;overflow:visible;border-radius:4px}
 .sc-screen>[data-node]{box-shadow:0 1px 2px rgba(0,0,0,.12),0 24px 60px -12px rgba(15,23,42,.35)}
 .sc-screen [data-go]:focus-visible{outline:2px solid #0d99ff;outline-offset:2px}
@@ -332,18 +373,19 @@ nav.sc-nav .sc-toggle::before{content:'';width:8px;height:8px;border-radius:50%;
 nav.sc-nav .sc-toggle[aria-pressed="true"]::before{background:#00a88a}
 html.sc-embed nav.sc-nav .sc-toggle{background:#f7f8fa!important;box-shadow:-14px 0 12px -4px #f7f8fa}
 @media (prefers-color-scheme:dark){html.sc-embed nav.sc-nav .sc-toggle{background:#2b2d34!important;box-shadow:-14px 0 12px -4px #2b2d34}}
-@media (max-width:480px){nav.sc-nav button{padding:6px 11px;font-size:12px}}
 nav.sc-nav .sc-toggle[aria-pressed="true"]{color:#00a88a!important}
 ${catalog.html ? CATALOG_CSS : ''}
 </style>
 </head>
 <body>
-<nav class="sc-nav" aria-label="Screens">${[...manifest.screens.map(s => [s.key, s.name]), ...catalog.keys].map(([k, n]) => `<button type="button" data-show="${k}">${escapeHtml(n)}</button>`).join('')}${links.size ? '<button type="button" class="sc-toggle" data-overlay aria-pressed="false" title="Show which layers call the back end (▶ ⇢ ☰) or show its data (◉). Shortcut: D">Data links</button>' : ''}</nav>
+${pages.length > 1 ? `<header class="sc-pages"><nav class="sc-pages" aria-label="Pages">${tabs}</nav></header>` : ''}
+<nav class="sc-nav" aria-label="Screens">${[...mine.map(s => [s.key, s.name]), ...catalog.keys].map(([k, n]) => `<button type="button" data-show="${k}">${escapeHtml(n)}</button>`).join('')}${links.size ? '<button type="button" class="sc-toggle" data-overlay aria-pressed="false" title="Show which layers call the back end (▶ ⇢ ☰) or show its data (◉). Shortcut: D">Data links</button>' : ''}</nav>
 ${screens}
 ${catalog.html}
 <script>
 (() => {
   if (parent !== window) document.documentElement.classList.add('sc-embed');
+  const PAGE_OF = ${JSON.stringify(pageOf)};
   // Fit screens wider than the viewport (phones, narrow panes) without changing the design.
   const fit = () => document.querySelectorAll('.sc-screen').forEach(s => {
     const f = s.firstElementChild;
@@ -366,6 +408,11 @@ ${catalog.html}
     if (parent === window && location.hash.slice(1) !== key) history.replaceState(null, '', '#' + key);
     parent !== window && parent.postMessage({ weshcraft: 'screen', key }, '*');
   };
+  // Another page: open it (the host swaps the file, or the browser navigates).
+  const go = (file, key) => {
+    if (parent !== window) { parent.postMessage({ weshcraft: 'navigate', file, key: key || null }, '*'); return; }
+    location.href = file + (key ? '#' + key : '');
+  };
   const overlay = on => {
     document.body.classList.toggle('sc-data', on);
     document.querySelectorAll('[data-overlay]').forEach(b => b.setAttribute('aria-pressed', String(on)));
@@ -377,15 +424,19 @@ ${catalog.html}
       const l = e.target.closest('[data-link]');
       if (l && parent !== window) { e.preventDefault(); return parent.postMessage({ weshcraft: 'link', node: Number(l.dataset.node), op: l.dataset.op || null, field: l.dataset.field || null }, '*'); }
     }
+    const p = e.target.closest('.sc-page'); if (p) { e.preventDefault(); return go(p.dataset.file, null); }
     const b = e.target.closest('[data-show]'); if (b) return show(b.dataset.show);
     const g = e.target.closest('[data-go],[data-href]'); if (!g) return;
     if (g.dataset.href) return window.open(g.dataset.href, '_blank', 'noopener');
-    if (g.dataset.go === 'back') { const k = hist.pop(); if (k) show(k, false); } else show(g.dataset.go);
+    if (g.dataset.go === 'back') { const k = hist.pop(); if (k) show(k, false); return; }
+    const key = g.dataset.go;
+    if (PAGE_OF[key]) return go(PAGE_OF[key], key);
+    show(key);
   });
   document.addEventListener('keydown', e => { if ((e.key === 'Enter' || e.key === ' ') && e.target.matches('[data-go]')) { e.preventDefault(); e.target.click(); } });
   window.addEventListener('message', e => {
     const m = e.data || {};
-    if (m.weshcraft === 'show') show(m.key);
+    if (m.weshcraft === 'show') { if (PAGE_OF[m.key]) return go(PAGE_OF[m.key], m.key); show(m.key); }
     if (m.weshcraft === 'overlay') overlay(!!m.on);
     if (m.weshcraft === 'highlightMany') {
       document.querySelectorAll('.sc-hl,.sc-hl-op,.sc-hl-field,.cat-hl').forEach(x => x.classList.remove('sc-hl', 'sc-hl-op', 'sc-hl-field', 'cat-hl'));
@@ -406,7 +457,8 @@ ${catalog.html}
       if (el) { const s = el.closest('.sc-screen'); if (s && s.hidden) show(s.id); el.classList.add('sc-hl'); el.scrollIntoView({ block: 'center', behavior: 'smooth' }); }
     }
   });
-  show(location.hash.slice(1) || ${JSON.stringify(start ?? '')}, false);
+  const start = location.hash.slice(1) || ${JSON.stringify(start ?? '')};
+  if (PAGE_OF[start]) go(PAGE_OF[start], start); else show(start, false);
   ${catalog.html ? CATALOG_JS : ''}
 })();
 </script>

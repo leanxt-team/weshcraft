@@ -34,7 +34,7 @@ export const PUBLIC_TOOLS = [
   { name: 'weshcraft_status', description: 'Where the project stands: the design, the product (functions, logic, architecture: declared or suggested), parity, spec ⇄ code coverage, sync, the live URL, and what to do next. Start here.', inputSchema: { type: 'object', properties: {} } },
   {
     name: 'weshcraft_read',
-    description: 'Read anything, compactly. what: tree (outline of the design, one line per layer; root: a screen) · find (query) · layer (id) · tokens · screenshot (id: a screen or layer, PNG) · functions · logic · data · api · architecture · links (front ⇄ back; screen, op, field filters) · trace (spec ⇄ code; function, untraced) · spec (path, e.g. specs/LOGIC.md) · folders (the spec tree) · manifest (screen) · parity · technologies (query: the catalog of 440 tools and cloud services with what each is and its alternatives; or text: what a component tech line is recognised as).',
+    description: 'Read anything, compactly. what: tree (outline of the design, one line per layer; root: a screen) · find (query) · layer (id) · tokens · screenshot (id: a screen or layer, PNG) · functions · logic · data · api · architecture · links (front ⇄ back; screen, op, field filters) · trace (spec ⇄ code; function, untraced) · spec (path, e.g. wcraft/specs/LOGIC.md) · folders (the spec tree) · manifest (screen) · parity · technologies (query: the catalog of 440 tools and cloud services with what each is and its alternatives; or text: what a component tech line is recognised as).',
     inputSchema: { type: 'object', properties: {
       what: { type: 'string', enum: ['tree', 'find', 'layer', 'tokens', 'screenshot', 'functions', 'logic', 'data', 'api', 'architecture', 'links', 'trace', 'spec', 'folders', 'manifest', 'parity', 'technologies'] },
       root: { type: ['number', 'string'] }, depth: { type: 'number' }, query: { type: 'string' }, type: { type: 'string' }, id: { type: ['number', 'string'] }, scale: { type: 'number' },
@@ -46,7 +46,7 @@ export const PUBLIC_TOOLS = [
     description: `Change the design and the product in one batch: one undo step for the user, specs regenerate after it (wait:true returns parity, design changes and gaps). undo / redo: steps to undo or redo instead (whoever made them).\n${OPS}`,
     inputSchema: { type: 'object', properties: { ops: { type: 'array', items: { type: 'object' } }, wait: { type: 'boolean' }, label: { type: 'string' }, undo: { type: 'number' }, redo: { type: 'number' } } },
   },
-  { name: 'weshcraft_notes', description: 'Replace the Notes block of a spec (states, edge cases, a11y, analytics, decisions, open questions). Cite layers as `#id`. Facts come from the design: change the design (weshcraft_edit), not the notes.', inputSchema: { type: 'object', properties: { path: { type: 'string', description: 'e.g. specs/front/screens/scr-home.md' }, notes: { type: 'string' } }, required: ['path', 'notes'] } },
+  { name: 'weshcraft_notes', description: 'Replace the Notes block of a spec (states, edge cases, a11y, analytics, decisions, open questions). Cite layers as `#id`. Facts come from the design: change the design (weshcraft_edit), not the notes.', inputSchema: { type: 'object', properties: { path: { type: 'string', description: 'e.g. wcraft/specs/front/screens/scr-home.md' }, notes: { type: 'string' } }, required: ['path', 'notes'] } },
   { name: 'weshcraft_generate', description: 'Regenerate the specs now (they also follow every change on their own) and check parity; force rewrites unchanged ones too. Also refreshes spec ⇄ code (after code changes).', inputSchema: { type: 'object', properties: { force: { type: 'boolean' } } } },
   {
     name: 'weshcraft_sync',
@@ -54,7 +54,7 @@ export const PUBLIC_TOOLS = [
     inputSchema: { type: 'object', properties: { action: { type: 'string', enum: ['sync', 'publish', 'status', 'stop'] }, target: { type: 'string' }, auto: { type: 'boolean' }, pr: { type: 'boolean' }, push: { type: 'boolean' }, provider: { type: 'string', enum: ['github', 'gitlab'] }, repo: { type: 'string' }, branch: { type: 'string' }, base: { type: 'string' }, title: { type: 'string' }, apiUrl: { type: 'string' } }, required: ['action'] },
   },
 ];
-export const NEW_TOOL = { name: 'weshcraft_new', description: 'Start a new, empty design (design/<name>.figcraft) for this project; then weshcraft_edit adds screens. Only when the project has no design yet.', inputSchema: { type: 'object', properties: { name: { type: 'string' } }, required: ['name'] } };
+export const NEW_TOOL = { name: 'weshcraft_new', description: 'Start a new, empty design (wcraft/design/<name>.figcraft) for this project; then weshcraft_edit adds screens. Only when the project has no design yet.', inputSchema: { type: 'object', properties: { name: { type: 'string' } }, required: ['name'] } };
 
 const parse = r => { try { return JSON.parse(r.content[0].text); } catch { return r.content?.[0]?.text; } };
 const text = (t, isError = false) => ({ content: [{ type: 'text', text: typeof t === 'string' ? t : JSON.stringify(t) }], isError });

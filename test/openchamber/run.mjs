@@ -14,11 +14,11 @@ const waitFor = async (fn, ms = 15000, step = 200) => { const t0 = Date.now(); f
 
 // ---- projects and a fake home with an OpenChamber GitHub account ----
 fs.rmSync(WORK, { recursive: true, force: true });
-const proj = n => { const d = path.join(WORK, n); fs.mkdirSync(path.join(d, 'design'), { recursive: true }); return d; };
+const proj = n => { const d = path.join(WORK, n); fs.mkdirSync(path.join(d, 'wcraft/design'), { recursive: true }); return d; };
 const P1 = proj('repo'), P2 = proj('gh'), P3 = path.join(WORK, 'empty');
 fs.mkdirSync(P3, { recursive: true });
-fs.copyFileSync(path.join(ROOT, 'test/fixtures/ridgeline-app.figcraft'), path.join(P1, 'design/ridgeline-app.figcraft'));
-fs.copyFileSync(path.join(ROOT, 'test/fixtures/account.figcraft.json'), path.join(P2, 'design/account.figcraft.json'));
+fs.copyFileSync(path.join(ROOT, 'test/fixtures/ridgeline-app.figcraft'), path.join(P1, 'wcraft/design/ridgeline-app.figcraft'));
+fs.copyFileSync(path.join(ROOT, 'test/fixtures/account.figcraft.json'), path.join(P2, 'wcraft/design/account.figcraft.json'));
 execSync('git init -q && git config user.email t@example.com && git config user.name Tester && echo "# app" > README.md && git add -A && git commit -qm init', { cwd: P1, shell: '/bin/sh' });
 const gh = await fakeGitHub();
 const HOME = path.join(WORK, 'home');
@@ -131,7 +131,7 @@ try {
   const logBefore = await o.f.locator('#log').innerText();
   await o.f.locator('#edInspector textarea[data-k="text"]').fill('Where next?');
   await o.f.locator('#edInspector textarea[data-k="text"]').blur();
-  ok('page: edit saved to the project design', !!await waitFor(async () => { const { DesignStore } = await import(path.join(ROOT, 'src/design/store.mjs')); return Object.values(DesignStore.open(path.join(P1, 'design/ridgeline-app.figcraft')).doc.nodes).some(n => n.characters === 'Where next?'); }, 10000));
+  ok('page: edit saved to the project design', !!await waitFor(async () => { const { DesignStore } = await import(path.join(ROOT, 'src/design/store.mjs')); return Object.values(DesignStore.open(path.join(P1, 'wcraft/design/ridgeline-app.figcraft')).doc.nodes).some(n => n.characters === 'Where next?'); }, 10000));
   ok('page: live events update the spec builder', !!await waitFor(async () => (await o.f.locator('#log').innerText()) !== logBefore && /Run \d+:|Synced to/.test(await o.f.locator("#log").innerText()), 15000), await o.f.locator('#log').innerText());
   // agent edit arrives live
   const info = (await svc('/info', { directory: P1 })).json;
@@ -186,7 +186,7 @@ try {
   ok('page (empty project): Start a design', !!await waitFor(async () => /Start a design/.test(await text(o)), 30000));
   await o.p.screenshot({ path: `${SHOTS}/f-page-empty-light.png` });
   await o.f.locator('#edEmpty .ed-preset').first().click();
-  ok('page (empty project): design created and shown', !!await waitFor(async () => (await o.f.locator('#edScreen [data-node]').count()) >= 1 && fs.existsSync(path.join(P3, 'design/App.figcraft')), 20000));
+  ok('page (empty project): design created and shown', !!await waitFor(async () => (await o.f.locator('#edScreen [data-node]').count()) >= 1 && fs.existsSync(path.join(P3, 'wcraft/design/App.figcraft')), 20000));
   await o.p.close();
 
   // ===== G. no host / no service =====

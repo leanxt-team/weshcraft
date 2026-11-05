@@ -107,7 +107,7 @@ export function createEditor({ openFile, markdown, log }) {
     if (reason === 'live-figcraft') el.innerHTML = '<div class="ed-card"><h3>Designing in FigCraft</h3><p>This workspace is attached to a live FigCraft: edit there, or let agents use the <code>figcraft_*</code> tools. Specs follow every change.</p></div>';
     else if (reason === 'read-only') el.innerHTML = '<div class="ed-card"><h3>Read-only</h3><p>This WeshCraft was started with <code>--read-only</code>: the design is shown in the Prototype tab and edited elsewhere (FigCraft, another WeshCraft). Specs still follow every save.</p></div>';
     else if (reason === 'no-screen') el.innerHTML = '<div class="ed-card"><h3>No screen yet</h3><p>Add the first screen of this design.</p><div class="ed-presets" data-act="presets"></div></div>';
-    else el.innerHTML = `<form class="ed-card" id="edNewForm"><h3>Start a design</h3><p>A new FigCraft document in <code>design/</code>: draw screens here, or let your agent build them (<code>weshcraft_edit</code>). Specs are written as you go.</p><label>Name <input name="name" value="App" required autocomplete="off"></label><div class="ed-presets" data-act="new"></div><p class="muted small">Or open an existing <code>.figcraft</code> from the menu.</p></form>`;
+    else el.innerHTML = `<form class="ed-card" id="edNewForm"><h3>Start a design</h3><p>A new FigCraft document in <code>wcraft/design/</code>: draw screens here, or let your agent build them (<code>weshcraft_edit</code>). Specs are written as you go.</p><label>Name <input name="name" value="App" required autocomplete="off"></label><div class="ed-presets" data-act="new"></div><p class="muted small">Or open an existing <code>.figcraft</code> from the menu.</p></form>`;
     if (reason === 'none') {
       // Designs already in this project (any folder): open one in place, before starting a new one.
       api('/candidates').then(list => {
@@ -761,7 +761,7 @@ export function createEditor({ openFile, markdown, log }) {
     const el = $('#edSpec');
     const s = E.S?.screens?.find(x => x.id === E.screenId);
     if (!s?.key) { el.innerHTML = '<p class="empty">The spec for this screen appears after the next run.</p>'; return; }
-    const file = `specs/front/screens/${s.key}.md`;
+    const file = `wcraft/specs/front/screens/${s.key}.md`;
     const r = await fetch(`/out/${file}`);
     if (!r.ok) { el.innerHTML = '<p class="empty">Writing the spec…</p>'; return; }
     const md = await r.text();
@@ -788,7 +788,7 @@ export function createEditor({ openFile, markdown, log }) {
     const act = t.closest('[data-do]')?.dataset.do;
     if (act === 'del') { const ids = E.sel.filter(id => id !== E.screenId); E.sel = []; return ops([{ op: 'delete', ids }], 'Delete'); }
     if (act === 'dup') { if (E.sel[0] === E.screenId) { const r = await ops([{ op: 'duplicate', id: E.screenId, ref: 'c' }], 'Duplicate screen'); if (r) { E.screenId = r.refs.c; E.sel = []; E.fit = true; refresh(); } return; } return duplicateSel(); }
-    if (act === 'spec') { const s = E.S?.screens?.find(x => x.id === E.screenId); if (s?.key) openFile(`specs/front/screens/${s.key}.md`); return; }
+    if (act === 'spec') { const s = E.S?.screens?.find(x => x.id === E.screenId); if (s?.key) openFile(`wcraft/specs/front/screens/${s.key}.md`); return; }
     if (act === 'token') {
       const name = insp.querySelector('[data-tok=name]').value.trim(), value = insp.querySelector('[data-tok=value]').value.trim();
       if (!name || !value) return status('Token needs a name and a value', 'err');

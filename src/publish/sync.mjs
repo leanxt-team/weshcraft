@@ -13,6 +13,7 @@ import { collectFiles, prBody, publish, gitBlobSha } from './git.mjs';
 import { ciFiles } from './ci.mjs';
 import { changesMarkdown, summaryLine } from '../spec/diff.mjs';
 import { resolveToken, describeSource } from './credentials.mjs';
+import { GRAPH, SPECS, PROTOTYPE } from '../layout.mjs';
 
 const run = (cmd, args, cwd) => new Promise((resolve, reject) => {
   execFile(cmd, args, { cwd, maxBuffer: 64 * 1024 * 1024 }, (err, stdout, stderr) => {
@@ -108,7 +109,7 @@ export class Syncer {
     return publish(t.kind, {
       repo: t.repo, token, branch: t.branch || 'weshcraft/specs', base: t.base, apiUrl: t.apiUrl, pr: t.pr !== false,
       title: `Specs: ${m.source.name}`,
-      body: prBody(this.ws.report, m, ['This branch is kept in sync by WeshCraft: every regeneration that matches the prototype is committed here.', this.ws.changes?.items.length ? `\n#### Latest design change\n\n${changesMarkdown(this.ws.changes, { title: summaryLine(this.ws.changes) })}` : '', 'Full history: `specs/CHANGES.md`.'].filter(Boolean).join('\n')),
+      body: prBody(this.ws.report, m, ['This branch is kept in sync by WeshCraft: every regeneration that matches the prototype is committed here.', this.ws.changes?.items.length ? `\n#### Latest design change\n\n${changesMarkdown(this.ws.changes, { title: summaryLine(this.ws.changes) })}` : '', 'Full history: `wcraft/specs/CHANGES.md`.'].filter(Boolean).join('\n')),
       files: collectFiles(this.ws.outDir, { provider: t.kind, designInputs: this.ws.designInputs(), prefix: t.prefix || '' }),
       message: `docs(specs): ${m.source.name}: ${summaryLine(this.ws.changes ?? { items: [] })}\n\nPrototype ${m.source.hash}, parity ${this.ws.report.score}% (${this.ws.report.checks} checks).\n\n${changesMarkdown(this.ws.changes ?? { items: [] }, { title: 'Design changes' }).replace(/^### .*\n\n/, '')}`.trim(),
     });
@@ -130,7 +131,7 @@ export class Syncer {
     const current = await run('git', ['rev-parse', '--abbrev-ref', 'HEAD'], top);
     if (t.branch && current !== t.branch) throw new Error(`check out ${t.branch} first (on ${current}); WeshCraft never switches branches in your working tree`);
     const rel = p => path.relative(top, p).split(path.sep).join('/');
-    const paths = ['prototype', 'specs', this.ws.graphFile ?? 'design/weshcraft.graph.mjs'].map(d => path.join(out, d)).filter(p => fs.existsSync(p)).map(rel);
+    const paths = [PROTOTYPE, SPECS, this.ws.graphFile ?? GRAPH].map(d => path.join(out, d)).filter(p => fs.existsSync(p)).map(rel);
     const inRepo = this.ws.designInputs().map(x => ({ ...x, abs: real(x.abs) })).filter(x => x.abs.startsWith(top + path.sep));
     for (const x of inRepo) paths.push(rel(x.abs));
     const ciArgs = inRepo.filter(x => x.arg).map(x => `${x.arg} ${rel(x.abs)}`).join(' ');

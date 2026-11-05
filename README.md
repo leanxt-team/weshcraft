@@ -4,6 +4,8 @@
 
 WeshCraft edits [FigCraft](https://github.com/storytold/figcraft) documents directly (`.figcraft`, the same files FigCraft opens), so it needs no FigCraft install, and it can still attach to a running FigCraft:
 
+**Everything in one folder.** WeshCraft keeps its whole output in a single `wcraft/` folder in your project — the specs, the clickable prototype, the design documents and its settings — so it never spreads over your repository. A project written before the folder keeps nothing where it was: the first run moves the old `specs/`, `prototype/`, `design/` and `.weshcraft.json` into it.
+
 ```
  Agent (Claude Code, OpenCode, /wesh-plan-view-mode)       You, in the browser (weshcraft serve)
         │  weshcraft_* tools (7)                                  │  design editor · prototype · spec builder · parity · publish
@@ -13,8 +15,8 @@ WeshCraft edits [FigCraft](https://github.com/storytold/figcraft) documents dire
  │   (or a live FigCraft over MCP: figcraft-cli mcp | --attach <port>)         │
  │ every edit ─► manifest (every screen, text, interaction, component, token,  │
  │               entity, operation, with node ids and fingerprints)            │
- │ prototype/index.html  (clickable, rendered from the same model)             │
- │ specs/front/**  specs/back/**  ◄── regenerated in parallel, + optional agent │
+ │ wcraft/prototype/index.html  (clickable, rendered from the same model)      │
+ │ wcraft/specs/front/**  wcraft/specs/back/**  ◄─ regenerated in parallel, + agent│
  │ parity check: specs ⇄ manifest ⇄ prototype                                  │
  └──────────────┬──────────────────────────────────────────────────────────────┘
                 ▼
@@ -26,23 +28,25 @@ WeshCraft edits [FigCraft](https://github.com/storytold/figcraft) documents dire
 - **Agents design too, cheaply.** One small MCP tool set for the whole product (below): `weshcraft_read` gives one line per layer (`what: "tree"`, `"find"`); `weshcraft_edit` applies a whole batch of operations in one undoable step (refs let later ops use what earlier ops created) and, with `wait: true`, returns the parity result and what changed in the specs. Agents and people share one document and one undo stack: what the agent does appears on your canvas, and ⌘Z undoes it.
 - **Still FigCraft.** The file is saved as a FigCraft document (other archive entries kept). Edit it in FigCraft and WeshCraft reloads it. Attached to a running FigCraft (`--attach`), WeshCraft reads it live (edit it in FigCraft); there is no second tool set.
 - **A clean, native-feeling workspace.** Liquid Glass styling: floating translucent panes, capsule controls, system type and colours, dense macOS-style lists, light and dark. It switches to solid materials when the system asks for reduced transparency or more contrast, and turns off motion for reduced motion. In a narrower window, side panels become drawers over the view instead of squeezing it (inside OpenChamber that is the only behaviour: no phone layout there). On phones it becomes an iOS-style app: one full-height view at a time, a floating tab bar (Specs · Product · Design · Prototype · Links · Spec), 44 pt rows, an action sheet and bottom-sheet dialogs, safe areas respected, screens scaled to fit.
-- **Sections on a rail, one Specs panel.** The sections (Functions, Logic, Data, API & MCP, Architecture, Design, Prototype, Front ⇄ back, Manifest) sit in a vertical bar on the right, one square icon each. Beside the section, one **Specs** panel holds the list of specs and, in its place, the spec you open (‹ Specs goes back); » folds it, and while designing « » fold the editor's screens/layers and inspector. What you fold stays folded across sections. Diagrams keep their arrows apart: wires meeting one box get their own points on its side, ordered to avoid crossings, links that jump a layer go round the cards, and labels never sit on each other or under a card.
-- **Specs in your folders.** The spec list is a tree of folders and subfolders: add, rename and remove folders (what a removed folder holds moves up), drag a spec or a folder into another one, or use a spec's ⋯ **Move to…** menu. New specs land in their usual folder (Product, Front end › Screens, Back end…). The organisation is saved in `.weshcraft.json` and `specs/README.md` follows it.
+- **Sections on a rail, one Specs panel.** The sections (Exec summary, Functions, Logic, Data, API & MCP, Architecture, Design, Prototype, Front ⇄ back, Manifest) sit in a vertical bar on the right, one square icon each. Beside the section, one **Specs** panel holds the list of specs and, in its place, the spec you open (‹ Specs goes back); » folds it, and while designing « » fold the editor's screens/layers and inspector. What you fold stays folded across sections. Diagrams keep their arrows apart: wires meeting one box get their own points on its side, ordered to avoid crossings, links that jump a layer go round the cards, and labels never sit on each other or under a card.
+- **Specs in your folders.** The spec list is a tree of folders and subfolders: add, rename and remove folders (what a removed folder holds moves up), drag a spec or a folder into another one, or use a spec's ⋯ **Move to…** menu. New specs land in their usual folder (Product, Front end › Screens, Back end…). The organisation is saved in `wcraft/config.json` and `wcraft/specs/README.md` follows it.
 - **Specs built in parallel, shown live.** One job per screen, per component, plus tokens, flows, domain model, API (with OpenAPI 3.1) and conventions. The spec list shows each job queue, write, get enriched by an agent (streamed) and finish.
+- **A prototype with the design's pages.** The clickable prototype is written as one file per page of the design (`wcraft/prototype/index.html` is the page it opens on, the others are `page-<name>.html`), each with a top bar to move between the pages — a screen that links to another page opens that page. No more one huge HTML file with every screen in it.
 - **Specs match the visual prototype.** Each spec embeds a machine-readable contract (an HTML comment). `weshcraft check` compares it with a fresh extraction of the design: copy verbatim on its row, interactions and destinations, component instances and variants, inputs, frame sizes, tokens and values, navigation edges, entities and operations, and that the pushed prototype was built from the same design. Every spec line cites its layer as `#id`; click it in the browser and the prototype highlights that layer.
 - **Services with little or no UI.** The "front" can be an **MCP server** (agents are the users) and/or a **public HTTP API** (developers are the users): give an OpenAPI file (JSON or YAML), an MCP `tools/list` dump, a live server (`--mcp-server "node server.js"`, introspected over stdio), or a `weshcraft.surface.json` combining them — with or without a FigCraft design. Each MCP tool and endpoint gets a spec (arguments, rules, safety hints, example call, acceptance criteria), API schemas become the domain model, tools are linked to the endpoints they call, and the prototype becomes a clean **catalog** of tools and endpoints. A changed schema makes its spec stale, like a changed screen.
-- **How the product works, at a glance.** The **Functions** view (click a function, a Who or a Data block to light up everything linked to it) and `specs/FUNCTIONS.md` show the product as a handful of functions (Sign up, Find a trail, Pay…): who uses each one (people in the app, AI agents through MCP, integrations through the API), its purpose, the screens, operations and tools that make it, the data it reads and writes, and where it leads. Until they are declared, WeshCraft suggests them from the prototype (flows, sections, wizard steps, shared data, API tags); keep them, rename them and give each a purpose in the view, with the **Function** field of a screen in the editor, or ask the agent (`weshcraft_edit` with `function` ops). They are saved in the design. Everything else follows them: each screen spec says which function it belongs to, the API spec gives each operation's function, the navigation and front ⇄ back maps group screens by function, the editor lists screens by function, and the parity check flags a screen, operation or tool that belongs to none.
+- **The product in one screen.** The **Exec summary** (the first section) is the short version: what the product is, what people can do (the journey, as a diagram), the screens page by page, the back end in one line each, and what is still open. Click anything to go to its spec or to the screen in the prototype.
+- **How the product works, at a glance.** The **Functions** view (click a function, a Who or a Data block to light up everything linked to it) and `wcraft/specs/FUNCTIONS.md` show the product as a handful of functions (Sign up, Find a trail, Pay…): who uses each one (people in the app, AI agents through MCP, integrations through the API), its purpose, the screens, operations and tools that make it, the data it reads and writes, and where it leads. Until they are declared, WeshCraft suggests them from the prototype (flows, sections, wizard steps, shared data, API tags); keep them, rename them and give each a purpose in the view, with the **Function** field of a screen in the editor, or ask the agent (`weshcraft_edit` with `function` ops). They are saved in the design. Everything else follows them: each screen spec says which function it belongs to, the API spec gives each operation's function, the navigation and front ⇄ back maps group screens by function, the editor lists screens by function, and the parity check flags a screen, operation or tool that belongs to none.
 - **Every aspect of the product, with its spec.** Next to **Functions**, four views and four specs cover the rest:
-  - **Logic** (`specs/LOGIC.md`): business rules (validation, permission, calculation, policy, event) and the lifecycle of data, drawn as state diagrams. Inferred until declared: required request fields, status values (`draft | open | paid | void`), the operations that change them (one that changes a status without saying to what is flagged). Declare and complete them in the view (+ Rule, + Lifecycle) or with `weshcraft_edit` (`rule`, `lifecycle`).
-  - **Data** (`specs/DATA.md`): the entities as cards with their fields, the relations between them (wires), their lifecycle, and who writes, reads and shows each one. Fields come from bound layers and API schemas; details stay in `back/domain.md`.
-  - **API & MCP** (`specs/API.md`): every operation, public endpoint and MCP tool by function, with where it is called from (screens, tools, public) and what it returns; a filter; details in `back/api.md`, `openapi.json`, `front/api`, `front/mcp`.
-  - **Architecture** (`specs/ARCHITECTURE.md`): clients, front ends and interfaces, services, data stores and external systems in layers, with their technologies, what each implements, the code folders behind it (from the code tags) and how they talk. Suggested from the design and the surface until declared; edit it in the view (+ Component, + Link) or with `weshcraft_edit` (`component`, `connect`). Each block shows the icons of the technologies it names (PostgreSQL, Python, Redis, Lambda…): a catalog of 440 tools and services, with brand marks, the AWS, Azure and Google Cloud services, and generic blocks (database, queue, cache, CDN, function…) to fill the gaps. Click a block for what each technology is and its alternatives; the component dialog has a searchable icon picker, and `ARCHITECTURE.md` gets a **Technologies** table (used by, what it is, alternatives).
+  - **Logic** (`wcraft/specs/LOGIC.md`): business rules (validation, permission, calculation, policy, event) and the lifecycle of data, drawn as state diagrams. Inferred until declared: required request fields, status values (`draft | open | paid | void`), the operations that change them (one that changes a status without saying to what is flagged). Declare and complete them in the view (+ Rule, + Lifecycle) or with `weshcraft_edit` (`rule`, `lifecycle`).
+  - **Data** (`wcraft/specs/DATA.md`): the entities as cards with their fields, the relations between them (wires), their lifecycle, and who writes, reads and shows each one. Fields come from bound layers and API schemas; details stay in `back/domain.md`.
+  - **API & MCP** (`wcraft/specs/API.md`): every operation, public endpoint and MCP tool by function, with where it is called from (screens, tools, public) and what it returns; a filter; details in `back/api.md`, `openapi.json`, `front/api`, `front/mcp`.
+  - **Architecture** (`wcraft/specs/ARCHITECTURE.md`): clients, front ends and interfaces, services, data stores and external systems in layers, with their technologies, what each implements, the code folders behind it (from the code tags) and how they talk. Suggested from the design and the surface until declared; edit it in the view (+ Component, + Link) or with `weshcraft_edit` (`component`, `connect`). Each block shows the icons of the technologies it names (PostgreSQL, Python, Redis, Lambda…): a catalog of 440 tools and services, with brand marks, the AWS, Azure and Google Cloud services, and generic blocks (database, queue, cache, CDN, function…) to fill the gaps. Click a block for what each technology is and its alternatives; the component dialog has a searchable icon picker, and `ARCHITECTURE.md` gets a **Technologies** table (used by, what it is, alternatives).
 
   Logic and architecture are saved in the design, like the functions, one undo step per change. Each spec has a contract checked by parity (`logic-differs`, `data-differs`, `api-overview-differs`, `architecture-differs`) and warnings for references to nothing and open transitions. On a phone (or a narrow panel) the five product views share one **Product** button and a strip to switch between them.
-- **Linked to the code, explorable with codegraph.** Code says what it implements with a comment tag next to the symbol (`// @weshcraft scr-sign-up`, `# @weshcraft POST /users`; each spec header gives its tag). WeshCraft finds the tags in every language and writes `specs/TRACE.md` (element → code, what has no code yet, tags that name nothing) and `weshcraft.graph.mjs` next to the design (`design/weshcraft.graph.mjs`): the product as never-run JavaScript, functions → screens, components → operations → entities, each calling the tagged code. Code graphs index it with the rest: with [wesh](https://github.com/leanxt-team/wesh)'s codegraph, `codegraph explore "how does Sign up work"` returns the function, its screens, operations and the code behind them, and `codegraph impact <symbol> --depth 4` names the screens and functions a code change touches. The Functions view shows each function's code; `weshcraft trace` / `weshcraft_generate` refresh it after code changes.
-- **Front ⇄ back links, highlighted everywhere.** WeshCraft maps every place the prototype meets the back end: a layer ▶ triggers an operation, ⇢ submits a field to it, ☰ is a list it fills, ◉ shows an entity field (and which operation loads it). You see it in `specs/LINKS.md` (tables + Mermaid map), in each screen spec, in `api.md` (“Front end”, “Response shown”) and `domain.md` (“Shown by”, “Loaded by”), in the browser's **Front ⇄ back** tab (an interactive wire map: click an element, an operation or a field to trace it and highlight its layers in the prototype), and as a **Data links** overlay on the prototype itself (click a layer to open its back-end spec). Gaps — data shown that nothing loads, operations nothing reaches — are flagged; link drift fails the parity check.
-- **GitHub and GitLab.** One click (or `weshcraft publish`) commits `prototype/`, `specs/`, the `.figcraft` source and a CI parity job to a branch and opens or updates a PR/MR with the parity summary.
-- **An advanced spec format, kept in git.** Design, prototype, contract-checked specs, links and a design changelog (`specs/CHANGES.md`, `weshcraft diff`) form one versioned folder ([format](docs/SPEC-FORMAT.md)). Updates say what changed in the design; sync commits and PR/MR descriptions carry that changelog.
+- **Linked to the code, explorable with codegraph.** Code says what it implements with a comment tag next to the symbol (`// @weshcraft scr-sign-up`, `# @weshcraft POST /users`; each spec header gives its tag). WeshCraft finds the tags in every language and writes `wcraft/specs/TRACE.md` (element → code, what has no code yet, tags that name nothing) and `weshcraft.graph.mjs` next to the design (`wcraft/graph.mjs`): the product as never-run JavaScript, functions → screens, components → operations → entities, each calling the tagged code. Code graphs index it with the rest: with [wesh](https://github.com/leanxt-team/wesh)'s codegraph, `codegraph explore "how does Sign up work"` returns the function, its screens, operations and the code behind them, and `codegraph impact <symbol> --depth 4` names the screens and functions a code change touches. The Functions view shows each function's code; `weshcraft trace` / `weshcraft_generate` refresh it after code changes.
+- **Front ⇄ back links, highlighted everywhere.** WeshCraft maps every place the prototype meets the back end: a layer ▶ triggers an operation, ⇢ submits a field to it, ☰ is a list it fills, ◉ shows an entity field (and which operation loads it). You see it in `wcraft/specs/LINKS.md` (tables + Mermaid map), in each screen spec, in `api.md` (“Front end”, “Response shown”) and `domain.md` (“Shown by”, “Loaded by”), in the browser's **Front ⇄ back** tab (an interactive wire map: click an element, an operation or a field to trace it and highlight its layers in the prototype), and as a **Data links** overlay on the prototype itself (click a layer to open its back-end spec). Gaps — data shown that nothing loads, operations nothing reaches — are flagged; link drift fails the parity check.
+- **GitHub and GitLab.** One click (or `weshcraft publish`) commits `wcraft/prototype/`, `wcraft/specs/`, the `.figcraft` source and a CI parity job to a branch and opens or updates a PR/MR with the parity summary.
+- **An advanced spec format, kept in git.** Design, prototype, contract-checked specs, links and a design changelog (`wcraft/specs/CHANGES.md`, `weshcraft diff`) form one versioned folder ([format](docs/SPEC-FORMAT.md)). Updates say what changed in the design; sync commits and PR/MR descriptions carry that changelog.
 - **Keep a repo in sync.** `--sync github:owner/repo`, `--sync gitlab:group/project` or `--sync git` commits after every regeneration that matches the prototype: to a branch through the API (PR/MR opened once, then updated; unchanged files make no commit), or in the local repository around the output folder, so Claude Code, OpenCode and your teammates see it in `git log` (push optional). Also from the browser (**Publish & sync**, sync pill) and from agents (`weshcraft_sync`).
 - **wesh integration.** `wesh-bundle/` adds `/wesh-plan-view-mode` and the `wesh-spec-front` / `wesh-spec-back` skills to [wesh](https://github.com/leanxt-team/wesh).
 
@@ -61,7 +65,7 @@ npm test
 npm run demo     # serves the Ridgeline example at http://127.0.0.1:4600/
 ```
 
-In your project (it picks up `design/*.figcraft`; with none, the **Design** tab offers to start one):
+In your project (it picks up `wcraft/design/*.figcraft`; with none, the **Design** tab offers to start one):
 
 ```bash
 node /path/to/weshcraft/bin/weshcraft.mjs serve
@@ -96,7 +100,7 @@ node bin/weshcraft.mjs serve --mcp-server "node dist/server.js" --surface api/op
   "links": [{ "tool": "create_invoice", "endpoint": "POST /invoices" }, { "tool": "void_invoice", "endpoint": null }] }
 ```
 
-Without links, a tool is matched to the endpoint whose `operationId` has the same words (`list_invoices` ⇄ `listInvoices`). A live `--mcp-server` is snapshotted to `design/<name>.mcp.json`, so CI checks the same tool list.
+Without links, a tool is matched to the endpoint whose `operationId` has the same words (`list_invoices` ⇄ `listInvoices`). A live `--mcp-server` is snapshotted to `wcraft/design/<name>.mcp.json`, so CI checks the same tool list.
 
 ### In OpenCode and OpenChamber (plugin + extension)
 
@@ -130,7 +134,7 @@ node bin/weshcraft.mjs serve --attach 7979 --figcraft-cli /path/to/figcraft-cli
 node bin/weshcraft.mjs init --client both --sync git
 ```
 
-That writes `.mcp.json` for Claude Code and `opencode.json` for OpenCode: a `weshcraft` stdio MCP server that also serves the browser view; both commit the specs in this repository after every in-sync run. Drop `--sync git` to commit yourself, or use `--sync github:owner/repo` to sync a branch on GitHub instead. The server edits the project's design (`design/*.figcraft`, or starts one); add `--attach 7979` to read a running FigCraft live instead. Install the wesh update (below), restart Claude Code, run `/wesh-plan-view-mode`. The agent plans with you in rounds, puts each decision into the prototype with `weshcraft_edit`, generates the specs, fans out sub-agents to enrich them with `wesh-spec-front` / `wesh-spec-back`, gates on parity and publishes when you say so.
+That writes `.mcp.json` for Claude Code and `opencode.json` for OpenCode: a `weshcraft` stdio MCP server that also serves the browser view; both commit the specs in this repository after every in-sync run. Drop `--sync git` to commit yourself, or use `--sync github:owner/repo` to sync a branch on GitHub instead. The server edits the project's design (`wcraft/design/*.figcraft`, or starts one); add `--attach 7979` to read a running FigCraft live instead. Install the wesh update (below), restart Claude Code, run `/wesh-plan-view-mode`. The agent plans with you in rounds, puts each decision into the prototype with `weshcraft_edit`, generates the specs, fans out sub-agents to enrich them with `wesh-spec-front` / `wesh-spec-back`, gates on parity and publishes when you say so.
 
 ## Commands
 
@@ -138,7 +142,7 @@ That writes `.mcp.json` for Claude Code and `opencode.json` for OpenCode: a `wes
 |---|---|
 | `serve [source] [--read-only]` | Browser workspace: design editor, prototype, live spec builder, parity, publish; SSE live updates, MCP over HTTP at `/mcp`, zip download. Edits the design in place. Binds to 127.0.0.1; any other host requires `--token`. |
 | `mcp [source] [--web] [--read-only]` | MCP server on stdio (the seven `weshcraft_*` tools). `--web` also serves the browser view. |
-| `new NAME` | Create `design/NAME.figcraft`, an empty FigCraft document. |
+| `new NAME` | Create `wcraft/design/NAME.figcraft`, an empty FigCraft document. |
 | `generate [source] [--force] [--agent [CMD]]` | One run: prototype + all specs + parity. Exit 1 when out of sync. |
 | `check --file F [--format text\|markdown\|json]` | Parity only, for CI. Exit 1 when out of sync. |
 | `diff --file F [--against GIT_REF]` | What changed in the design since the specs on disk (or committed at a ref). |
@@ -146,7 +150,7 @@ That writes `.mcp.json` for Claude Code and `opencode.json` for OpenCode: a `wes
 | `zip [source] --zip F` | Everything a repo needs, as a zip. |
 | `init [--client claude\|opencode\|both] [--global] [--no-plugin]` | Claude Code: MCP server in `.mcp.json`. OpenCode 2 / OpenChamber: the native plugin (`.opencode/plugins/`, or `~/.config/opencode/plugins/` with `--global`); `--no-plugin`: MCP server in `opencode.json`. |
 
-Source: `--file F` (default for `serve`/`mcp`: the first `design/*.figcraft`), `--mcp` (spawns `figcraft-cli mcp`), or `--attach PORT` (running app); and/or non-visual fronts: `--surface FILE` (OpenAPI JSON/YAML, MCP tool list, `weshcraft.surface.json`; repeatable) and `--mcp-server "CMD"` (repeatable).
+Source: `--file F` (default for `serve`/`mcp`: the first `wcraft/design/*.figcraft`), `--mcp` (spawns `figcraft-cli mcp`), or `--attach PORT` (running app); and/or non-visual fronts: `--surface FILE` (OpenAPI JSON/YAML, MCP tool list, `weshcraft.surface.json`; repeatable) and `--mcp-server "CMD"` (repeatable).
 
 ### MCP tools
 
@@ -164,35 +168,46 @@ The finer tools of earlier versions (`design_*`, `weshcraft_check`, `weshcraft_r
 
 ## What gets generated
 
+Everything WeshCraft writes for a project lives in one folder, `wcraft/`:
+
 ```
-prototype/index.html        clickable prototype (FigCraft prototype links wired, data-node ids)
-prototype/screens/*.png     FigCraft renders (live MCP only), the visual reference
-prototype/figcraft/*.html   FigCraft Dev Mode HTML per screen (live MCP only)
-specs/README.md             index + traceability (screen → operations)
-specs/FUNCTIONS.md          how the product works: functions, who uses them, their screens, operations and data, the journey (Mermaid)
-specs/LOGIC.md              rules (validation, permission, calculation, policy, event) and lifecycles (state diagrams)
-specs/DATA.md               entities, relations (erDiagram), who writes / reads / shows them, lifecycles
-specs/API.md                operations, public endpoints and MCP tools by function: called from, returns
-specs/ARCHITECTURE.md       components (clients, front ends, interfaces, services, stores, external), technologies, links
-specs/LINKS.md              front ⇄ back map: operations → layers, entity fields → layers, gaps
-specs/TRACE.md, trace.json  spec ⇄ code: element → code tagged `@weshcraft <ref>`, untraced elements, unknown tags
-design/weshcraft.graph.mjs  product graph for codegraph (never run): functions → screens → operations → entities → code
-specs/CHANGES.md            design changelog, newest first (one entry per regeneration that changed the design)
-specs/PARITY.md             parity report; specs/parity.json
-specs/manifest.json         the extracted inventory
-specs/front/mcp/*.md        MCP server index + one spec per tool (arguments, rules, safety hints, example, criteria)
-specs/front/api/*.md        public API index + one spec per endpoint (parameters, body, responses, curl, criteria)
-specs/front/screens/*.md    purpose, layout tree with auto layout, root CSS, copy table with typography,
-                            colour and WCAG contrast, components, interactions, inputs, back-end calls,
-                            tokens, designer annotations, acceptance criteria, notes
-specs/front/components/*.md properties, variants, anatomy, CSS per variant, (React from FigCraft), criteria
-specs/front/tokens.md|.css  variables per collection and mode, as CSS custom properties
-specs/front/flows.md        navigation graph (Mermaid) and edges
-specs/back/domain.md        entities and fields, with sample values from the design
-specs/back/api.md           operations per screen, request fields, errors, open questions
-specs/back/openapi.json     OpenAPI 3.1 with x-weshcraft node references
-specs/back/conventions.md   auth, errors, pagination, idempotency, observability
+wcraft/
+├── design/                       the design documents (FigCraft) and the surface files
+│   └── <name>.figcraft           the source of truth: screens, layers, tokens, back-end facts
+├── specs/                        the generated specs
+│   ├── README.md                 index + traceability (screen → operations)
+│   ├── FUNCTIONS.md              how the product works: functions, who uses them, their screens, operations and data, the journey (Mermaid)
+│   ├── LOGIC.md                  rules (validation, permission, calculation, policy, event) and lifecycles (state diagrams)
+│   ├── DATA.md                   entities, relations (erDiagram), who writes / reads / shows them, lifecycles
+│   ├── API.md                    operations, public endpoints and MCP tools by function: called from, returns
+│   ├── ARCHITECTURE.md           components (clients, front ends, interfaces, services, stores, external), technologies, links
+│   ├── LINKS.md                  front ⇄ back map: operations → layers, entity fields → layers, gaps
+│   ├── TRACE.md, trace.json      spec ⇄ code: element → code tagged `@weshcraft <ref>`, untraced elements, unknown tags
+│   ├── CHANGES.md                design changelog, newest first (one entry per regeneration that changed the design)
+│   ├── PARITY.md, parity.json    the parity report
+│   ├── manifest.json             the extracted inventory
+│   ├── front/screens/*.md        purpose, layout tree with auto layout, root CSS, copy table with typography,
+│   │                             colour and WCAG contrast, components, interactions, inputs, back-end calls,
+│   │                             tokens, designer annotations, acceptance criteria, notes
+│   ├── front/components/*.md     properties, variants, anatomy, CSS per variant, (React from FigCraft), criteria
+│   ├── front/tokens.md|.css      variables per collection and mode, as CSS custom properties
+│   ├── front/flows.md            navigation graph (Mermaid) and edges
+│   ├── front/mcp/*.md            MCP server index + one spec per tool (arguments, rules, safety hints, example, criteria)
+│   ├── front/api/*.md            public API index + one spec per endpoint (parameters, body, responses, curl, criteria)
+│   ├── back/domain.md            entities and fields, with sample values from the design
+│   ├── back/api.md               operations per screen, request fields, errors, open questions
+│   ├── back/openapi.json         OpenAPI 3.1 with x-weshcraft node references
+│   └── back/conventions.md       auth, errors, pagination, idempotency, observability
+├── prototype/                    the generated prototype: one file per page of the design
+│   ├── index.html                the page the prototype opens on: clickable (prototype links wired, data-node ids)
+│   ├── page-<name>.html          the other pages, with a top bar to switch between them
+│   ├── screens/*.png             FigCraft renders (live MCP only), the visual reference
+│   └── figcraft/*.html           FigCraft Dev Mode HTML per screen (live MCP only)
+├── graph.mjs                     product graph for codegraph (never run): functions → screens → operations → entities → code
+└── config.json                   the project's settings: the remembered design, the spec folders
 ```
+
+A project written before the `wcraft/` folder keeps nothing where it was: on the first run WeshCraft moves the old `specs/`, `prototype/`, `design/` and `.weshcraft.json` into it (a `specs/` folder that is not WeshCraft's is left alone).
 
 See [`examples/ridgeline-onboarding/`](examples/ridgeline-onboarding/) for a full output, [`examples/account/`](examples/account/) for a small design that uses every front ⇄ back convention (bindings, annotations with results, inputs, and one deliberate gap), and [`examples/billing/`](examples/billing/) for a service with no screens: an MCP server and a public API.
 
@@ -222,7 +237,7 @@ Front-end facts come straight from the design. Back-end facts are **explicit** w
 |---|---|---|
 | `github:owner/repo[@branch]` | commit to `branch` (default `weshcraft/specs`) via the API; PR opened once, then its description updated (`--no-sync-pr`: branch only). Files whose blob already matches are not re-sent; an unchanged tree makes no commit. | `GITHUB_TOKEN` (contents + pull requests write), or a token typed in the browser (memory only) |
 | `gitlab:group/project[@branch]` | same on GitLab.com or self-managed (`--api-url https://host/api/v4`), MR instead of PR | `GITLAB_TOKEN` (`api` scope) |
-| `git[@branch]` | `git add` + `git commit` of **only** `prototype/`, `specs/`, the design file and the CI file, in the repository around `--out`. Never switches branches (`@branch` must be checked out), never touches your other changes, refuses mid-merge/rebase, runs your hooks. `--sync-push` then pushes. | your git config |
+| `git[@branch]` | `git add` + `git commit` of **only** `wcraft/prototype/`, `wcraft/specs/`, the design file and the CI file, in the repository around `--out`. Never switches branches (`@branch` must be checked out), never touches your other changes, refuses mid-merge/rebase, runs your hooks. `--sync-push` then pushes. | your git config |
 
 Auto sync runs after a regeneration only when parity is OK, so a branch never receives specs that disagree with the prototype. `--sync-manual` syncs only when asked (sync pill, **Publish & sync**, `weshcraft_sync`).
 
@@ -236,7 +251,7 @@ This repository's own tests run in `.github/workflows/ci.yml` and `.gitlab-ci.ym
 
 - `serve` listens on 127.0.0.1 only unless you pass `--token` (then every request needs it; the browser gets an HttpOnly cookie).
 - GitHub/GitLab access is inherited, in this order: a token typed in the publish dialog, `GITHUB_TOKEN`/`GH_TOKEN`/`GITLAB_TOKEN`/`GL_TOKEN`, the account signed in to OpenChamber (`~/.config/openchamber`), the `gh`/`glab` login, git's credential helper. Tokens stay in the local server process: never written to disk, never sent to the browser or the OpenChamber pages (they only see which source is used).
-- File paths from MCP and HTTP are confined to the output folder; uploads and new designs are written under `design/`.
+- File paths from MCP and HTTP are confined to the WeshCraft folder inside the output folder; uploads and new designs are written under `wcraft/design/`.
 - Design edits are written atomically (temporary file + rename); WeshCraft's own saves are recognised by content hash, so only outside changes trigger a reload. Undo history lives in memory (200 steps) and is shared by everyone editing through the same server.
 - FigCraft's own `--automation-read-root` / `--automation-write-root` flags still apply to the FigCraft process; pass them through `--figcraft-cli` wrappers when you want an agent confined.
 
@@ -255,6 +270,7 @@ The output is a versioned, tool-independent spec format — see [docs/SPEC-FORMA
 
 ```
 bin/weshcraft.mjs          CLI
+src/layout.mjs             the wcraft/ folder: every path WeshCraft writes, and the move from the old layout
 src/design/                design store (edit .figcraft, undo/redo, save), props vocabulary, agent tools
 src/figcraft/              MCP client + sources (file, headless, attached)
 src/model/                 normalised model + manifest extraction

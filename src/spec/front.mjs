@@ -6,6 +6,7 @@ import { nodeCss, fontWeight } from '../proto/html.mjs';
 import { embedContract, notesBlock } from './contract.mjs';
 import { screenLinkRows, linkContract } from './links.mjs';
 import { functionOfScreen } from '../model/functions.mjs';
+import { spec, proto, link } from '../layout.mjs';
 
 const NOTES_PLACEHOLDER = '_No notes yet. Agent or human additions go here; WeshCraft keeps this block when it regenerates the file._';
 
@@ -88,9 +89,13 @@ export function screenSpec(model, manifest, screen, { notes, ops = [], code = nu
 
   const fn = functionOfScreen(manifest, screen.key);
   const L = [];
+  const here = spec('front/screens', `${screen.key}.md`);
+  const rel = to => link(here, to);
+  // The prototype is one file per page: this screen lives in the file of its page.
+  const pageFile = manifest.pages?.find(p => p.screens.includes(screen.key))?.file ?? 'index.html';
   L.push(`# Screen: ${screen.name}`);
   L.push('');
-  L.push(`| | |\n|---|---|\n| Function | ${fn ? `[${mdEscape(fn.name)}](../../FUNCTIONS.md#${fn.key})${fn.summary ? ` — ${mdEscape(fn.summary)}` : ''}` : 'not in a function yet ([functions](../../FUNCTIONS.md))'} |\n| Code tag | \`@weshcraft ${screen.key}\` ([trace](../../TRACE.md)) |\n| Node | ${ref(screen.id)} |\n| Page | ${mdEscape(screen.page)}${screen.section ? ` / ${mdEscape(screen.section)}` : ''} |\n| Frame | ${screen.width} × ${screen.height} px |\n| Dev status | ${screen.devStatus ?? 'not marked'} |\n| Fingerprint | \`${screen.fingerprint}\` |\n| Prototype | [prototype/index.html#${screen.key}](../../prototype/index.html#${screen.key})${hasRender ? ` · [FigCraft render](../../prototype/screens/${screen.key}.png)` : ''} |`);
+  L.push(`| | |\n|---|---|\n| Function | ${fn ? `[${mdEscape(fn.name)}](../../FUNCTIONS.md#${fn.key})${fn.summary ? ` — ${mdEscape(fn.summary)}` : ''}` : 'not in a function yet ([functions](../../FUNCTIONS.md))'} |\n| Code tag | \`@weshcraft ${screen.key}\` ([trace](../../TRACE.md)) |\n| Node | ${ref(screen.id)} |\n| Page | ${mdEscape(screen.page)}${screen.section ? ` / ${mdEscape(screen.section)}` : ''} |\n| Frame | ${screen.width} × ${screen.height} px |\n| Dev status | ${screen.devStatus ?? 'not marked'} |\n| Fingerprint | \`${screen.fingerprint}\` |\n| Prototype | [${proto(pageFile)}#${screen.key}](${rel(proto(pageFile))}#${screen.key})${hasRender ? ` · [FigCraft render](${rel(proto('screens', `${screen.key}.png`))})` : ''} |`);
   L.push('');
   L.push('## Purpose');
   L.push('');

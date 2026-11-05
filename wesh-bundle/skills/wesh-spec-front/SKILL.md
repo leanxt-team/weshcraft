@@ -1,14 +1,14 @@
 ---
 name: wesh-spec-front
-description: Enrich WeshCraft front specs (specs/front/*.md) from a FigCraft prototype: states, a11y, analytics, open questions. Never changes generated facts. Use for "enrich/complete front spec".
+description: Enrich WeshCraft front specs (wcraft/specs/front/*.md) from a FigCraft prototype: states, a11y, analytics, open questions. Never changes generated facts. Use for "enrich/complete front spec".
 ---
 
 Spec facts (layout, copy, typography, colours, interactions, components, sizes) are generated from the prototype and contract-checked. Do not restate, reword or "fix" them. You write only the Notes block (`weshcraft_notes`, or between the `weshcraft:notes` markers when editing files).
 
 
-Read the screen's function in `specs/FUNCTIONS.md` first: its purpose frames the screen's states, empty cases and acceptance criteria.
-Rules and lifecycles that touch the screen are in `specs/LOGIC.md` (what it applies to): states and errors follow them.
-Existing code for the screen: `weshcraft_read {what:"trace"}` (or `specs/TRACE.md`) lists what is tagged `@weshcraft <key>`; `codegraph_explore "<screen name> screen"` shows it with its calls. Notes that name code cite `file:symbol`.
+Read the screen's function in `wcraft/specs/FUNCTIONS.md` first: its purpose frames the screen's states, empty cases and acceptance criteria.
+Rules and lifecycles that touch the screen are in `wcraft/specs/LOGIC.md` (what it applies to): states and errors follow them.
+Existing code for the screen: `weshcraft_read {what:"trace"}` (or `wcraft/specs/TRACE.md`) lists what is tagged `@weshcraft <key>`; `codegraph_explore "<screen name> screen"` shows it with its calls. Notes that name code cite `file:symbol`.
 
 ## Read first
 The spec (`weshcraft_read {what:"spec", path}`), the screens it links, `weshcraft_read {what:"manifest", screen}` for ids. Existing code for the same screen or component, when the repo has it: match its patterns.
@@ -21,7 +21,7 @@ The spec (`weshcraft_read {what:"spec", path}`), the screens it links, `weshcraf
 - `### Analytics`: one event per user decision (`screen_viewed`, `<action>_clicked`), properties, no personal data.
 - `### Open questions`: numbered, each with a recommended answer; prefer "add a state/frame in FigCraft" over prose decisions.
 
-## MCP tools and API endpoints (specs/front/mcp, specs/front/api)
+## MCP tools and API endpoints (wcraft/specs/front/mcp, wcraft/specs/front/api)
 The user is an agent (tools) or a developer (endpoints). Write, when they apply:
 - `### When to use`: the situations an agent should pick this tool, and the near-miss tools it should not be confused with.
 - `### Errors`: each failure as the tool result / status + body the caller gets, worded so an agent can recover.

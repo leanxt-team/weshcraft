@@ -1,6 +1,6 @@
 // The technologies an architecture is drawn with: an icon, what each one is and what it could be
 // replaced with. Shared by the browser (Architecture view, component dialog) and the server
-// (specs/ARCHITECTURE.md, "Technologies"). A component's `tech` text is matched against the names and
+// (wcraft/specs/ARCHITECTURE.md, "Technologies"). A component's `tech` text is matched against the names and
 // aliases ("Node 22 · Fastify · PostgreSQL 16" → Node.js, Fastify, PostgreSQL).
 // Icons: brand marks from Simple Icons (CC0, techicons.js), a lettered badge where a brand has none
 // there, and generic glyphs (database, queue, function…) for cloud services and to fill the gaps.

@@ -1,8 +1,8 @@
 // The product's other aspects, one spec each, next to FUNCTIONS.md:
-//   specs/LOGIC.md         rules and state machines
-//   specs/DATA.md          entities, relations, who reads / writes / shows them (fields in back/domain.md)
-//   specs/API.md           operations, public endpoints and MCP tools by function (details in back/api.md, front/api, front/mcp)
-//   specs/ARCHITECTURE.md  components and how they talk
+//   wcraft/specs/LOGIC.md         rules and state machines
+//   wcraft/specs/DATA.md          entities, relations, who reads / writes / shows them (fields in back/domain.md)
+//   wcraft/specs/API.md           operations, public endpoints and MCP tools by function (details in back/api.md, front/api, front/mcp)
+//   wcraft/specs/ARCHITECTURE.md  components and how they talk
 // Each carries a contract (checked by parity) and a Notes block (decisions, open questions).
 import { mdEscape } from '../util/common.mjs';
 import { embedContract, notesBlock } from './contract.mjs';
@@ -14,7 +14,7 @@ const mid = s => String(s).replace(/[^A-Za-z0-9_]/g, '_');
 const q = s => String(s).replace(/"/g, "'").replace(/[<>|]/g, ' ');
 const opLabel = o => `${o.method} ${o.path}`;
 
-/** Links to an element id from a spec at specs/<file>. */
+/** Links to an element id from a spec at wcraft/specs/<file>. */
 function elementLink(m, id) {
   const op = m.domain.operations.find(o => o.key === id);
   if (op) return `[\`${opLabel(op)}\`](back/api.md#${op.key})`;

@@ -7,6 +7,7 @@ import { props, tokens as tokenLines } from '../design/describe.mjs';
 import { hexOf } from '../design/props.mjs';
 import { openEditable } from '../design/source.mjs';
 import { designCandidates, rememberDesign } from '../design/discover.mjs';
+import { DESIGN } from '../layout.mjs';
 
 import { toDeclared } from '../model/functions.mjs';
 
@@ -79,7 +80,8 @@ export async function designApi(ws, req, url, read, { watchFile } = {}) {
       if (ws.source) return { status: 409, body: { error: `this project already has a design: ${ws.describe()}` } };
       const b = await json(read);
       const base = String(b.name || 'design').replace(/[^\w.-]+/g, '-').replace(/^-+|-+$/g, '') || 'design';
-      const file = path.join(ws.outDir, 'design', `${base}.figcraft`);
+      const file = path.join(ws.outDir, DESIGN, `${base}.figcraft`);
+      fs.mkdirSync(path.dirname(file), { recursive: true });
       ws.useSource(openEditable(file, b.name || base));
       watchFile?.(file);
       remember(ws.outDir, path.relative(ws.outDir, file).split(path.sep).join('/'));

@@ -1,16 +1,18 @@
 // Which design a project already has, so WeshCraft opens it without being told:
-//   1. the one chosen before (.weshcraft.json → file)
-//   2. design/*.figcraft (or the project root, or api/)
-//   3. the only .figcraft anywhere in the project (monorepos: apps/web/design/…)
+//   1. the one chosen before (wcraft/config.json → file)
+//   2. wcraft/design/*.figcraft (where WeshCraft keeps the design documents)
+//   3. design/*.figcraft, the project root or api/ (a project that kept them there)
+//   4. the only .figcraft anywhere in the project (monorepos: apps/web/design/…)
 // Several candidates and no choice yet: the editor lets the user pick (and remembers it).
 import fs from 'node:fs';
 import path from 'node:path';
+import { CONFIG, DESIGN, LEGACY } from '../layout.mjs';
 
 const SKIP = new Set(['node_modules', '.git', '.hg', '.svn', 'dist', 'build', 'coverage', '.next', '.cache', '.weshcraft-demo', 'prototype', 'specs', 'target', 'vendor']);
 const IS_DESIGN = /\.figcraft(\.json)?$/i;
-export const PROJECT_CONFIG = '.weshcraft.json';
+export const PROJECT_CONFIG = CONFIG;
 
-/** FigCraft documents anywhere in the project, design/ first, then newest. */
+/** FigCraft documents anywhere in the project, the WeshCraft folder first, then newest. */
 export function designCandidates(root, { maxDepth = 6, limit = 50 } = {}) {
   const out = [];
   const walk = (dir, depth) => {
@@ -25,7 +27,8 @@ export function designCandidates(root, { maxDepth = 6, limit = 50 } = {}) {
     }
   };
   walk(root, 0);
-  return out.sort((a, b) => (a.file.startsWith('design/') ? 0 : 1) - (b.file.startsWith('design/') ? 0 : 1) || b.mtime - a.mtime).slice(0, limit);
+  const rank = f => (f.startsWith(`${DESIGN}/`) ? 0 : f.startsWith(`${LEGACY.design}/`) ? 1 : 2);
+  return out.sort((a, b) => rank(a.file) - rank(b.file) || b.mtime - a.mtime).slice(0, limit);
 }
 
 /** The project's design: {file (relative), how} or null. */
@@ -34,10 +37,10 @@ export function projectDesign(root) {
     const remembered = JSON.parse(fs.readFileSync(path.join(root, PROJECT_CONFIG), 'utf8')).file;
     if (remembered && fs.existsSync(path.join(root, remembered))) return { file: remembered, how: 'remembered' };
   } catch { /* none */ }
-  for (const d of ['design', '.', 'api']) {
+  for (const d of [DESIGN, LEGACY.design, '.', 'api']) {
     let names = [];
     try { names = fs.readdirSync(path.join(root, d)).filter(n => IS_DESIGN.test(n)).sort(); } catch { /* no folder */ }
-    if (names.length) return { file: path.posix.join(d, names[0]).replace(/^\.\//, ''), how: 'design-folder' };
+    if (names.length) return { file: path.posix.join(d, names[0]).replace(/^\.\//, ''), how: d === DESIGN ? 'weshcraft-folder' : 'design-folder' };
   }
   const all = designCandidates(root, { limit: 2 });
   return all.length === 1 ? { file: all[0].file, how: 'only-one' } : null;
@@ -49,16 +52,18 @@ export function rememberDesign(root, file) {
   try { cfg = JSON.parse(fs.readFileSync(f, 'utf8')); } catch { /* new */ }
   if (cfg.file === file) return;
   cfg.file = file;
+  fs.mkdirSync(path.dirname(f), { recursive: true });
   fs.writeFileSync(f, `${JSON.stringify(cfg, null, 2)}\n`);
 }
 
-/** The project's WeshCraft settings (.weshcraft.json): the remembered design, the specs' folders. */
+/** The project's WeshCraft settings (wcraft/config.json): the remembered design, the specs' folders. */
 export function readProjectConfig(root) {
   try { return JSON.parse(fs.readFileSync(path.join(root, PROJECT_CONFIG), 'utf8')); } catch { return {}; }
 }
 export function updateProjectConfig(root, patch) {
   const cfg = { ...readProjectConfig(root), ...patch };
   for (const [k, v] of Object.entries(patch)) if (v == null) delete cfg[k];
+  fs.mkdirSync(path.dirname(path.join(root, PROJECT_CONFIG)), { recursive: true });
   fs.writeFileSync(path.join(root, PROJECT_CONFIG), `${JSON.stringify(cfg, null, 2)}\n`);
   return cfg;
 }

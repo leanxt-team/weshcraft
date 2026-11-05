@@ -6,34 +6,29 @@
 // Refs: any key from the specs (fn-…, scr-…, cmp-…, op-…), "METHOD /path", an entity name, an MCP tool name.
 //
 // From the tags and the manifest WeshCraft writes:
-//   design/weshcraft.graph.mjs  the product as code: one symbol per function, screen, component, operation,
+//   wcraft/graph.mjs      the product as code: one symbol per function, screen, component, operation,
 //                               entity and MCP tool, calling each other the way the product works and calling
 //                               the tagged code. Never imported, never run: code graphs index it, so
 //                               `codegraph explore "how does Sign up work"` returns the function, its screens,
 //                               operations and the code behind them, and `codegraph impact <symbol>` reaches
 //                               the screens and functions a code change touches.
-//   specs/TRACE.md, trace.json  element → code locations, what has no code yet, tags that point nowhere.
+//   wcraft/specs/TRACE.md, trace.json  element → code locations, what has no code yet, tags that point nowhere.
 import fs from 'node:fs';
 import path from 'node:path';
+import { GRAPH, ROOT, spec, link } from '../layout.mjs';
 
-export const GRAPH_FILE = 'design/weshcraft.graph.mjs';
-const GRAPH_NAME = 'weshcraft.graph.mjs';
+export const GRAPH_FILE = GRAPH;
 
-/** Where the product graph goes: next to the design (or the surface file) when it is in the project, else design/. */
-export function graphPath(outDir, inputs = []) {
-  const root = path.resolve(outDir);
-  for (const x of inputs) {
-    const abs = path.resolve(x.abs ?? x);
-    if (abs.startsWith(root + path.sep)) return path.posix.join(path.relative(root, path.dirname(abs)).split(path.sep).join('/') || '.', GRAPH_NAME).replace(/^\.\//, '');
-  }
+/** Where the product graph goes: in the WeshCraft folder, with everything else. */
+export function graphPath() {
   return GRAPH_FILE;
 }
 
-/** The product graph path a previous run recorded (specs/trace.json), else the default. */
+/** The product graph path a previous run recorded (wcraft/specs/trace.json), else the default. */
 export function recordedGraphPath(outDir) {
-  try { return JSON.parse(fs.readFileSync(path.join(outDir, 'specs/trace.json'), 'utf8')).graph || GRAPH_FILE; } catch { return GRAPH_FILE; }
+  try { return JSON.parse(fs.readFileSync(path.join(outDir, spec('trace.json')), 'utf8')).graph || GRAPH_FILE; } catch { return GRAPH_FILE; }
 }
-const SKIP = new Set(['node_modules', '.git', 'dist', 'build', 'out', 'target', 'vendor', '.next', '.nuxt', '.svelte-kit', '.venv', 'venv', '__pycache__', 'coverage', '.codegraph', 'prototype', 'specs', 'Pods', '.gradle', '.idea', '.vscode', '.turbo', '.cache']);
+const SKIP = new Set(['node_modules', '.git', 'dist', 'build', 'out', 'target', 'vendor', '.next', '.nuxt', '.svelte-kit', '.venv', 'venv', '__pycache__', 'coverage', '.codegraph', ROOT, 'prototype', 'specs', 'Pods', '.gradle', '.idea', '.vscode', '.turbo', '.cache']);
 const LANG = {
   js: 'javascript', jsx: 'javascript', mjs: 'javascript', cjs: 'javascript', ts: 'typescript', tsx: 'typescript', mts: 'typescript', cts: 'typescript',
   vue: 'vue', svelte: 'svelte', astro: 'astro', py: 'python', go: 'go', rs: 'rust', java: 'java', kt: 'kotlin', kts: 'kotlin', swift: 'swift',
@@ -78,7 +73,9 @@ export function scanTags(root, { maxFiles = 20000 } = {}) {
       const abs = path.join(dir, e.name);
       if (e.isDirectory()) { if (!SKIP.has(e.name) && !e.name.startsWith('.')) walk(abs); continue; }
       const lang = LANG[path.extname(e.name).slice(1).toLowerCase()];
-      if (!lang || e.name === GRAPH_NAME) continue;
+      if (!lang) continue;
+      // The product graph is generated from the tags: it must not be read as a source of them.
+      if (path.relative(root, abs).split(path.sep).join('/') === GRAPH_FILE) continue;
       let st;
       try { st = fs.statSync(abs); } catch { continue; }
       if (st.size > 1_000_000) continue;
@@ -117,12 +114,12 @@ export function elements(manifest) {
   const out = [];
   const ops = manifest.domain.operations;
   const fns = manifest.functions?.items ?? [];
-  for (const f of fns) out.push({ id: f.key, kind: 'function', name: f.name, spec: `specs/FUNCTIONS.md#${f.key}`, refs: [f.key], summary: f.summary });
-  for (const s of manifest.screens) out.push({ id: s.key, kind: 'screen', name: s.name, spec: `specs/front/screens/${s.key}.md`, refs: [s.key] });
-  for (const c of manifest.components) out.push({ id: c.key, kind: 'component', name: c.name, spec: `specs/front/components/${c.key}.md`, refs: [c.key] });
-  for (const o of ops) out.push({ id: o.key, kind: 'operation', name: `${o.method} ${o.path}`, spec: `specs/back/api.md#${o.key}`, refs: [o.key, `${o.method} ${o.path}`] });
-  for (const e of manifest.domain.entities) out.push({ id: `entity:${e.name}`, kind: 'entity', name: e.name, spec: `specs/back/domain.md#entity-${e.name.toLowerCase()}`, refs: [e.name, `entity:${e.name}`] });
-  for (const t of manifest.surface?.mcp?.tools ?? []) out.push({ id: `tool:${t.name}`, kind: 'tool', name: t.name, spec: `specs/front/mcp/${t.key}.md`, refs: [t.name, `tool:${t.name}`] });
+  for (const f of fns) out.push({ id: f.key, kind: 'function', name: f.name, spec: `${spec('FUNCTIONS.md')}#${f.key}`, refs: [f.key], summary: f.summary });
+  for (const s of manifest.screens) out.push({ id: s.key, kind: 'screen', name: s.name, spec: spec('front/screens', `${s.key}.md`), refs: [s.key] });
+  for (const c of manifest.components) out.push({ id: c.key, kind: 'component', name: c.name, spec: spec('front/components', `${c.key}.md`), refs: [c.key] });
+  for (const o of ops) out.push({ id: o.key, kind: 'operation', name: `${o.method} ${o.path}`, spec: `${spec('back/api.md')}#${o.key}`, refs: [o.key, `${o.method} ${o.path}`] });
+  for (const e of manifest.domain.entities) out.push({ id: `entity:${e.name}`, kind: 'entity', name: e.name, spec: `${spec('back/domain.md')}#entity-${e.name.toLowerCase()}`, refs: [e.name, `entity:${e.name}`] });
+  for (const t of manifest.surface?.mcp?.tools ?? []) out.push({ id: `tool:${t.name}`, kind: 'tool', name: t.name, spec: spec('front/mcp', `${t.key}.md`), refs: [t.name, `tool:${t.name}`] });
   return out;
 }
 
@@ -213,7 +210,7 @@ export function graphModule(manifest, trace, { source = '', graphFile = GRAPH_FI
     for (const t of e.code) { const im = importOf(t); if (im) inner.push(im.cls ? `new ${im.name}();` : `${im.name}();`); }
     return inner.length ? `{\n  ${inner.join('\n  ')}\n}` : '{}';
   };
-  body.push(`/**\n * How «${m.source.name}» works: its functions, in journey order.\n * Spec: specs/FUNCTIONS.md\n */\nexport function ${root}() {\n  ${(m.functions?.items ?? []).map(f => `${sym.get(f.key)}();`).join('\n  ') || '// no functions yet'}\n}`);
+  body.push(`/**\n * How «${m.source.name}» works: its functions, in journey order.\n * Spec: ${spec('FUNCTIONS.md')}\n */\nexport function ${root}() {\n  ${(m.functions?.items ?? []).map(f => `${sym.get(f.key)}();`).join('\n  ') || '// no functions yet'}\n}`);
   for (const e of trace.elements) {
     const extra = [];
     if (e.kind === 'function') {
@@ -238,14 +235,19 @@ export function graphModule(manifest, trace, { source = '', graphFile = GRAPH_FI
   return `${head.join('\n')}${imports.size ? '\n' : ''}\n${body.join('\n\n')}\n`;
 }
 
-// ---- specs/TRACE.md ---------------------------------------------------------------------
+// ---- wcraft/specs/TRACE.md ---------------------------------------------------------------------
 export function traceSpec(manifest, trace, { graphFile = GRAPH_FILE } = {}) {
   const L = ['# Spec ⇄ code', ''];
   const { traced, total } = trace.coverage;
-  L.push(`${traced} of ${total} screens, components, operations, entities and tools have code tagged for them. Tag the code that implements an element with its ref in a comment (\`// @weshcraft scr-sign-up\`, \`# @weshcraft POST /users\`); WeshCraft finds the tags, lists them here and links them in [\`${graphFile}\`](../${graphFile}), the product graph code graphs index (\`codegraph explore "how does <function> work"\`).`);
+  const here = spec('TRACE.md');
+  const rel = to => link(here, to);
+  L.push(`${traced} of ${total} screens, components, operations, entities and tools have code tagged for them. Tag the code that implements an element with its ref in a comment (\`// @weshcraft scr-sign-up\`, \`# @weshcraft POST /users\`); WeshCraft finds the tags, lists them here and links them in [\`${graphFile}\`](${rel(graphFile)}), the product graph code graphs index (\`codegraph explore "how does <function> work"\`).`);
   L.push('');
   const byId = new Map(trace.elements.map(e => [e.id, e]));
-  const row = e => `| ${e.kind} | [${e.name.replace(/\|/g, '\\|')}](${e.spec.replace(/^specs\//, '')}) | \`@weshcraft ${tagFor(e)}\` | ${e.code.map(t => `\`${t.file}:${t.line}\`${t.symbol ? ` ${t.symbol}` : ''}`).join('<br>') || '—'} |`;
+  const row = e => {
+    const [file, anchor] = e.spec.split('#');
+    return `| ${e.kind} | [${e.name.replace(/\|/g, '\\|')}](${rel(file)}${anchor ? `#${anchor}` : ''}) | \`@weshcraft ${tagFor(e)}\` | ${e.code.map(t => `\`${t.file}:${t.line}\`${t.symbol ? ` ${t.symbol}` : ''}`).join('<br>') || '—'} |`;
+  };
   const seen = new Set();
   const section = (title, ids) => {
     const list = ids.map(id => byId.get(id)).filter(e => e && !seen.has(e.id));

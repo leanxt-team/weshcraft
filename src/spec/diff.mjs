@@ -1,5 +1,5 @@
 // What changed in the design between two manifests: screens, copy, interactions, components,
-// tokens, entities, operations and front ⇄ back links. Feeds specs/CHANGES.md, sync commit
+// tokens, entities, operations and front ⇄ back links. Feeds wcraft/specs/CHANGES.md, sync commit
 // messages and PR/MR descriptions, so a spec update reads like a design changelog.
 import { mdEscape, stableStringify } from '../util/common.mjs';
 

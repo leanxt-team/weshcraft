@@ -802,6 +802,45 @@ button.link { border: 0; background: none; padding: 0; cursor: pointer; justify-
 .ed-center:has(.ed-empty:not([hidden])) .ed-tools { display: none; }
 .ed-canvas:focus, .ed-canvas:focus-visible { outline: none; }
 
+/* ==== executive summary ==================================================================== */
+.exview { position: relative; padding: 4px 2px 20px; container-type: inline-size; display: flex; flex-direction: column; gap: 12px; }
+.ex-hero { padding: 15px 17px; border-radius: var(--r-lg); background: var(--glass-strong); box-shadow: inset 0 0 0 1px var(--hairline); }
+.ex-hero-top { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.ex-hero h2 { margin: 0; font-size: 20px; font-weight: 650; letter-spacing: -.02em; }
+.ex-status { font-size: 11.5px; font-weight: 500; padding: 3px 9px; border-radius: 99px; background: var(--fill); color: var(--text-2); }
+.ex-status.ok { background: var(--ok-soft); color: var(--ok); }
+.ex-status.bad { background: var(--amber-soft); color: var(--amber); }
+.ex-lead { margin: 6px 0 0; font-size: 13px; color: var(--text-2); }
+.ex-note { margin: 5px 0 0; font-size: 12px; color: var(--muted); }
+.ex-card { padding: 14px 16px 16px; border-radius: var(--r-lg); background: var(--glass-thin); box-shadow: inset 0 0 0 1px var(--hairline); }
+.ex-card h3 { margin: 0; font-size: 14px; font-weight: 650; letter-spacing: -.01em; }
+.ex-hint { margin: 3px 0 12px; font-size: 12px; color: var(--muted); }
+.ex-journey { position: relative; display: flex; flex-wrap: nowrap; gap: 10px; align-items: stretch; overflow-x: auto; scrollbar-width: none; padding-bottom: 2px; }
+.ex-journey::-webkit-scrollbar { display: none; }
+.ex-fn { position: relative; z-index: 1; flex: none; display: grid; gap: 2px; min-width: 148px; max-width: 240px; padding: 10px 12px; border: 0; border-radius: var(--r-md); background: var(--glass-strong); box-shadow: inset 0 0 0 1px var(--hairline); text-align: left; font: inherit; color: var(--text); cursor: pointer; }
+.ex-fn:hover { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 45%, var(--hairline)); }
+.ex-fn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.ex-fn-name { font-size: 14px; font-weight: 650; letter-spacing: -.01em; }
+.ex-fn-sum { font-size: 12px; line-height: 1.35; color: var(--text-2); }
+.ex-fn-who { font-size: 11px; color: var(--muted); }
+.ex-pages { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 10px 14px; }
+.ex-page h4, .ex-col h4 { margin: 0 0 6px; font-size: 11px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); }
+.ex-screen, .ex-op, .ex-ent { display: block; width: 100%; text-align: left; border: 0; border-radius: 10px; padding: 7px 10px; margin-bottom: 5px; background: var(--glass-strong); box-shadow: inset 0 0 0 1px var(--hairline); font: inherit; font-size: 12.5px; color: var(--text); cursor: pointer; }
+.ex-screen:hover, .ex-op:hover, .ex-ent:hover { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 45%, var(--hairline)); }
+.ex-screen:focus-visible, .ex-op:focus-visible, .ex-ent:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.ex-api { position: relative; display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 0 32px; align-items: start; }
+.ex-api .ex-ent { background: var(--glass-strong); }
+.ex-wires { position: absolute; top: 0; left: 0; z-index: 0; pointer-events: none; overflow: visible; }
+.ex-wires .w { fill: none; stroke-width: 1.5; stroke-linecap: round; opacity: .5; }
+.ex-wires .w.next { stroke: var(--accent); stroke-width: 2; opacity: .85; }
+.ex-wires .w.data { stroke: var(--field); opacity: .55; }
+.ex-wires marker path { fill: var(--muted); }
+.ex-more { margin: 10px 0 0; font-size: 12px; color: var(--text-2); }
+.ex-more code { font-size: 11.5px; }
+.ex-open ul { margin: 0; padding-left: 18px; font-size: 12.5px; color: var(--text-2); }
+.ex-open li { margin: 3px 0; }
+@container (max-width: 420px) { .ex-api { grid-template-columns: 1fr; gap: 10px; } }
+
 /* ==== product functions ===================================================================== */
 .fnview { position: relative; padding: 4px 2px 16px; container-type: inline-size; }
 .fn-banner { display: flex; align-items: center; gap: 12px; margin: 0 0 14px; padding: 10px 12px; border-radius: 12px; background: var(--accent-soft); font-size: 12.5px; line-height: 1.45; }

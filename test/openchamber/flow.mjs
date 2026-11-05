@@ -12,7 +12,7 @@ const waitFor = async (fn, ms = 15000) => { const t0 = Date.now(); for (;;) { co
 fs.rmSync(WORK, { recursive: true, force: true });
 const mk = (n, files = {}) => { const d = path.join(WORK, n); fs.mkdirSync(d, { recursive: true }); for (const [rel, src] of Object.entries(files)) { fs.mkdirSync(path.dirname(path.join(d, rel)), { recursive: true }); fs.copyFileSync(src, path.join(d, rel)); } return d; };
 const FX = n => path.join(ROOT, 'test/fixtures', n);
-const EXIST = mk('existing', { 'design/account.figcraft.json': FX('account.figcraft.json') });
+const EXIST = mk('existing', { 'wcraft/design/account.figcraft.json': FX('account.figcraft.json') });
 execSync('git init -q -b main && git config user.email t@e.com && git config user.name T && git add -A && git commit -qm design', { cwd: EXIST, shell: '/bin/sh' });
 const MONO = mk('mono', { 'apps/web/design/app.figcraft': FX('ridgeline-onboarding.figcraft') });
 const EMPTY1 = mk('empty-hand'), EMPTY2 = mk('empty-bot');
@@ -48,12 +48,12 @@ try {
   ok('existing work: the bot has the light toolset', ['weshcraft_status', 'weshcraft_read', 'weshcraft_edit'].every(n => B.tools.has(n)) && ![...B.tools.keys()].some(n => /^(design|figcraft)_/.test(n)));
   await B.call('weshcraft_edit', { ops: [{ op: 'text', id: 4, text: 'Join the trail club' }] });
   ok('bot edit appears on the canvas', !!await waitFor(async () => (await canvasText(o)).includes('Join the trail club'), 8000));
-  ok('bot edit is in the specs', !!await waitFor(async () => fs.readFileSync(path.join(EXIST, 'specs/front/screens/scr-sign-up.md'), 'utf8').includes('Join the trail club'), 8000));
+  ok('bot edit is in the specs', !!await waitFor(async () => fs.readFileSync(path.join(EXIST, 'wcraft/specs/front/screens/scr-sign-up.md'), 'utf8').includes('Join the trail club'), 8000));
   const node = o.f.locator('#edScreen [data-node="5"]');
   const bb = await node.boundingBox();
   await o.p.keyboard.down('Control'); await o.p.mouse.click(bb.x + 3, bb.y + 3); await o.p.keyboard.up('Control');
   await o.p.keyboard.press('Enter'); await sleep(150); await o.p.keyboard.type('Edited by hand'); await o.p.keyboard.press('Enter');
-  ok('hand edit is in the specs', !!await waitFor(async () => fs.readFileSync(path.join(EXIST, 'specs/front/screens/scr-sign-up.md'), 'utf8').includes('Edited by hand'), 8000));
+  ok('hand edit is in the specs', !!await waitFor(async () => fs.readFileSync(path.join(EXIST, 'wcraft/specs/front/screens/scr-sign-up.md'), 'utf8').includes('Edited by hand'), 8000));
   ok('the bot sees the hand edit', /Edited by hand/.test(await B.call('weshcraft_read', { what: 'layer', id: 5 })));
   await o.p.screenshot({ path: `${OUT}/flow-existing.png` });
   // 5. branch switch: same panel, another branch
@@ -61,7 +61,7 @@ try {
   execSync('git stash -u -q && git checkout -q -b redesign', { cwd: EXIST });
   await waitFor(async () => (await canvasText(o)).includes('Create your account'), 8000);
   const { DesignStore } = await import(path.join(ROOT, 'src/design/store.mjs'));
-  const other = DesignStore.open(path.join(EXIST, 'design/account.figcraft.json'));
+  const other = DesignStore.open(path.join(EXIST, 'wcraft/design/account.figcraft.json'));
   other.apply([{ op: 'text', id: 4, text: 'Redesigned on a branch' }]); other.saveNow();
   execSync('git commit -qam redesign && git checkout -q main', { cwd: EXIST });
   execSync('git checkout -q redesign', { cwd: EXIST });
@@ -73,7 +73,7 @@ try {
   // 2. monorepo: the only design, opened without asking
   o = await panel(MONO);
   ok('monorepo: its only design opens directly', !!await waitFor(async () => (await o.f.locator('#edScreen [data-node]').count()) > 5, 20000));
-  ok('monorepo: remembered', !!await waitFor(async () => fs.existsSync(path.join(MONO, '.weshcraft.json')) || /apps\/web\/design/.test(await o.f.locator('#source').innerText()), 5000), await o.f.locator('#source').innerText());
+  ok('monorepo: remembered', !!await waitFor(async () => fs.existsSync(path.join(MONO, 'wcraft/config.json')) || /apps\/web\/design/.test(await o.f.locator('#source').innerText()), 5000), await o.f.locator('#source').innerText());
   await o.p.close();
 
   // 3. empty project, started by hand; the bot picks it up by itself
@@ -97,7 +97,7 @@ try {
   ok('empty (bot): the bot gets the editing tools', B.tools.has('weshcraft_edit'));
   await B.call('weshcraft_edit', { ops: [{ op: 'screen', name: 'Cart', ref: 's' }, { op: 'create', parent: 's', type: 'text', props: { text: 'Your cart', x: 24, y: 60, fontSize: 24 } }] });
   ok('empty (bot): the panel switches to the editor by itself', !!await waitFor(async () => (await canvasText(o)).includes('Your cart'), 10000));
-  ok('empty (bot): specs written', !!await waitFor(async () => fs.existsSync(path.join(EMPTY2, 'specs/front/screens/scr-cart.md')), 8000));
+  ok('empty (bot): specs written', !!await waitFor(async () => fs.existsSync(path.join(EMPTY2, 'wcraft/specs/front/screens/scr-cart.md')), 8000));
   await o.p.screenshot({ path: `${OUT}/flow-bot-started.png` });
   await o.p.close();
   ok('no errors', errs.length === 0, errs.slice(0, 3).join(' | '));

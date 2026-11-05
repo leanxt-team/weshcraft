@@ -8,6 +8,7 @@ import { stableStringify } from '../util/common.mjs';
 import { functionsContract } from '../spec/functions.mjs';
 import { logicContract, dataContract, apiOverviewContract, architectureContract } from '../spec/aspects.mjs';
 import { scanTags, traceOf, graphModule, recordedGraphPath } from '../spec/trace.mjs';
+import { spec as specPath, proto as protoPath } from '../layout.mjs';
 
 const read = f => (fs.existsSync(f) ? fs.readFileSync(f, 'utf8') : null);
 const setEq = (a, b) => a.length === b.length && a.every(x => b.includes(x));
@@ -47,10 +48,10 @@ export function checkParity(manifest, outDir, { graphFile } = {}) {
 
   // Screens: fingerprint, copy, interactions, instances, inputs, back-end links.
   for (const s of manifest.screens) {
-    const file = path.join(outDir, 'specs/front/screens', `${s.key}.md`);
-    const spec = loadSpec(file, 'front-screen');
-    if (!spec) continue;
-    const { c, visible } = spec;
+    const file = path.join(outDir, specPath('front/screens'), `${s.key}.md`);
+    const screen = loadSpec(file, 'front-screen');
+    if (!screen) continue;
+    const { c, visible } = screen;
     const f = rel(file);
     checks++;
     if (c.fingerprint !== s.fingerprint) err('stale', f, `screen changed in the design since this spec was written (fingerprint ${c.fingerprint} → ${s.fingerprint})`, s.id);
@@ -93,30 +94,30 @@ export function checkParity(manifest, outDir, { graphFile } = {}) {
 
   // Product functions: the overview matches the prototype, and everything belongs to one.
   if (manifest.functions) {
-    const file = path.join(outDir, 'specs/FUNCTIONS.md');
+    const file = path.join(outDir, specPath('FUNCTIONS.md'));
     const spec = loadSpec(file, 'functions');
     if (spec) {
       checks++;
       const { declared, functions, unassigned } = spec.c;
-      if (key({ declared, functions, unassigned }) !== key(functionsContract(manifest))) err('functions-differ', 'specs/FUNCTIONS.md', 'the functions (screens, operations, data or journey) differ from the prototype');
+      if (key({ declared, functions, unassigned }) !== key(functionsContract(manifest))) err('functions-differ', specPath('FUNCTIONS.md'), 'the functions (screens, operations, data or journey) differ from the prototype');
     }
     const fns = manifest.functions;
     const scr = new Map(manifest.screens.map(x => [x.key, x]));
     const opn = new Map(manifest.domain.operations.map(o => [o.key, `${o.method} ${o.path}`]));
-    if (!fns.declared && fns.items.length) warn('functions-suggested', 'specs/FUNCTIONS.md', `${fns.items.length === 1 ? 'the function is' : `the ${fns.items.length} functions are`} suggested from the prototype: name them and give each a purpose (the Functions view, or weshcraft_edit)`);
-    for (const k of fns.unassigned.screens) { checks++; warn('not-in-a-function', 'specs/FUNCTIONS.md', `screen ${scr.get(k).name} is in no function`, scr.get(k).id); }
-    for (const k of fns.unassigned.operations) { checks++; warn('not-in-a-function', 'specs/FUNCTIONS.md', `operation ${opn.get(k)} is in no function`); }
-    for (const t of fns.unassigned.tools) { checks++; warn('not-in-a-function', 'specs/FUNCTIONS.md', `MCP tool ${t} is in no function`); }
-    for (const x of fns.missing) { checks++; warn('function-unknown-ref', 'specs/FUNCTIONS.md', `function ${fns.items.find(i => i.key === x.function)?.name ?? x.function} lists ${x.kind} ${x.ref}, which is not in the prototype`); }
-    for (const x of fns.items) if (!x.screens.length && !x.operations.length && !x.tools.length) { checks++; warn('empty-function', 'specs/FUNCTIONS.md', `function ${x.name} has no screen, operation or tool`); }
+    if (!fns.declared && fns.items.length) warn('functions-suggested', specPath('FUNCTIONS.md'), `${fns.items.length === 1 ? 'the function is' : `the ${fns.items.length} functions are`} suggested from the prototype: name them and give each a purpose (the Functions view, or weshcraft_edit)`);
+    for (const k of fns.unassigned.screens) { checks++; warn('not-in-a-function', specPath('FUNCTIONS.md'), `screen ${scr.get(k).name} is in no function`, scr.get(k).id); }
+    for (const k of fns.unassigned.operations) { checks++; warn('not-in-a-function', specPath('FUNCTIONS.md'), `operation ${opn.get(k)} is in no function`); }
+    for (const t of fns.unassigned.tools) { checks++; warn('not-in-a-function', specPath('FUNCTIONS.md'), `MCP tool ${t} is in no function`); }
+    for (const x of fns.missing) { checks++; warn('function-unknown-ref', specPath('FUNCTIONS.md'), `function ${fns.items.find(i => i.key === x.function)?.name ?? x.function} lists ${x.kind} ${x.ref}, which is not in the prototype`); }
+    for (const x of fns.items) if (!x.screens.length && !x.operations.length && !x.tools.length) { checks++; warn('empty-function', specPath('FUNCTIONS.md'), `function ${x.name} has no screen, operation or tool`); }
   }
 
   // Logic, data, API overview, architecture: each overview matches the product; declared refs exist.
   for (const [file, kind, contract, what] of [
-    ['specs/LOGIC.md', 'logic', manifest.logic && logicContract, 'rules or lifecycles'],
-    ['specs/DATA.md', 'data', manifest.data && dataContract, 'entities, relations or their use'],
-    ['specs/API.md', 'api-overview', manifest.data && apiOverviewContract, 'operations, endpoints or tools'],
-    ['specs/ARCHITECTURE.md', 'architecture', manifest.architecture && architectureContract, 'components or links'],
+    [specPath('LOGIC.md'), 'logic', manifest.logic && logicContract, 'rules or lifecycles'],
+    [specPath('DATA.md'), 'data', manifest.data && dataContract, 'entities, relations or their use'],
+    [specPath('API.md'), 'api-overview', manifest.data && apiOverviewContract, 'operations, endpoints or tools'],
+    [specPath('ARCHITECTURE.md'), 'architecture', manifest.architecture && architectureContract, 'components or links'],
   ]) {
     if (!contract) continue;
     const spec = loadSpec(path.join(outDir, file), kind);
@@ -125,14 +126,14 @@ export function checkParity(manifest, outDir, { graphFile } = {}) {
     const { kind: _k, sourceHash: _h, ...have } = spec.c;
     if (key(have) !== key(contract(manifest))) err(`${kind}-differs`, file, `the ${what} differ from the product: regenerate`);
   }
-  for (const x of manifest.logic?.missing ?? []) { checks++; warn('logic-unknown-ref', 'specs/LOGIC.md', `${x.owner} refers to ${x.ref}, which is not in the product`); }
-  for (const x of manifest.architecture?.missing ?? []) { checks++; warn('architecture-unknown-ref', 'specs/ARCHITECTURE.md', `${x.owner} refers to ${x.ref}, which is not in the product`); }
-  for (const x of manifest.logic?.machines ?? []) for (const u of x.unresolved ?? []) { checks++; warn('logic-open-transition', 'specs/LOGIC.md', `${u.via} changes ${x.entity} but no ${x.field} says to what: declare the transition (Logic view, or weshcraft_edit {op:"lifecycle"})`); }
+  for (const x of manifest.logic?.missing ?? []) { checks++; warn('logic-unknown-ref', specPath('LOGIC.md'), `${x.owner} refers to ${x.ref}, which is not in the product`); }
+  for (const x of manifest.architecture?.missing ?? []) { checks++; warn('architecture-unknown-ref', specPath('ARCHITECTURE.md'), `${x.owner} refers to ${x.ref}, which is not in the product`); }
+  for (const x of manifest.logic?.machines ?? []) for (const u of x.unresolved ?? []) { checks++; warn('logic-open-transition', specPath('LOGIC.md'), `${u.via} changes ${x.entity} but no ${x.field} says to what: declare the transition (Logic view, or weshcraft_edit {op:"lifecycle"})`); }
 
   // Spec ⇄ code: tags that point at nothing, and a product graph that no longer matches design and code.
   if (manifest.screens.length || manifest.domain.operations.length || manifest.surface?.mcp?.tools?.length) {
     const trace = traceOf(manifest, scanTags(outDir));
-    for (const t of trace.unknown) { checks++; warn('trace-unknown', t.file, `\`@weshcraft ${t.ref}\` (line ${t.line}) names nothing in the design: renamed or removed? See specs/TRACE.md`); }
+    for (const t of trace.unknown) { checks++; warn('trace-unknown', t.file, `\`@weshcraft ${t.ref}\` (line ${t.line}) names nothing in the design: renamed or removed? See ${specPath('TRACE.md')}`); }
     checks++;
     const gf = graphFile ?? recordedGraphPath(outDir);
     const g = read(path.join(outDir, gf));
@@ -141,17 +142,17 @@ export function checkParity(manifest, outDir, { graphFile } = {}) {
   }
 
   // Specs for screens that no longer exist.
-  const screensDir = path.join(outDir, 'specs/front/screens');
+  const screensDir = path.join(outDir, specPath('front/screens'));
   if (fs.existsSync(screensDir)) {
     for (const name of fs.readdirSync(screensDir)) {
       if (!name.endsWith('.md')) continue;
       checks++;
-      if (!manifest.screens.some(s => `${s.key}.md` === name)) err('orphan-spec', `specs/front/screens/${name}`, 'spec for a screen that is no longer in the prototype');
+      if (!manifest.screens.some(s => `${s.key}.md` === name)) err('orphan-spec', specPath('front/screens', name), 'spec for a screen that is no longer in the prototype');
     }
   }
 
   for (const comp of manifest.components) {
-    const file = path.join(outDir, 'specs/front/components', `${comp.key}.md`);
+    const file = path.join(outDir, specPath('front/components'), `${comp.key}.md`);
     const spec = loadSpec(file, 'front-component');
     if (!spec) continue;
     checks += 2;
@@ -162,10 +163,10 @@ export function checkParity(manifest, outDir, { graphFile } = {}) {
   // MCP tools and public endpoints: one spec each, fingerprints and argument lists match.
   const mcp = manifest.surface?.mcp;
   if (mcp) {
-    const idx = loadSpec(path.join(outDir, 'specs/front/mcp/README.md'), 'front-mcp');
-    if (idx) { checks++; if (!setEq(mcp.tools.map(t => t.name), idx.c.tools || []) || !setEq(mcp.resources.map(r => r.uri), idx.c.resources || []) || !setEq(mcp.prompts.map(p => p.name), idx.c.prompts || [])) err('mcp-differs', 'specs/front/mcp/README.md', 'tools, resources or prompts differ from the MCP server'); }
+    const idx = loadSpec(path.join(outDir, specPath('front/mcp/README.md')), 'front-mcp');
+    if (idx) { checks++; if (!setEq(mcp.tools.map(t => t.name), idx.c.tools || []) || !setEq(mcp.resources.map(r => r.uri), idx.c.resources || []) || !setEq(mcp.prompts.map(p => p.name), idx.c.prompts || [])) err('mcp-differs', specPath('front/mcp/README.md'), 'tools, resources or prompts differ from the MCP server'); }
     for (const t of mcp.tools) {
-      const file = path.join(outDir, 'specs/front/mcp', `${t.key}.md`);
+      const file = path.join(outDir, specPath('front/mcp'), `${t.key}.md`);
       const spec = loadSpec(file, 'front-mcp-tool');
       if (!spec) continue;
       checks += 3;
@@ -176,17 +177,17 @@ export function checkParity(manifest, outDir, { graphFile } = {}) {
   }
   const apiSurf = manifest.surface?.api;
   if (apiSurf) {
-    const idx = loadSpec(path.join(outDir, 'specs/front/api/README.md'), 'front-api');
-    if (idx) { checks++; if (!setEq(apiSurf.endpoints.map(e => e.key), idx.c.endpoints || [])) err('api-differs', 'specs/front/api/README.md', 'endpoints differ from the OpenAPI document'); }
+    const idx = loadSpec(path.join(outDir, specPath('front/api/README.md')), 'front-api');
+    if (idx) { checks++; if (!setEq(apiSurf.endpoints.map(e => e.key), idx.c.endpoints || [])) err('api-differs', specPath('front/api/README.md'), 'endpoints differ from the OpenAPI document'); }
     for (const ep of apiSurf.endpoints) {
-      const file = path.join(outDir, 'specs/front/api', `${ep.key}.md`);
+      const file = path.join(outDir, specPath('front/api'), `${ep.key}.md`);
       const spec = loadSpec(file, 'front-endpoint');
       if (!spec) continue;
       checks++;
       if (spec.c.fingerprint !== ep.fingerprint) err('stale', rel(file), `${ep.method} ${ep.path} changed (parameters, body, responses or auth) since this spec was written`);
     }
   }
-  for (const [dir, keys] of [['specs/front/mcp', new Set((mcp?.tools ?? []).map(t => `${t.key}.md`))], ['specs/front/api', new Set((apiSurf?.endpoints ?? []).map(e => `${e.key}.md`))]]) {
+  for (const [dir, keys] of [[specPath('front/mcp'), new Set((mcp?.tools ?? []).map(t => `${t.key}.md`))], [specPath('front/api'), new Set((apiSurf?.endpoints ?? []).map(e => `${e.key}.md`))]]) {
     const abs = path.join(outDir, dir);
     if (!fs.existsSync(abs)) continue;
     for (const name of fs.readdirSync(abs)) {
@@ -196,68 +197,76 @@ export function checkParity(manifest, outDir, { graphFile } = {}) {
     }
   }
 
-  const tokens = manifest.screens.length || manifest.tokens.variables.length ? loadSpec(path.join(outDir, 'specs/front/tokens.md'), 'front-tokens') : null;
+  const tokens = manifest.screens.length || manifest.tokens.variables.length ? loadSpec(path.join(outDir, specPath('front/tokens.md')), 'front-tokens') : null;
   if (tokens) {
     const want = manifest.tokens.variables.map(v => key({ name: v.name, values: v.values }));
     checks++;
-    if (!setEq(want, (tokens.c.tokens || []).map(t => key({ name: t.name, values: t.values })))) err('tokens-differ', 'specs/front/tokens.md', 'token names or values differ from the prototype variables');
+    if (!setEq(want, (tokens.c.tokens || []).map(t => key({ name: t.name, values: t.values })))) err('tokens-differ', specPath('front/tokens.md'), 'token names or values differ from the prototype variables');
   }
 
-  const flows = manifest.screens.length ? loadSpec(path.join(outDir, 'specs/front/flows.md'), 'front-flows') : null;
+  const flows = manifest.screens.length ? loadSpec(path.join(outDir, specPath('front/flows.md')), 'front-flows') : null;
   if (flows) {
     const want = manifest.screens.flatMap(s => s.actions.filter(a => a.destScreen).map(a => key({ from: s.key, to: a.destScreen, node: a.id })));
     checks++;
-    if (!setEq(want, (flows.c.edges || []).map(key))) err('flows-differ', 'specs/front/flows.md', 'navigation edges differ from the prototype connections');
+    if (!setEq(want, (flows.c.edges || []).map(key))) err('flows-differ', specPath('front/flows.md'), 'navigation edges differ from the prototype connections');
   }
 
-  const domain = loadSpec(path.join(outDir, 'specs/back/domain.md'), 'back-domain');
+  const domain = loadSpec(path.join(outDir, specPath('back/domain.md')), 'back-domain');
   if (domain) {
     const want = manifest.domain.entities.map(e => key({ name: e.name, fields: e.fields.map(f => f.name) }));
     checks++;
-    if (!setEq(want, (domain.c.entities || []).map(key))) err('domain-differs', 'specs/back/domain.md', 'entities or fields differ from the data shown in the prototype');
+    if (!setEq(want, (domain.c.entities || []).map(key))) err('domain-differs', specPath('back/domain.md'), 'entities or fields differ from the data shown in the prototype');
   }
 
-  const api = loadSpec(path.join(outDir, 'specs/back/api.md'), 'back-api');
+  const api = loadSpec(path.join(outDir, specPath('back/api.md')), 'back-api');
   if (api) {
     const have = new Set((api.c.operations || []).map(o => o.key));
-    for (const k of opKeys) { checks++; if (!have.has(k)) err('operation-missing', 'specs/back/api.md', `operation ${k} is missing`); }
-    for (const k of have) { checks++; if (!opKeys.has(k)) err('operation-extra', 'specs/back/api.md', `operation ${k} is not backed by the prototype`); }
+    for (const k of opKeys) { checks++; if (!have.has(k)) err('operation-missing', specPath('back/api.md'), `operation ${k} is missing`); }
+    for (const k of have) { checks++; if (!opKeys.has(k)) err('operation-extra', specPath('back/api.md'), `operation ${k} is not backed by the prototype`); }
   }
-  loadSpec(path.join(outDir, 'specs/back/conventions.md'), 'back-conventions');
+  loadSpec(path.join(outDir, specPath('back/conventions.md')), 'back-conventions');
 
-  const links = loadSpec(path.join(outDir, 'specs/LINKS.md'), 'links');
+  const links = loadSpec(path.join(outDir, specPath('LINKS.md')), 'links');
   if (links) {
     const want = manifest.links.edges.map(e => key({ rel: e.rel, node: e.node, ...(e.op ? { op: e.op } : { field: e.field }) }));
     checks++;
-    if (!setEq(want, (links.c.edges || []).map(key))) err('links-differ', 'specs/LINKS.md', 'front ⇄ back links differ from the prototype');
+    if (!setEq(want, (links.c.edges || []).map(key))) err('links-differ', specPath('LINKS.md'), 'front ⇄ back links differ from the prototype');
   }
   // Gaps are design questions, not drift: a field shown that nothing loads, an operation nothing reaches.
-  for (const g of manifest.links.gaps) warn(`gap-${g.kind}`, 'specs/LINKS.md', g.message, g.node);
+  for (const g of manifest.links.gaps) warn(`gap-${g.kind}`, specPath('LINKS.md'), g.message, g.node);
 
   checks++;
-  const oa = read(path.join(outDir, 'specs/back/openapi.json'));
-  if (!oa) err('missing-spec', 'specs/back/openapi.json', 'OpenAPI document is missing');
+  const oa = read(path.join(outDir, specPath('back/openapi.json')));
+  if (!oa) err('missing-spec', specPath('back/openapi.json'), 'OpenAPI document is missing');
   else {
     try {
       const doc = JSON.parse(oa);
       checks++;
-      if (doc.info?.['x-weshcraft-source-hash'] !== manifest.source.hash) warn('source-changed', 'specs/back/openapi.json', 'written for another prototype version');
+      if (doc.info?.['x-weshcraft-source-hash'] !== manifest.source.hash) warn('source-changed', specPath('back/openapi.json'), 'written for another prototype version');
       const keys = new Set(Object.values(doc.paths || {}).flatMap(p => Object.values(p).flatMap(o => o['x-weshcraft']?.keys ?? [])));
-      for (const k of opKeys) { checks++; if (!keys.has(k)) err('operation-missing', 'specs/back/openapi.json', `operation ${k} is not in the OpenAPI document`); }
-      for (const k of keys) { checks++; if (!opKeys.has(k)) err('operation-extra', 'specs/back/openapi.json', `operation ${k} is not backed by the prototype`); }
-    } catch { err('invalid', 'specs/back/openapi.json', 'not valid JSON'); }
+      for (const k of opKeys) { checks++; if (!keys.has(k)) err('operation-missing', specPath('back/openapi.json'), `operation ${k} is not in the OpenAPI document`); }
+      for (const k of keys) { checks++; if (!opKeys.has(k)) err('operation-extra', specPath('back/openapi.json'), `operation ${k} is not backed by the prototype`); }
+    } catch { err('invalid', specPath('back/openapi.json'), 'not valid JSON'); }
   }
 
   checks++;
-  const proto = read(path.join(outDir, 'prototype/index.html'));
-  if (!proto) err('missing-prototype', 'prototype/index.html', 'front prototype is missing');
+  // The prototype is one file per page: every screen must be in the file of its page.
+  const pageFiles = (manifest.pages ?? []).map(p => p.file ?? `${p.key}.html`);
+  const files = [...new Set(['index.html', ...pageFiles])].map(f => ({ file: f, html: read(path.join(outDir, protoPath(f))) }));
+  const shown = files.filter(f => f.html);
+  if (!shown.length) err('missing-prototype', protoPath('index.html'), 'front prototype is missing');
   else {
-    const m = /name="weshcraft-source-hash" content="([0-9a-f]+)"/.exec(proto);
-    checks++;
-    if (m?.[1] !== manifest.source.hash) err('prototype-stale', 'prototype/index.html', `prototype built from ${m?.[1] ?? 'unknown'}, design is ${manifest.source.hash}`);
+    for (const f of shown) {
+      checks++;
+      const m = /name="weshcraft-source-hash" content="([0-9a-f]+)"/.exec(f.html);
+      if (m?.[1] !== manifest.source.hash) err('prototype-stale', protoPath(f.file), `prototype built from ${m?.[1] ?? 'unknown'}, design is ${manifest.source.hash}`);
+    }
     for (const s of manifest.screens) {
       checks++;
-      if (!proto.includes(`id="${s.key}"`)) err('prototype-screen-missing', 'prototype/index.html', `screen ${s.name} is missing from the prototype`, s.id);
+      const page = (manifest.pages ?? []).find(p => p.screens.includes(s.key));
+      const file = page?.file ?? 'index.html';
+      const html = files.find(f => f.file === file)?.html ?? '';
+      if (!html.includes(`id="${s.key}"`)) err('prototype-screen-missing', protoPath(file), `screen ${s.name} is missing from the prototype`, s.id);
     }
   }
 

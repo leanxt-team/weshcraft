@@ -1,0 +1,59 @@
+{
+ "graph": "wcraft/graph.mjs",
+ "coverage": {
+  "traced": 0,
+  "total": 6
+ },
+ "elements": [
+  {
+   "id": "fn-onboarding",
+   "kind": "function",
+   "name": "Onboarding",
+   "tag": "fn-onboarding",
+   "code": []
+  },
+  {
+   "id": "scr-1-welcome",
+   "kind": "screen",
+   "name": "1 Welcome",
+   "tag": "scr-1-welcome",
+   "code": []
+  },
+  {
+   "id": "scr-2-interests",
+   "kind": "screen",
+   "name": "2 Interests",
+   "tag": "scr-2-interests",
+   "code": []
+  },
+  {
+   "id": "scr-3-location",
+   "kind": "screen",
+   "name": "3 Location",
+   "tag": "scr-3-location",
+   "code": []
+  },
+  {
+   "id": "scr-4-all-set",
+   "kind": "screen",
+   "name": "4 All set",
+   "tag": "scr-4-all-set",
+   "code": []
+  },
+  {
+   "id": "op-continue-87",
+   "kind": "operation",
+   "name": "POST /interests/continue",
+   "tag": "POST /interests/continue",
+   "code": []
+  },
+  {
+   "id": "op-allow-location-125",
+   "kind": "operation",
+   "name": "POST /location/allow",
+   "tag": "POST /location/allow",
+   "code": []
+  }
+ ],
+ "unknown": []
+}

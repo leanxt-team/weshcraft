@@ -52,11 +52,11 @@ test('generate writes every spec in sync; a second run changes nothing', async (
   const r1 = await ws.run();
   assert.ok(r1.report.ok, JSON.stringify(r1.report.issues.slice(0, 3)));
   assert.ok(r1.jobs.every(j => j.status === 'done'));
-  for (const f of ['prototype/index.html', 'specs/README.md', 'specs/back/openapi.json', 'specs/front/tokens.css', 'specs/front/screens/scr-home-light.md', 'specs/front/components/cmp-trail-row.md'])
+  for (const f of ['wcraft/prototype/index.html', 'wcraft/specs/README.md', 'wcraft/specs/back/openapi.json', 'wcraft/specs/front/tokens.css', 'wcraft/specs/front/screens/scr-home-light.md', 'wcraft/specs/front/components/cmp-trail-row.md'])
     assert.ok(fs.existsSync(path.join(out, f)), f);
   const r2 = await ws.run();
   assert.ok(r2.jobs.every(j => j.status === 'unchanged'));
-  const oa = JSON.parse(fs.readFileSync(path.join(out, 'specs/back/openapi.json'), 'utf8'));
+  const oa = JSON.parse(fs.readFileSync(path.join(out, 'wcraft/specs/back/openapi.json'), 'utf8'));
   assert.equal(oa.openapi, '3.1.0');
   assert.ok(oa.paths['/trails'].get, 'list endpoint inferred from repeated Trail rows');
 });
@@ -79,7 +79,7 @@ test('parity catches hand edits that remove copy or cite unknown layers', async 
   const out = tmp();
   const ws = new Workspace({ source: new FileSource(ONBOARDING), outDir: out });
   await ws.run();
-  const f = path.join(out, 'specs/front/screens/scr-3-location.md');
+  const f = path.join(out, 'wcraft/specs/front/screens/scr-3-location.md');
   const md = fs.readFileSync(f, 'utf8').replace('| Allow location | Allow location |', '| Allow location | Allow |').replace('## Notes', 'See `#99999`.\n\n## Notes');
   fs.writeFileSync(f, md);
   const codes = ws.check().issues.map(i => i.code);
@@ -87,15 +87,46 @@ test('parity catches hand edits that remove copy or cite unknown layers', async 
   assert.ok(codes.includes('copy-not-verbatim'));
 });
 
+test('prototype: one file per page, a top bar to explore them, links that cross pages', async () => {
+  const out = tmp();
+  const ws = new Workspace({ source: new FileSource(path.join(here, 'fixtures/multi-page.figcraft.json')), outDir: out });
+  const r = await ws.run();
+  assert.ok(r.report.ok, JSON.stringify(r.report.issues.slice(0, 3)));
+  // One file per page: the entry point (the page the prototype opens on) and the other one.
+  assert.ok(fs.existsSync(path.join(out, 'wcraft/prototype/index.html')));
+  assert.ok(fs.existsSync(path.join(out, 'wcraft/prototype/page-billing.html')));
+  const account = fs.readFileSync(path.join(out, 'wcraft/prototype/index.html'), 'utf8');
+  const billing = fs.readFileSync(path.join(out, 'wcraft/prototype/page-billing.html'), 'utf8');
+  // The top bar: the pages of the design.
+  assert.match(account, /<a class="sc-page" href="index\.html"[^>]*aria-current="page">Account<\/a>/);
+  assert.match(account, /<a class="sc-page" href="page-billing\.html"[^>]*>Billing<\/a>/);
+  assert.match(billing, /<a class="sc-page" href="page-billing\.html"[^>]*aria-current="page">Billing<\/a>/);
+  // Each file holds the screens of its own page, and only those.
+  assert.match(account, /data-screen="scr-sign-up"/);
+  assert.doesNotMatch(account, /data-screen="scr-invoice"/);
+  assert.match(billing, /data-screen="scr-invoice"/);
+  assert.doesNotMatch(billing, /data-screen="scr-sign-up"/);
+  // A link that crosses a page opens that page.
+  assert.match(account, /data-go="scr-invoice"/);
+  assert.match(account, /const PAGE_OF = \{"scr-invoice":"page-billing\.html"\}/);
+  assert.match(billing, /const PAGE_OF = \{"scr-sign-up":"index\.html","scr-profile":"index\.html"\}/);
+  // The spec of a screen links to the file of its page.
+  assert.match(fs.readFileSync(path.join(out, 'wcraft/specs/front/screens/scr-invoice.md'), 'utf8'), /wcraft\/prototype\/page-billing\.html#scr-invoice/);
+  assert.match(fs.readFileSync(path.join(out, 'wcraft/specs/front/screens/scr-sign-up.md'), 'utf8'), /wcraft\/prototype\/index\.html#scr-sign-up/);
+  // The manifest knows the pages.
+  const manifest = JSON.parse(fs.readFileSync(path.join(out, 'wcraft/specs/manifest.json'), 'utf8'));
+  assert.deepEqual(manifest.pages.map(p => [p.name, p.file]), [['Account', 'index.html'], ['Billing', 'page-billing.html']]);
+});
+
 test('notes survive regeneration and contracts stay intact', async () => {
   const out = tmp();
   const ws = new Workspace({ source: new FileSource(ONBOARDING), outDir: out });
   await ws.run();
   const mcp = new WeshCraftMcp({ workspace: ws, autoRun: false });
-  const r = await mcp.callTool('weshcraft_write_notes', { path: 'specs/front/screens/scr-1-welcome.md', notes: '### Edge cases\n- Offline: `#2` shows cached illustration.' });
+  const r = await mcp.callTool('weshcraft_write_notes', { path: 'wcraft/specs/front/screens/scr-1-welcome.md', notes: '### Edge cases\n- Offline: `#2` shows cached illustration.' });
   assert.equal(r.isError, false);
   await ws.run({ force: true });
-  const md = fs.readFileSync(path.join(out, 'specs/front/screens/scr-1-welcome.md'), 'utf8');
+  const md = fs.readFileSync(path.join(out, 'wcraft/specs/front/screens/scr-1-welcome.md'), 'utf8');
   assert.match(md, /Offline: `#2` shows cached illustration/);
   assert.equal(readContract(md).kind, 'front-screen');
   assert.ok(ws.report.ok);
@@ -116,7 +147,7 @@ test('agent pass fills notes through any stdin/stdout CLI and cannot add danglin
   const ws = new Workspace({ source: new FileSource(ONBOARDING), outDir: out, agent: `${process.execPath} ${agent}`, concurrency: 4 });
   const r = await ws.run();
   assert.ok(r.report.ok, JSON.stringify(r.report.issues.slice(0, 3)));
-  const md = fs.readFileSync(path.join(out, 'specs/front/screens/scr-2-interests.md'), 'utf8');
+  const md = fs.readFileSync(path.join(out, 'wcraft/specs/front/screens/scr-2-interests.md'), 'utf8');
   assert.match(md, /### Edge cases/);
   assert.match(md, /#123456 \(unknown layer\)/);
 });
@@ -143,7 +174,7 @@ test('MCP: one light toolset, also with a live FigCraft (read there, no second s
     const title = welcome.texts.find(t => t.characters.length > 10);
     await ws.source.call('set_properties', { ids: [title.id], props: { characters: 'Trails, sorted.' } });
     await call('weshcraft_generate', {});
-    assert.match(fs.readFileSync(path.join(out, `specs/front/screens/${welcome.key}.md`), 'utf8'), /Trails, sorted\./);
+    assert.match(fs.readFileSync(path.join(out, `wcraft/specs/front/screens/${welcome.key}.md`), 'utf8'), /Trails, sorted\./);
     assert.ok(ws.report.ok);
   } finally { ws.source.close(); }
 });
@@ -154,8 +185,8 @@ test('zip round-trips and the bundle carries specs, prototype, design and CI', a
   await ws.run();
   const files = collectFiles(out, { provider: 'github', designFile: APP });
   const zip = readZip(writeZip(files.map(f => [f.path, f.data])));
-  for (const p of ['specs/README.md', 'prototype/index.html', 'design/ridgeline-app.figcraft', '.github/workflows/weshcraft-parity.yml']) assert.ok(zip.has(p), p);
-  assert.deepEqual(zip.get('design/ridgeline-app.figcraft'), fs.readFileSync(APP));
+  for (const p of ['wcraft/specs/README.md', 'wcraft/prototype/index.html', 'wcraft/design/ridgeline-app.figcraft', '.github/workflows/weshcraft-parity.yml']) assert.ok(zip.has(p), p);
+  assert.deepEqual(zip.get('wcraft/design/ridgeline-app.figcraft'), fs.readFileSync(APP));
   const gl = collectFiles(out, { provider: 'gitlab' }).map(f => f.path);
   assert.ok(gl.includes('ci/weshcraft.gitlab-ci.yml'));
 });
@@ -184,7 +215,7 @@ test('GitHub publish: branch, tree, commit, PR (mock API)', async () => {
   });
   await new Promise(r => server.listen(0, '127.0.0.1', r));
   try {
-    const files = [{ path: 'specs/a.md', data: Buffer.from('# a') }, { path: 'design/x.figcraft', data: Buffer.from([1, 2, 3]) }, { path: 'prototype/index.html', data: Buffer.from('<p>') }, { path: 'b.json', data: Buffer.from('{}') }];
+    const files = [{ path: 'wcraft/specs/a.md', data: Buffer.from('# a') }, { path: 'wcraft/design/x.figcraft', data: Buffer.from([1, 2, 3]) }, { path: 'wcraft/prototype/index.html', data: Buffer.from('<p>') }, { path: 'b.json', data: Buffer.from('{}') }];
     const r = await publishGitHub({ repo: 'o/r', token: 't', branch: 'weshcraft/x', title: 'Specs', body: 'b', files, apiUrl: `http://127.0.0.1:${server.address().port}` });
     assert.equal(r.url, 'https://gh/o/r/pull/7');
     assert.ok(calls.includes('POST /repos/o/r/git/refs'));
@@ -220,16 +251,16 @@ test('links show up on both sides and parity guards them', async () => {
   assert.ok(r.report.ok, JSON.stringify(r.report.issues.slice(0, 3)));
   assert.ok(r.report.issues.some(i => i.code === 'gap-unloaded-data' && i.level === 'warning'));
   const read = f => fs.readFileSync(path.join(out, f), 'utf8');
-  assert.match(read('specs/front/screens/scr-profile.md'), /\[`User\.name`\]\(\.\.\/\.\.\/back\/domain\.md#entity-user\) \| loaded by \[`GET \/users\/me`\]/);
-  assert.match(read('specs/back/api.md'), /- Front end: ▶ `#\d+` Create account · ⇢ `#\d+` Email field/);
-  assert.match(read('specs/back/domain.md'), /<a id="entity-user"><\/a>/);
-  assert.match(read('specs/LINKS.md'), /flowchart LR/);
-  const oa = JSON.parse(read('specs/back/openapi.json'));
+  assert.match(read('wcraft/specs/front/screens/scr-profile.md'), /\[`User\.name`\]\(\.\.\/\.\.\/back\/domain\.md#entity-user\) \| loaded by \[`GET \/users\/me`\]/);
+  assert.match(read('wcraft/specs/back/api.md'), /- Front end: ▶ `#\d+` Create account · ⇢ `#\d+` Email field/);
+  assert.match(read('wcraft/specs/back/domain.md'), /<a id="entity-user"><\/a>/);
+  assert.match(read('wcraft/specs/LINKS.md'), /flowchart LR/);
+  const oa = JSON.parse(read('wcraft/specs/back/openapi.json'));
   assert.equal(oa.paths['/users/me'].get.responses['200'].content['application/json'].schema.$ref, '#/components/schemas/User');
-  assert.match(read('prototype/index.html'), /data-op="op-create-account-\d+"/);
+  assert.match(read('wcraft/prototype/index.html'), /data-op="op-create-account-\d+"/);
   // Drop one link from the screen contract: parity must fail.
-  const f = path.join(out, 'specs/front/screens/scr-sign-up.md');
-  fs.writeFileSync(f, read('specs/front/screens/scr-sign-up.md').replace(/\{\n\s*"node": \d+,\n\s*"op": "op-create-account-\d+",\n\s*"rel": "submits"\n\s*\},?/, ''));
+  const f = path.join(out, 'wcraft/specs/front/screens/scr-sign-up.md');
+  fs.writeFileSync(f, read('wcraft/specs/front/screens/scr-sign-up.md').replace(/\{\n\s*"node": \d+,\n\s*"op": "op-create-account-\d+",\n\s*"rel": "submits"\n\s*\},?/, ''));
   assert.ok(ws.check().issues.some(i => i.code === 'links-differ'));
 });
 
@@ -259,8 +290,8 @@ test('sync targets parse', () => {
 
 test('local git sync commits only WeshCraft paths, then is a no-op, and never switches branches', async () => {
   const { dir, g } = gitRepo();
-  const design = path.join(dir, 'design', 'account.figcraft.json');
-  fs.mkdirSync(path.dirname(design));
+  const design = path.join(dir, 'wcraft', 'design', 'account.figcraft.json');
+  fs.mkdirSync(path.dirname(design), { recursive: true });
   fs.copyFileSync(ACCOUNT, design);
   const ws = new Workspace({ source: new FileSource(design), outDir: dir });
   const sync = new Syncer(ws, parseTarget('git', { auto: false }));
@@ -269,7 +300,7 @@ test('local git sync commits only WeshCraft paths, then is a no-op, and never sw
     const r1 = await sync.sync();
     assert.equal(r1.changed, true);
     const files = g('show', '--name-only', '--format=', 'HEAD').split('\n');
-    assert.ok(files.includes('specs/LINKS.md') && files.includes('prototype/index.html') && files.includes('design/account.figcraft.json'));
+    assert.ok(files.includes('wcraft/specs/LINKS.md') && files.includes('wcraft/prototype/index.html') && files.includes('wcraft/design/account.figcraft.json'));
     assert.ok(files.includes('.github/workflows/weshcraft-parity.yml'));
     assert.ok(!files.includes('notes.txt'), 'user files are left alone');
     assert.match(g('status', '--porcelain'), /\?\? notes\.txt/);
@@ -316,12 +347,12 @@ test('GitLab sync skips files the branch already has', async () => {
     const json = v => { res.writeHead(200, { 'Content-Type': 'application/json' }); res.end(JSON.stringify(v)); };
     if (req.url === '/projects/g%2Fp') return json({ default_branch: 'main', web_url: 'https://gl/g/p' });
     if (req.url.startsWith('/projects/g%2Fp/repository/branches/')) return json({});
-    if (req.url.startsWith('/projects/g%2Fp/repository/tree')) return json([{ type: 'blob', path: 'specs/a.md', id: gitBlobSha(same) }]);
+    if (req.url.startsWith('/projects/g%2Fp/repository/tree')) return json([{ type: 'blob', path: 'wcraft/specs/a.md', id: gitBlobSha(same) }]);
     res.writeHead(500); res.end('{}');
   });
   await new Promise(r => server.listen(0, '127.0.0.1', r));
   try {
-    const r = await publishGitLab({ repo: 'g/p', token: 't', branch: 'weshcraft/specs', title: 't', body: 'b', files: [{ path: 'specs/a.md', data: same }], apiUrl: `http://127.0.0.1:${server.address().port}`, pr: false });
+    const r = await publishGitLab({ repo: 'g/p', token: 't', branch: 'weshcraft/specs', title: 't', body: 'b', files: [{ path: 'wcraft/specs/a.md', data: same }], apiUrl: `http://127.0.0.1:${server.address().port}`, pr: false });
     assert.equal(r.changed, false);
     assert.ok(!calls.some(c => c.includes('/repository/commits')), 'no commit when nothing changed');
   } finally { server.close(); }
@@ -373,7 +404,7 @@ test('design changelog: copy, screens and operations, newest first', async () =>
   await w1.run();
   const w2 = new Workspace({ source: new FileSource(file), outDir: out });
   await w2.run();
-  assert.match(fs.readFileSync(path.join(out, 'specs/CHANGES.md'), 'utf8'), /Join WeshTrails/);
+  assert.match(fs.readFileSync(path.join(out, 'wcraft/specs/CHANGES.md'), 'utf8'), /Join WeshTrails/);
 });
 
 import { parseYaml } from '../src/surface/yaml.mjs';
@@ -413,17 +444,17 @@ test('non-visual workspace: MCP + API specs, catalog, parity, drift on a schema 
   const ws = new Workspace({ source: null, surface: new SurfaceSource({ files: [path.join(dir, 'weshcraft.surface.json')] }), outDir: out });
   const r = await ws.run();
   assert.ok(r.report.ok, JSON.stringify(r.report.issues.slice(0, 3)));
-  for (const f of ['specs/front/mcp/README.md', 'specs/front/mcp/tool-void-invoice.md', 'specs/front/api/README.md', 'specs/front/api/ep-post-invoices.md', 'specs/back/openapi.json', 'specs/LINKS.md'])
+  for (const f of ['wcraft/specs/front/mcp/README.md', 'wcraft/specs/front/mcp/tool-void-invoice.md', 'wcraft/specs/front/api/README.md', 'wcraft/specs/front/api/ep-post-invoices.md', 'wcraft/specs/back/openapi.json', 'wcraft/specs/LINKS.md'])
     assert.ok(fs.existsSync(path.join(out, f)), f);
-  assert.ok(!fs.existsSync(path.join(out, 'specs/front/flows.md')), 'no screens, no flows spec');
-  const tool = fs.readFileSync(path.join(out, 'specs/front/mcp/tool-void-invoice.md'), 'utf8');
+  assert.ok(!fs.existsSync(path.join(out, 'wcraft/specs/front/flows.md')), 'no screens, no flows spec');
+  const tool = fs.readFileSync(path.join(out, 'wcraft/specs/front/mcp/tool-void-invoice.md'), 'utf8');
   assert.match(tool, /\*\*destructive\*\*/);
   assert.match(tool, /Calling without `reason` returns a tool error/);
-  const proto = fs.readFileSync(path.join(out, 'prototype/index.html'), 'utf8');
+  const proto = fs.readFileSync(path.join(out, 'wcraft/prototype/index.html'), 'utf8');
   assert.match(proto, /id="surface-mcp"/);
   assert.match(proto, /data-node="tool:void_invoice"/);
   assert.match(proto, /data-node="ep:POST \/invoices"/);
-  const oa = JSON.parse(fs.readFileSync(path.join(out, 'specs/back/openapi.json'), 'utf8'));
+  const oa = JSON.parse(fs.readFileSync(path.join(out, 'wcraft/specs/back/openapi.json'), 'utf8'));
   assert.equal(oa.paths['/invoices'].post.operationId, 'createInvoice');
   assert.equal(oa.paths['/invoices'].post.requestBody.content['application/json'].schema.$ref, '#/components/schemas/InvoiceInput');
   // Change a tool's schema in the server: its spec is stale until regenerated.
@@ -433,18 +464,18 @@ test('non-visual workspace: MCP + API specs, catalog, parity, drift on a schema 
   fs.writeFileSync(tf, JSON.stringify(tools));
   await ws.snapshot();
   const issues = ws.check().issues;
-  assert.ok(issues.some(i => i.code === 'stale' && i.file === 'specs/front/mcp/tool-void-invoice.md'));
+  assert.ok(issues.some(i => i.code === 'stale' && i.file === 'wcraft/specs/front/mcp/tool-void-invoice.md'));
   assert.ok(issues.some(i => i.code === 'mcp-input-differs'));
   const r2 = await ws.run();
   assert.ok(r2.report.ok);
-  assert.match(fs.readFileSync(path.join(out, 'specs/CHANGES.md'), 'utf8'), /MCP tool `void_invoice`: \+`notify`/);
+  assert.match(fs.readFileSync(path.join(out, 'wcraft/specs/CHANGES.md'), 'utf8'), /MCP tool `void_invoice`: \+`notify`/);
   // Publishing carries the surface files and a CI check that uses them.
   const files = collectFiles(out, { provider: 'github', designInputs: ws.designInputs() });
   const names = files.map(f => f.path);
-  for (const n of ['design/weshcraft.surface.json', 'design/openapi.yaml', 'design/mcp-tools.json']) assert.ok(names.includes(n), n);
+  for (const n of ['wcraft/design/weshcraft.surface.json', 'wcraft/design/openapi.yaml', 'wcraft/design/mcp-tools.json']) assert.ok(names.includes(n), n);
   const ci = files.find(f => f.path === '.github/workflows/weshcraft-parity.yml').data.toString();
-  assert.match(ci, /--surface design\/weshcraft\.surface\.json/);
-  assert.doesNotMatch(ci, /--surface design\/openapi\.yaml/, 'referenced files are copied, not passed');
+  assert.match(ci, /--surface wcraft\/design\/weshcraft\.surface\.json/);
+  assert.doesNotMatch(ci, /--surface wcraft\/design\/openapi\.yaml/, 'referenced files are copied, not passed');
 });
 
 test('live MCP server introspection (tools/list over stdio) with a snapshot for CI', async () => {
@@ -467,7 +498,7 @@ import { DesignStore } from '../src/design/store.mjs';
 import { StoreSource, openEditable } from '../src/design/source.mjs';
 import { startServer } from '../src/web/server.mjs';
 
-const copyTo = (src, name = path.basename(src)) => { const d = tmp(); fs.mkdirSync(path.join(d, 'design')); const f = path.join(d, 'design', name); fs.copyFileSync(src, f); return { dir: d, file: f }; };
+const copyTo = (src, name = path.basename(src)) => { const d = tmp(); fs.mkdirSync(path.join(d, 'wcraft/design'), { recursive: true }); const f = path.join(d, 'wcraft/design', name); fs.copyFileSync(src, f); return { dir: d, file: f }; };
 const waitUntil = async (fn, ms = 10000) => { const t0 = Date.now(); for (;;) { const v = await fn().catch(() => null); if (v) return v; if (Date.now() - t0 > ms) throw new Error('timed out'); await new Promise(r => setTimeout(r, 60)); } };
 
 test('design store: batch with refs, undo/redo, rollback, spec conventions', () => {
@@ -545,8 +576,8 @@ test('MCP: the light toolset reads, edits in one batch with wait, undoes, starts
   const e = await call('weshcraft_edit', { wait: true, ops: [{ op: 'screen', name: 'Plans', ref: 's', layout: 'vertical' }, { op: 'create', parent: 's', type: 'text', props: { text: 'Pick a plan' } }, { op: 'api', id: 's', method: 'GET', path: '/plans', returns: 'Plan' }] });
   const res = JSON.parse(e.text);
   assert.equal(res.parity.ok, true);
-  assert.ok(fs.existsSync(path.join(dir, 'specs/front/screens/scr-plans.md')));
-  assert.match(fs.readFileSync(path.join(dir, 'specs/back/api.md'), 'utf8'), /\/plans/);
+  assert.ok(fs.existsSync(path.join(dir, 'wcraft/specs/front/screens/scr-plans.md')));
+  assert.match(fs.readFileSync(path.join(dir, 'wcraft/specs/back/api.md'), 'utf8'), /\/plans/);
   assert.ok(!e.text.includes('\n'), 'compact JSON');
   const bad = await call('weshcraft_edit', { ops: [{ op: 'set', id: 999, props: { fill: '#fff' } }] });
   assert.ok(bad.err && /no layer #999/.test(bad.text), bad.text);
@@ -563,7 +594,7 @@ test('MCP: the light toolset reads, edits in one batch with wait, undoes, starts
   assert.ok(!JSON.parse((await call('weshcraft_read', { what: 'functions' })).text).functions.some(f => f.name === 'Pay'), 'undo takes the whole batch back');
   await call('weshcraft_edit', { undo: 1 });
   await ws.settled();
-  assert.ok(!fs.readFileSync(path.join(dir, 'specs/back/api.md'), 'utf8').includes('/plans'), 'undo regenerates the specs');
+  assert.ok(!fs.readFileSync(path.join(dir, 'wcraft/specs/back/api.md'), 'utf8').includes('/plans'), 'undo regenerates the specs');
   const st = JSON.parse((await call('weshcraft_status', {})).text);
   assert.ok(st.editable && st.product.screens === 2 && st.next.length >= 1, JSON.stringify(st));
   // an empty project starts a design
@@ -572,7 +603,7 @@ test('MCP: the light toolset reads, edits in one batch with wait, undoes, starts
   const mcp2 = new WeshCraftMcp({ workspace: ws2 });
   assert.ok((await mcp2.tools()).some(t => t.name === 'weshcraft_new'));
   await mcp2.callTool('weshcraft_new', { name: 'Shop' });
-  assert.ok(fs.existsSync(path.join(empty, 'design/Shop.figcraft')));
+  assert.ok(fs.existsSync(path.join(empty, 'wcraft/design/Shop.figcraft')));
   assert.ok(!(await mcp2.tools()).some(t => t.name === 'weshcraft_new'));
   ws.source.close(); ws2.source.close();
 });
@@ -601,7 +632,7 @@ test('design in the browser: API ops, render, undo, live events, external saves 
     assert.equal(op.version, 1);
     await waitUntil(async () => events.join('').includes('event: design'));
     await ws.settled();
-    assert.match(fs.readFileSync(path.join(dir, 'prototype/index.html'), 'utf8'), /Join us/);
+    assert.match(fs.readFileSync(path.join(dir, 'wcraft/prototype/index.html'), 'utf8'), /Join us/);
     const bad = await fetch(`${base}/api/design/op`, { method: 'POST', body: JSON.stringify({ ops: [{ op: 'nope' }] }) });
     assert.equal(bad.status, 400);
     assert.equal((await (await fetch(`${base}/api/design/undo`, { method: 'POST', body: '{}' })).json()).label, 'Edit text');
@@ -612,16 +643,16 @@ test('design in the browser: API ops, render, undo, live events, external saves 
     other.saveNow();
     await waitUntil(async () => ws.source.store.node(5).characters === 'Changed in FigCraft');
     await ws.settled();
-    await waitUntil(async () => fs.readFileSync(path.join(dir, 'prototype/index.html'), 'utf8').includes('Changed in FigCraft'));
+    await waitUntil(async () => fs.readFileSync(path.join(dir, 'wcraft/prototype/index.html'), 'utf8').includes('Changed in FigCraft'));
   } finally { ac.abort(); server.close(); ws.source.close(); }
 });
 
-test('CLI: new creates an empty FigCraft document; serve-style workspaces find design/*.figcraft', () => {
+test('CLI: new creates an empty FigCraft document; serve-style workspaces find wcraft/design/*.figcraft', () => {
   const dir = tmp();
   const bin = path.join(here, '..', 'bin', 'weshcraft.mjs');
   const out = execFileSync(process.execPath, [bin, 'new', 'Shop'], { cwd: dir, encoding: 'utf8' });
-  assert.match(out, /created design[\\/]Shop\.figcraft/);
-  const s = DesignStore.open(path.join(dir, 'design/Shop.figcraft'));
+  assert.match(out, /created wcraft[\\/]design[\\/]Shop\.figcraft/);
+  const s = DesignStore.open(path.join(dir, 'wcraft/design/Shop.figcraft'));
   assert.equal(s.doc.format, 'figcraft');
   assert.equal(s.doc.name, 'Shop');
   assert.throws(() => execFileSync(process.execPath, [bin, 'new', 'Shop'], { cwd: dir, stdio: 'pipe' }));
@@ -631,8 +662,8 @@ import { createPlugin, detectConfig, serveArgs } from '../opencode/plugin.mjs';
 
 const billingProject = () => {
   const dir = tmp();
-  fs.mkdirSync(path.join(dir, 'design'));
-  for (const f of fs.readdirSync(path.dirname(BILLING))) fs.copyFileSync(path.join(path.dirname(BILLING), f), path.join(dir, 'design', f));
+  fs.mkdirSync(path.join(dir, 'wcraft/design'), { recursive: true });
+  for (const f of fs.readdirSync(path.dirname(BILLING))) fs.copyFileSync(path.join(path.dirname(BILLING), f), path.join(dir, 'wcraft/design', f));
   return dir;
 };
 const waitFor = async (fn, ms = 15000) => { const t0 = Date.now(); for (;;) { const v = await fn().catch(() => null); if (v) return v; if (Date.now() - t0 > ms) throw new Error('timed out'); await new Promise(r => setTimeout(r, 150)); } };
@@ -641,11 +672,11 @@ test('OpenCode plugin: project detection and serve arguments', () => {
   assert.equal(detectConfig(tmp()), null, 'nothing to spec: idle');
   const dir = billingProject();
   const cfg = detectConfig(dir);
-  assert.deepEqual(cfg.surface, ['design/weshcraft.surface.json']);
+  assert.deepEqual(cfg.surface, ['wcraft/design/weshcraft.surface.json']);
   assert.ok(cfg.port >= 4600 && cfg.port < 4900);
   assert.equal(detectConfig(dir).port, cfg.port, 'stable port per project');
   fs.mkdirSync(path.join(dir, '.opencode'));
-  fs.writeFileSync(path.join(dir, '.opencode/weshcraft.json'), JSON.stringify({ surface: 'design/openapi.yaml', port: 4777, sync: 'git' }));
+  fs.writeFileSync(path.join(dir, '.opencode/weshcraft.json'), JSON.stringify({ surface: 'wcraft/design/openapi.yaml', port: 4777, sync: 'git' }));
   const c2 = detectConfig(dir);
   assert.deepEqual(serveArgs(c2).slice(0, 8), ['serve', '--out', '.', '--port', '4777', '--concurrency', '6', '--surface']);
   assert.ok(serveArgs(c2).includes('--sync'));
@@ -671,17 +702,17 @@ test('OpenCode 2 plugin: starts WeshCraft, namespaced tools, /weshcraft command,
     assert.deepEqual(tools.get('weshcraft_read').input.required, ['what']);
     assert.match((await tools.get('weshcraft_status').execute({})).content, /"live":"http:\/\/127\.0\.0\.1:\d+/);
     await waitFor(async () => /"ok": ?true/.test((await tools.get('weshcraft_read').execute({ what: 'parity' }, { signal: AbortSignal.timeout(5000) })).content));
-    assert.match((await tools.get('weshcraft_read').execute({ what: 'spec', path: 'specs/front/mcp/tool-void-invoice.md' })).content, /\*\*destructive\*\*/);
+    assert.match((await tools.get('weshcraft_read').execute({ what: 'spec', path: 'wcraft/specs/front/mcp/tool-void-invoice.md' })).content, /\*\*destructive\*\*/);
     // /weshcraft sends the instructions into the session, with whatever the user typed after it.
     await commands.get('weshcraft').execute({ sessionID: 's1', prompt: { text: 'focus on the API' }, delivery: 'queue' });
     assert.equal(prompts[0].sessionID, 's1');
     assert.match(prompts[0].text, /Call weshcraft_status[\s\S]*focus on the API$/);
     // Saving the MCP tool list (by OpenCode or anyone) regenerates: the new tool gets its spec.
-    const tf = path.join(dir, 'design', 'mcp-tools.json');
+    const tf = path.join(dir, 'wcraft/design', 'mcp-tools.json');
     const j = JSON.parse(fs.readFileSync(tf, 'utf8'));
     j.tools.push({ name: 'refund_invoice', description: 'Refund a paid invoice.', inputSchema: { type: 'object', required: ['id'], properties: { id: { type: 'string' } } }, annotations: { destructiveHint: true } });
     fs.writeFileSync(tf, JSON.stringify(j));
-    await waitFor(async () => fs.existsSync(path.join(dir, 'specs/front/mcp/tool-refund-invoice.md')));
+    await waitFor(async () => fs.existsSync(path.join(dir, 'wcraft/specs/front/mcp/tool-refund-invoice.md')));
   } finally { cleanup?.(); }
   await waitFor(async () => { try { await fetch(`http://127.0.0.1:${port}/api/state`, { signal: AbortSignal.timeout(300) }); return false; } catch { return true; } });
 });
@@ -698,7 +729,7 @@ test('OpenCode 2 plugin: no server where there is nothing to spec, until weshcra
     assert.equal(await fetch(`http://127.0.0.1:${port}/api/ping`).then(() => 'up', () => 'down'), 'down');
     const r = await tools.get('weshcraft_new').execute({ name: 'Shop' });
     assert.match(r.content, /WeshCraft: http:\/\/127\.0\.0\.1:\d+\/ — next: weshcraft_status/);
-    assert.ok(fs.existsSync(path.join(dir0, 'design/Shop.figcraft')));
+    assert.ok(fs.existsSync(path.join(dir0, 'wcraft/design/Shop.figcraft')));
     assert.ok(reloads >= 1);
     for (const n of ['weshcraft_status', 'weshcraft_read', 'weshcraft_edit']) assert.ok(tools.has(n), `${n} after weshcraft_new`);
     const e = JSON.parse((await tools.get('weshcraft_edit').execute({ wait: true, ops: [{ op: 'screen', name: 'Home', ref: 's' }, { op: 'create', parent: 's', type: 'text', props: { text: 'Hi' } }] })).content);
@@ -707,7 +738,7 @@ test('OpenCode 2 plugin: no server where there is nothing to spec, until weshcra
   } finally { cleanup?.(); }
   const dir = billingProject();
   assert.equal(detectConfig(tmp(), { surface: 'x.yaml', port: 4999 }).port, 4999, 'plugin options are config');
-  assert.deepEqual(detectConfig(dir, { surface: 'design/openapi.yaml' }).surface, ['design/openapi.yaml'], 'options win over detection');
+  assert.deepEqual(detectConfig(dir, { surface: 'wcraft/design/openapi.yaml' }).surface, ['wcraft/design/openapi.yaml'], 'options win over detection');
 });
 
 // ---- inherited GitHub/GitLab access ----------------------------------------------------------
@@ -759,10 +790,17 @@ test('OpenChamber extension: manifest, built pages, service (state, proxy, event
   // the big panel is the desktop app, rebuilt from src/web/public
   assert.equal(c.panel.entry, c.page.entry, 'the rail panel is the full interface');
   assert.match(fs.readFileSync(path.join(root, 'openchamber/page/index.html'), 'utf8'), /html\.oc \.phonebar/, 'narrow panels in OpenChamber style');
+  // the executive summary: the first section of the rail, above Functions
+  const app = fs.readFileSync(path.join(root, 'src/web/public/index.html'), 'utf8');
+  const rail = app.slice(app.indexOf('<nav class="rail"'));
+  assert.ok(rail.indexOf('data-tab="execsum"') > -1 && rail.indexOf('data-tab="execsum"') < rail.indexOf('data-tab="functions"'), 'the summary comes above Functions');
+  assert.match(app, /data-panel="execsum"/);
+  assert.ok(fs.existsSync(path.join(root, 'src/web/public/execsum.js')), 'the summary view');
+  assert.match(fs.readFileSync(path.join(root, 'openchamber/page/index.html'), 'utf8'), /data-tab="execsum"/, 'the panel has it too');
 
   const dir = tmp();
-  fs.mkdirSync(path.join(dir, 'design'));
-  fs.copyFileSync(ACCOUNT, path.join(dir, 'design', 'account.figcraft.json'));
+  fs.mkdirSync(path.join(dir, 'wcraft/design'), { recursive: true });
+  fs.copyFileSync(ACCOUNT, path.join(dir, 'wcraft/design', 'account.figcraft.json'));
   execFileSync('git', ['init', '-q'], { cwd: dir });
   execFileSync('git', ['-c', 'user.email=t@e.com', '-c', 'user.name=T', 'commit', '-q', '--allow-empty', '-m', 'init'], { cwd: dir });
   execFileSync('git', ['config', 'user.email', 't@e.com'], { cwd: dir });
@@ -793,7 +831,7 @@ test('OpenChamber extension: manifest, built pages, service (state, proxy, event
     let last;
     for (let i = 0; i < parts; i++) last = await call('/upload', { directory: dir, name: 'onboarding.figcraft', id: 'u1', part: String(i), parts: String(parts) }, { method: 'POST', body: buf.subarray(i * CH, (i + 1) * CH).toString('base64') });
     assert.equal(last.status, 202);
-    assert.deepEqual(fs.readFileSync(path.join(dir, 'design', 'onboarding.figcraft')), buf);
+    assert.deepEqual(fs.readFileSync(path.join(dir, 'wcraft/design', 'onboarding.figcraft')), buf);
     // small panel: sync to this repository
     await waitUntil(async () => JSON.parse((await call('/state', { directory: dir })).text).parity?.ok, 20000);
     const s = await call('/sync', { directory: dir }, { method: 'POST', body: JSON.stringify({ provider: 'git', auto: true }) });
@@ -807,7 +845,7 @@ test('OpenChamber extension: manifest, built pages, service (state, proxy, event
 
 import { projectDesign } from '../src/design/discover.mjs';
 
-test('project design: remembered, then design/, then the only one in the repo; several → the user picks', () => {
+test('project design: remembered, then wcraft/design/, then the only one in the repo; several → the user picks', () => {
   const d = tmp();
   assert.equal(projectDesign(d), null);
   fs.mkdirSync(path.join(d, 'apps/web/design'), { recursive: true });
@@ -819,18 +857,51 @@ test('project design: remembered, then design/, then the only one in the repo; s
   fs.mkdirSync(path.join(d, 'apps/admin/design'), { recursive: true });
   fs.copyFileSync(ACCOUNT, path.join(d, 'apps/admin/design/b.figcraft.json'));
   assert.equal(projectDesign(d), null, 'two candidates: ask');
-  fs.writeFileSync(path.join(d, '.weshcraft.json'), JSON.stringify({ file: 'apps/admin/design/b.figcraft.json' }));
+  fs.mkdirSync(path.join(d, 'wcraft'), { recursive: true });
+  fs.writeFileSync(path.join(d, 'wcraft/config.json'), JSON.stringify({ file: 'apps/admin/design/b.figcraft.json' }));
   assert.deepEqual(projectDesign(d), { file: 'apps/admin/design/b.figcraft.json', how: 'remembered' });
-  fs.mkdirSync(path.join(d, 'design'));
-  fs.copyFileSync(ACCOUNT, path.join(d, 'design/main.figcraft.json'));
+  fs.mkdirSync(path.join(d, 'wcraft/design'), { recursive: true });
+  fs.copyFileSync(ACCOUNT, path.join(d, 'wcraft/design/main.figcraft.json'));
   assert.equal(projectDesign(d).how, 'remembered', 'an explicit choice wins');
-  fs.rmSync(path.join(d, '.weshcraft.json'));
-  assert.deepEqual(projectDesign(d), { file: 'design/main.figcraft.json', how: 'design-folder' });
+  fs.rmSync(path.join(d, 'wcraft/config.json'));
+  assert.deepEqual(projectDesign(d), { file: 'wcraft/design/main.figcraft.json', how: 'weshcraft-folder' });
+});
+
+test('a project from before the wcraft folder is moved into it, once', async () => {
+  const { migrate } = await import('../src/layout.mjs');
+  const d = tmp();
+  // the old layout: specs/, prototype/, design/ and .weshcraft.json at the project root
+  fs.mkdirSync(path.join(d, 'specs/front/screens'), { recursive: true });
+  fs.writeFileSync(path.join(d, 'specs/manifest.json'), JSON.stringify({ schema: 'weshcraft/manifest@2' }));
+  fs.mkdirSync(path.join(d, 'prototype'), { recursive: true });
+  fs.writeFileSync(path.join(d, 'prototype/index.html'), '<meta name="generator" content="weshcraft">');
+  fs.mkdirSync(path.join(d, 'design'), { recursive: true });
+  fs.copyFileSync(ACCOUNT, path.join(d, 'design/account.figcraft.json'));
+  fs.writeFileSync(path.join(d, 'design/notes.txt'), 'not ours');
+  fs.writeFileSync(path.join(d, '.weshcraft.json'), JSON.stringify({ file: 'design/account.figcraft.json', specTree: { folders: [], items: [] } }));
+  const { moved } = migrate(d);
+  assert.ok(moved.length);
+  assert.ok(fs.existsSync(path.join(d, 'wcraft/specs/manifest.json')), 'the specs moved');
+  assert.ok(fs.existsSync(path.join(d, 'wcraft/prototype/index.html')), 'the prototype moved');
+  assert.ok(fs.existsSync(path.join(d, 'wcraft/design/account.figcraft.json')), 'the design moved');
+  assert.ok(fs.existsSync(path.join(d, 'design/notes.txt')), 'a file that is not ours stays');
+  assert.equal(fs.existsSync(path.join(d, '.weshcraft.json')), false, 'the settings file moved');
+  const cfg = JSON.parse(fs.readFileSync(path.join(d, 'wcraft/config.json'), 'utf8'));
+  assert.equal(cfg.file, 'wcraft/design/account.figcraft.json', 'the remembered design follows');
+  assert.deepEqual(cfg.specTree, { folders: [], items: [] }, 'the spec folders follow');
+  assert.deepEqual(projectDesign(d), { file: 'wcraft/design/account.figcraft.json', how: 'remembered' });
+  assert.deepEqual(migrate(d).moved, [], 'running it again changes nothing');
+  // a specs folder that is not WeshCraft's is left where it is
+  const other = tmp();
+  fs.mkdirSync(path.join(other, 'specs'), { recursive: true });
+  fs.writeFileSync(path.join(other, 'specs/README.md'), '# mine');
+  migrate(other);
+  assert.ok(fs.existsSync(path.join(other, 'specs/README.md')));
 });
 
 test('plugin: a busy project port moves to the next one, and every session finds it there', async () => {
   const { Bridge } = await import('../opencode/plugin.mjs');
-  const mk = () => { const d = fs.mkdtempSync(path.join(os.tmpdir(), 'wc-port-')); fs.mkdirSync(path.join(d, 'design')); fs.copyFileSync(path.join(here, 'fixtures/ridgeline-onboarding.figcraft'), path.join(d, 'design/App.figcraft')); return d; };
+  const mk = () => { const d = fs.mkdtempSync(path.join(os.tmpdir(), 'wc-port-')); fs.mkdirSync(path.join(d, 'wcraft/design'), { recursive: true }); fs.copyFileSync(path.join(here, 'fixtures/ridgeline-onboarding.figcraft'), path.join(d, 'wcraft/design/App.figcraft')); return d; };
   const a = mk(), b = mk();
   // both projects on one port: something else holds it first, then project A takes the next one
   const base = 47100 + Math.floor(Math.random() * 400);
@@ -875,10 +946,10 @@ test('product functions: suggested, declared in the design, followed by every sp
 
   // declared in the design, through the agent tool; one undo step; specs follow
   const dir = tmp();
-  fs.mkdirSync(path.join(dir, 'design'));
-  fs.copyFileSync(ACCOUNT, path.join(dir, 'design/App.figcraft.json'));
+  fs.mkdirSync(path.join(dir, 'wcraft/design'), { recursive: true });
+  fs.copyFileSync(ACCOUNT, path.join(dir, 'wcraft/design/App.figcraft.json'));
   const ws = new Workspace({ outDir: dir });
-  ws.useSource(openEditable(path.join(dir, 'design/App.figcraft.json')));
+  ws.useSource(openEditable(path.join(dir, 'wcraft/design/App.figcraft.json')));
   await ws.run();
   const call = async a => JSON.parse((await callDesignTool(ws, 'design_functions', a)).content[0].text);
   const first = await call({});
@@ -891,13 +962,13 @@ test('product functions: suggested, declared in the design, followed by every sp
   assert.deepEqual(now.functions.map(f => [f.name, f.next]), [['Join', ['Manage profile']], ['Manage profile', []]], 'the journey follows the prototype links');
   assert.deepEqual(now.functions[1].data, ['Subscription (reads)', 'User (reads, writes)'], 'PATCH /users/me writes User');
   const md = p => fs.readFileSync(path.join(dir, p), 'utf8');
-  assert.match(md('specs/FUNCTIONS.md'), /```mermaid[\s\S]*fn_join ==>\|leads to\| fn_manage_profile[\s\S]*## Join\n\nCreate an account/);
-  assert.match(md('specs/front/screens/scr-sign-up.md'), /\| Function \| \[Join\]\(\.\.\/\.\.\/FUNCTIONS\.md#fn-join\)/);
-  assert.match(md('specs/back/api.md'), /Function: \[Manage profile\]\(\.\.\/FUNCTIONS\.md#fn-manage-profile\)/);
-  assert.match(md('specs/front/flows.md'), /subgraph fn_join\["Join"\]/);
-  assert.equal(readContract(md('specs/front/screens/scr-profile.md')).function, 'fn-manage-profile');
+  assert.match(md('wcraft/specs/FUNCTIONS.md'), /```mermaid[\s\S]*fn_join ==>\|leads to\| fn_manage_profile[\s\S]*## Join\n\nCreate an account/);
+  assert.match(md('wcraft/specs/front/screens/scr-sign-up.md'), /\| Function \| \[Join\]\(\.\.\/\.\.\/FUNCTIONS\.md#fn-join\)/);
+  assert.match(md('wcraft/specs/back/api.md'), /Function: \[Manage profile\]\(\.\.\/FUNCTIONS\.md#fn-manage-profile\)/);
+  assert.match(md('wcraft/specs/front/flows.md'), /subgraph fn_join\["Join"\]/);
+  assert.equal(readContract(md('wcraft/specs/front/screens/scr-profile.md')).function, 'fn-manage-profile');
   // saved in the design file, readable by FigCraft (page pluginData)
-  const doc = JSON.parse(fs.readFileSync(path.join(dir, 'design/App.figcraft.json'), 'utf8'));
+  const doc = JSON.parse(fs.readFileSync(path.join(dir, 'wcraft/design/App.figcraft.json'), 'utf8'));
   assert.equal(JSON.parse(doc.nodes[String(doc.pages[0])].pluginData.weshcraft).functions.length, 2);
   // one change: a screen moves; the other function is left empty (warned), undo restores
   r = await call({ set: { name: 'Join', addScreens: ['Profile'] }, wait: true });
@@ -906,8 +977,8 @@ test('product functions: suggested, declared in the design, followed by every sp
   await ws.settled();
   assert.deepEqual((await call({})).functions.map(f => f.screens.length), [1, 1]);
   // drift: a screen spec naming another function fails parity
-  const f = path.join(dir, 'specs/front/screens/scr-profile.md');
-  fs.writeFileSync(f, md('specs/front/screens/scr-profile.md').replace('"function": "fn-manage-profile"', '"function": "fn-join"'));
+  const f = path.join(dir, 'wcraft/specs/front/screens/scr-profile.md');
+  fs.writeFileSync(f, md('wcraft/specs/front/screens/scr-profile.md').replace('"function": "fn-manage-profile"', '"function": "fn-join"'));
   const rep = checkParity(ws.manifest, dir);
   assert.ok(rep.issues.some(i => i.code === 'function-differs'));
   // a removed function's screens are reported
@@ -922,8 +993,8 @@ test('product functions: suggested, declared in the design, followed by every sp
 test('spec ⇄ code: @weshcraft tags, the product graph for code graphs, TRACE.md, parity, weshcraft_trace', async () => {
   const { scanTags, GRAPH_FILE } = await import('../src/spec/trace.mjs');
   const dir = tmp();
-  fs.mkdirSync(path.join(dir, 'design'));
-  fs.copyFileSync(ACCOUNT, path.join(dir, 'design/App.figcraft.json'));
+  fs.mkdirSync(path.join(dir, 'wcraft/design'), { recursive: true });
+  fs.copyFileSync(ACCOUNT, path.join(dir, 'wcraft/design/App.figcraft.json'));
   const put = (f, t) => { fs.mkdirSync(path.dirname(path.join(dir, f)), { recursive: true }); fs.writeFileSync(path.join(dir, f), t); };
   put('src/api/users.ts', "// @weshcraft POST /users\nexport async function createUser(b: { email: string }) { return b; }\n/** @weshcraft GET /users/me */\nexport async function fetchMe() { return null; }\n/** @weshcraft User */\nexport interface User { id: string }\n");
   put('src/pages/SignUp.tsx', "// @weshcraft scr-sign-up\nexport function SignUpPage() { return null; }\n");
@@ -937,7 +1008,7 @@ test('spec ⇄ code: @weshcraft tags, the product graph for code graphs, TRACE.m
   assert.equal(tags.filter(t => t.file === 'src/pages/Profile.tsx').length, 2, 'several refs in one tag');
   assert.ok(tags.find(t => t.symbol === 'ProfilePage').isDefault);
 
-  const ws = new Workspace({ source: new FileSource(path.join(dir, 'design/App.figcraft.json')), outDir: dir });
+  const ws = new Workspace({ source: new FileSource(path.join(dir, 'wcraft/design/App.figcraft.json')), outDir: dir });
   const r = await ws.run();
   const graph = fs.readFileSync(path.join(dir, GRAPH_FILE), 'utf8');
   // valid JavaScript that is never run: parse it as a module
@@ -951,16 +1022,16 @@ test('spec ⇄ code: @weshcraft tags, the product graph for code graphs, TRACE.m
   assert.match(graph, /export function opPostUsers\(\) \{\n  entityUser\(\);\n  createUser\(\);/);
   assert.match(graph, /Code: server\/routes\.py:1 post_users/, 'code that cannot be imported is named');
   assert.match(graph, /Entity «User»[\s\S]*Code: server\/routes\.py:5 UserModel, src\/api\/users\.ts:5 User/);
-  const trace = fs.readFileSync(path.join(dir, 'specs/TRACE.md'), 'utf8');
+  const trace = fs.readFileSync(path.join(dir, 'wcraft/specs/TRACE.md'), 'utf8');
   assert.match(trace, /## Function: Sign up/);
   assert.match(trace, /\| screen \| \[Sign up\]\(front\/screens\/scr-sign-up\.md\) \| `@weshcraft scr-sign-up` \| `src\/pages\/SignUp\.tsx:1` SignUpPage \|/);
   assert.match(trace, /## Tags that point nowhere[\s\S]*src\/old\.ts:1/);
-  const tj = JSON.parse(fs.readFileSync(path.join(dir, 'specs/trace.json'), 'utf8'));
+  const tj = JSON.parse(fs.readFileSync(path.join(dir, 'wcraft/specs/trace.json'), 'utf8'));
   assert.deepEqual(tj.coverage, { traced: 6, total: 7 }, 'Subscription has no code yet');
   // the specs say which tag to use
-  assert.match(fs.readFileSync(path.join(dir, 'specs/front/screens/scr-sign-up.md'), 'utf8'), /\| Code tag \| `@weshcraft scr-sign-up`/);
-  assert.match(fs.readFileSync(path.join(dir, 'specs/back/api.md'), 'utf8'), /Code tag: `@weshcraft POST \/users`/);
-  assert.match(fs.readFileSync(path.join(dir, 'specs/back/domain.md'), 'utf8'), /Code tag: `@weshcraft User`/);
+  assert.match(fs.readFileSync(path.join(dir, 'wcraft/specs/front/screens/scr-sign-up.md'), 'utf8'), /\| Code tag \| `@weshcraft scr-sign-up`/);
+  assert.match(fs.readFileSync(path.join(dir, 'wcraft/specs/back/api.md'), 'utf8'), /Code tag: `@weshcraft POST \/users`/);
+  assert.match(fs.readFileSync(path.join(dir, 'wcraft/specs/back/domain.md'), 'utf8'), /Code tag: `@weshcraft User`/);
   // parity: a dangling tag is a warning; specs stay in sync
   assert.equal(r.report.ok, true);
   assert.ok(r.report.issues.some(i => i.code === 'trace-unknown' && i.file === 'src/old.ts'));
@@ -990,10 +1061,10 @@ test('logic, data, API & MCP, architecture: inferred, declared with tools, specs
 
   // declared in the design through the agent tools
   const dir = tmp();
-  fs.mkdirSync(path.join(dir, 'design'));
-  fs.copyFileSync(ACCOUNT, path.join(dir, 'design/App.figcraft.json'));
+  fs.mkdirSync(path.join(dir, 'wcraft/design'), { recursive: true });
+  fs.copyFileSync(ACCOUNT, path.join(dir, 'wcraft/design/App.figcraft.json'));
   const ws = new Workspace({ outDir: dir });
-  ws.useSource(openEditable(path.join(dir, 'design/App.figcraft.json')));
+  ws.useSource(openEditable(path.join(dir, 'wcraft/design/App.figcraft.json')));
   await ws.run();
   const call = async (name, a) => JSON.parse((await callDesignTool(ws, name, a)).content[0].text);
   assert.equal((await call('design_logic', {})).declared, false);
@@ -1013,14 +1084,14 @@ test('logic, data, API & MCP, architecture: inferred, declared with tools, specs
   assert.equal(arch.declared, true);
   assert.ok(arch.links.includes('Front end → API (3 calls)'), 'a rename keeps its links');
   assert.ok(arch.links.includes('API → Email (SMTP)'));
-  const md = f => fs.readFileSync(path.join(dir, 'specs', f), 'utf8');
+  const md = f => fs.readFileSync(path.join(dir, 'wcraft', 'specs', f), 'utf8');
   assert.match(md('LOGIC.md'), /### User\.status[\s\S]*s_invited -->\|POST \/users\| s_active[\s\S]*### Permission[\s\S]*Only the owner edits a profile/);
   assert.match(md('DATA.md'), /```mermaid\nerDiagram[\s\S]*## User[\s\S]*\| Lifecycle \| \[`invited` → `active` → `suspended`\]/);
   assert.match(md('API.md'), /## Sign up[\s\S]*\| \[`POST`\]\(back\/api\.md#op-create-account-10\) \| `\/users` \|/);
   assert.match(md('ARCHITECTURE.md'), /subgraph k_external\["External systems"\][\s\S]*\*\*API\*\*[\s\S]*Node 22 · Fastify/);
   assert.equal(ws.report.ok, true);
   // a spec out of step is an error; unknown refs are warnings
-  const f = path.join(dir, 'specs/ARCHITECTURE.md');
+  const f = path.join(dir, 'wcraft/specs/ARCHITECTURE.md');
   fs.writeFileSync(f, md('ARCHITECTURE.md').replace('"name": "Email"', '"name": "Mail"'));
   assert.ok(checkParity(ws.manifest, dir).issues.some(i => i.code === 'architecture-differs'));
   await call('design_logic', { rule: { name: 'Ghost', kind: 'policy', applies: ['Nowhere screen'] }, wait: true });

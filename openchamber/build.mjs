@@ -20,6 +20,7 @@ const desktopPlugin = {
   name: 'weshcraft-desktop',
   setup(b) {
     b.onResolve({ filter: /^\/app\/editor\.js$/ }, () => ({ path: path.join(app, 'editor.js') }));
+    b.onResolve({ filter: /^\/app\/execsum\.js$/ }, () => ({ path: path.join(app, 'execsum.js') }));
     b.onResolve({ filter: /^\/app\/functions\.js$/ }, () => ({ path: path.join(app, 'functions.js') }));
     b.onResolve({ filter: /^\/app\/aspects\.js$/ }, () => ({ path: path.join(app, 'aspects.js') }));
     b.onResolve({ filter: /^\/app\/spectree\.js$/ }, () => ({ path: path.join(app, 'spectree.js') }));

@@ -1,6 +1,6 @@
 // The specs in folders: the project's own organisation of the spec list (folders, subfolders, which
-// spec goes where). Shared by the browser (the Specs panel) and the server (specs/README.md).
-// Stored in .weshcraft.json as `specTree`: { folders: [{ name, folders: [...], items: [specId] }], items: [specId] }.
+// spec goes where). Shared by the browser (the Specs panel) and the server (wcraft/specs/README.md).
+// Stored in wcraft/config.json as `specTree`: { folders: [{ name, folders: [...], items: [specId] }], items: [specId] }.
 // A spec not placed anywhere goes to its default folder (created when missing), so new specs always show.
 
 /** Where a spec goes until someone moves it. */

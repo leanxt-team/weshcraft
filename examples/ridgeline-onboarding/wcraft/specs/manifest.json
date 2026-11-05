@@ -1,0 +1,754 @@
+{
+ "schema": "weshcraft/manifest@2",
+ "source": {
+  "name": "Ridgeline onboarding",
+  "truncated": false,
+  "hash": "e249123dd8bfcc22"
+ },
+ "screens": [
+  {
+   "id": 2,
+   "key": "scr-1-welcome",
+   "name": "1 Welcome",
+   "page": "Onboarding",
+   "pageId": 1,
+   "section": null,
+   "width": 393,
+   "height": 852,
+   "devStatus": null,
+   "background": {
+    "type": "solid",
+    "hex": "#1c2046",
+    "alpha": 1
+   },
+   "fingerprint": "38228a482aae",
+   "texts": [
+    {
+     "id": 10,
+     "name": "9:41",
+     "characters": "9:41",
+     "font": "Inter SemiBold 15",
+     "color": "#ffffff",
+     "token": null
+    },
+    {
+     "id": 18,
+     "name": "Find your next summit",
+     "characters": "Find your next summit",
+     "font": "Inter Bold 30",
+     "color": "#0f172a",
+     "token": null
+    },
+    {
+     "id": 19,
+     "name": "Hand-picked trails, live conditions and offline maps for every w",
+     "characters": "Hand-picked trails, live conditions and offline maps for every weekend in the mountains.",
+     "font": "Inter Regular 15",
+     "color": "#64748b",
+     "token": null
+    },
+    {
+     "id": 22,
+     "name": "Get started",
+     "characters": "Get started",
+     "font": "Inter SemiBold 15",
+     "color": "#ffffff",
+     "token": null
+    },
+    {
+     "id": 23,
+     "name": "I already have an account",
+     "characters": "I already have an account",
+     "font": "Inter Medium 13",
+     "color": "#0e7c66",
+     "token": null
+    }
+   ],
+   "instances": [],
+   "actions": [
+    {
+     "id": 21,
+     "name": "Get started",
+     "label": "Get started",
+     "trigger": "onClick",
+     "type": "navigate",
+     "dest": 24,
+     "transition": "push",
+     "durationMs": 400,
+     "url": null,
+     "destScreen": "scr-2-interests"
+    }
+   ],
+   "inputs": [],
+   "bindings": [],
+   "annotations": [],
+   "colors": [
+    "#0e7c66",
+    "#0f172a",
+    "#1c2046",
+    "#64748b",
+    "#cbd5e1",
+    "#ffffff"
+   ],
+   "nodeIds": [
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15,
+    16,
+    17,
+    18,
+    19,
+    20,
+    21,
+    22,
+    23
+   ],
+   "pageKey": "page-onboarding"
+  },
+  {
+   "id": 24,
+   "key": "scr-2-interests",
+   "name": "2 Interests",
+   "page": "Onboarding",
+   "pageId": 1,
+   "section": null,
+   "width": 393,
+   "height": 852,
+   "devStatus": null,
+   "background": {
+    "type": "solid",
+    "hex": "#f4f6f8",
+    "alpha": 1
+   },
+   "fingerprint": "ca08067d039b",
+   "texts": [
+    {
+     "id": 26,
+     "name": "9:41",
+     "characters": "9:41",
+     "font": "Inter SemiBold 15",
+     "color": "#0f172a",
+     "token": null
+    },
+    {
+     "id": 38,
+     "name": "What do you love",
+     "characters": "What do you love\nout there?",
+     "font": "Inter Bold 28",
+     "color": "#0f172a",
+     "token": null
+    },
+    {
+     "id": 39,
+     "name": "Pick a few. We'll tune your feed and trail picks.",
+     "characters": "Pick a few. We'll tune your feed and trail picks.",
+     "font": "Inter Regular 15",
+     "color": "#64748b",
+     "token": null
+    },
+    {
+     "id": 49,
+     "name": "Summits",
+     "characters": "Summits",
+     "font": "Inter SemiBold 15",
+     "color": "#0f172a",
+     "token": null
+    },
+    {
+     "id": 58,
+     "name": "Lakes",
+     "characters": "Lakes",
+     "font": "Inter SemiBold 15",
+     "color": "#0f172a",
+     "token": null
+    },
+    {
+     "id": 64,
+     "name": "Day hikes",
+     "characters": "Day hikes",
+     "font": "Inter SemiBold 15",
+     "color": "#0f172a",
+     "token": null
+    },
+    {
+     "id": 73,
+     "name": "Photo spots",
+     "characters": "Photo spots",
+     "font": "Inter SemiBold 15",
+     "color": "#0f172a",
+     "token": null
+    },
+    {
+     "id": 79,
+     "name": "Sunrise",
+     "characters": "Sunrise",
+     "font": "Inter SemiBold 15",
+     "color": "#0f172a",
+     "token": null
+    },
+    {
+     "id": 85,
+     "name": "Ridge walks",
+     "characters": "Ridge walks",
+     "font": "Inter SemiBold 15",
+     "color": "#0f172a",
+     "token": null
+    },
+    {
+     "id": 88,
+     "name": "Continue",
+     "characters": "Continue",
+     "font": "Inter SemiBold 15",
+     "color": "#ffffff",
+     "token": null
+    }
+   ],
+   "instances": [],
+   "actions": [
+    {
+     "id": 31,
+     "name": "Back",
+     "label": "",
+     "trigger": "onClick",
+     "type": "back",
+     "dest": null,
+     "transition": "instant",
+     "durationMs": 300,
+     "url": null,
+     "destScreen": null
+    },
+    {
+     "id": 87,
+     "name": "Continue",
+     "label": "Continue",
+     "trigger": "onClick",
+     "type": "navigate",
+     "dest": 89,
+     "transition": "push",
+     "durationMs": 400,
+     "url": null,
+     "destScreen": "scr-3-location"
+    }
+   ],
+   "inputs": [],
+   "bindings": [],
+   "annotations": [],
+   "colors": [
+    "#0e7c66",
+    "#0f172a",
+    "#64748b",
+    "#cbd5e1",
+    "#ddf4ec",
+    "#f4f6f8",
+    "#ffffff"
+   ],
+   "nodeIds": [
+    24,
+    25,
+    26,
+    27,
+    28,
+    29,
+    30,
+    31,
+    32,
+    33,
+    34,
+    35,
+    36,
+    37,
+    38,
+    39,
+    40,
+    41,
+    42,
+    43,
+    44,
+    45,
+    46,
+    47,
+    48,
+    49,
+    50,
+    51,
+    52,
+    53,
+    54,
+    55,
+    56,
+    57,
+    58,
+    59,
+    60,
+    61,
+    62,
+    63,
+    64,
+    65,
+    66,
+    67,
+    68,
+    69,
+    70,
+    71,
+    72,
+    73,
+    74,
+    75,
+    76,
+    77,
+    78,
+    79,
+    80,
+    81,
+    82,
+    83,
+    84,
+    85,
+    86,
+    87,
+    88
+   ],
+   "pageKey": "page-onboarding"
+  },
+  {
+   "id": 89,
+   "key": "scr-3-location",
+   "name": "3 Location",
+   "page": "Onboarding",
+   "pageId": 1,
+   "section": null,
+   "width": 393,
+   "height": 852,
+   "devStatus": null,
+   "background": {
+    "type": "solid",
+    "hex": "#ffffff",
+    "alpha": 1
+   },
+   "fingerprint": "3a661accb522",
+   "texts": [
+    {
+     "id": 91,
+     "name": "9:41",
+     "characters": "9:41",
+     "font": "Inter SemiBold 15",
+     "color": "#0f172a",
+     "token": null
+    },
+    {
+     "id": 122,
+     "name": "Trails near you",
+     "characters": "Trails near you",
+     "font": "Inter Bold 28",
+     "color": "#0f172a",
+     "token": null
+    },
+    {
+     "id": 123,
+     "name": "Allow location to see conditions, closures and the closest trail",
+     "characters": "Allow location to see conditions, closures and the closest trailheads. You can change this any time.",
+     "font": "Inter Regular 15",
+     "color": "#64748b",
+     "token": null
+    },
+    {
+     "id": 126,
+     "name": "Allow location",
+     "characters": "Allow location",
+     "font": "Inter SemiBold 15",
+     "color": "#ffffff",
+     "token": null
+    },
+    {
+     "id": 128,
+     "name": "Not now",
+     "characters": "Not now",
+     "font": "Inter SemiBold 15",
+     "color": "#0e7c66",
+     "token": null
+    }
+   ],
+   "instances": [],
+   "actions": [
+    {
+     "id": 95,
+     "name": "Back",
+     "label": "",
+     "trigger": "onClick",
+     "type": "back",
+     "dest": null,
+     "transition": "instant",
+     "durationMs": 300,
+     "url": null,
+     "destScreen": null
+    },
+    {
+     "id": 125,
+     "name": "Allow",
+     "label": "Allow location",
+     "trigger": "onClick",
+     "type": "navigate",
+     "dest": 129,
+     "transition": "dissolve",
+     "durationMs": 300,
+     "url": null,
+     "destScreen": "scr-4-all-set"
+    },
+    {
+     "id": 127,
+     "name": "Not now",
+     "label": "Not now",
+     "trigger": "onClick",
+     "type": "navigate",
+     "dest": 129,
+     "transition": "moveIn",
+     "durationMs": 350,
+     "url": null,
+     "destScreen": "scr-4-all-set"
+    }
+   ],
+   "inputs": [],
+   "bindings": [],
+   "annotations": [],
+   "colors": [
+    "#0e7c66",
+    "#0f172a",
+    "#64748b",
+    "#cbd5e1",
+    "#ffffff"
+   ],
+   "nodeIds": [
+    89,
+    90,
+    91,
+    92,
+    93,
+    94,
+    95,
+    96,
+    97,
+    98,
+    99,
+    100,
+    101,
+    102,
+    103,
+    104,
+    105,
+    106,
+    107,
+    108,
+    109,
+    110,
+    111,
+    112,
+    113,
+    114,
+    115,
+    116,
+    117,
+    118,
+    119,
+    120,
+    121,
+    122,
+    123,
+    124,
+    125,
+    126,
+    127,
+    128
+   ],
+   "pageKey": "page-onboarding"
+  },
+  {
+   "id": 129,
+   "key": "scr-4-all-set",
+   "name": "4 All set",
+   "page": "Onboarding",
+   "pageId": 1,
+   "section": null,
+   "width": 393,
+   "height": 852,
+   "devStatus": null,
+   "background": {
+    "type": "gradient",
+    "kind": "linear",
+    "from": [
+     0.2,
+     0
+    ],
+    "to": [
+     0.8,
+     1
+    ],
+    "opacity": 1,
+    "stops": [
+     {
+      "position": 0,
+      "hex": "#14a085",
+      "alpha": 1
+     },
+     {
+      "position": 1,
+      "hex": "#0a4f42",
+      "alpha": 1
+     }
+    ]
+   },
+   "fingerprint": "4d281d06ec6c",
+   "texts": [
+    {
+     "id": 131,
+     "name": "9:41",
+     "characters": "9:41",
+     "font": "Inter SemiBold 15",
+     "color": "#ffffff",
+     "token": null
+    },
+    {
+     "id": 139,
+     "name": "You're all set, Maya",
+     "characters": "You're all set, Maya",
+     "font": "Inter Bold 28",
+     "color": "#ffffff",
+     "token": null
+    },
+    {
+     "id": 140,
+     "name": "We found 42 trails within an hour of you. Three of them have gol",
+     "characters": "We found 42 trails within an hour of you. Three of them have golden larches this week.",
+     "font": "Inter Regular 15",
+     "color": "#d7f5ec",
+     "token": null
+    },
+    {
+     "id": 143,
+     "name": "Explore trails",
+     "characters": "Explore trails",
+     "font": "Inter SemiBold 15",
+     "color": "#0e7c66",
+     "token": null
+    }
+   ],
+   "instances": [],
+   "actions": [],
+   "inputs": [],
+   "bindings": [],
+   "annotations": [],
+   "colors": [
+    "#0e7c66",
+    "#d7f5ec",
+    "#ffffff"
+   ],
+   "nodeIds": [
+    129,
+    130,
+    131,
+    132,
+    133,
+    134,
+    135,
+    136,
+    137,
+    138,
+    139,
+    140,
+    141,
+    142,
+    143
+   ],
+   "pageKey": "page-onboarding"
+  }
+ ],
+ "components": [],
+ "tokens": {
+  "collections": [],
+  "variables": []
+ },
+ "flows": [
+  {
+   "name": "Onboarding",
+   "start": "scr-1-welcome",
+   "description": ""
+  }
+ ],
+ "domain": {
+  "entities": [],
+  "operations": [
+   {
+    "key": "op-continue-87",
+    "name": "Continue",
+    "method": "POST",
+    "path": "/interests/continue",
+    "screen": "scr-2-interests",
+    "trigger": 87,
+    "entity": null,
+    "kind": "action",
+    "confidence": "inferred",
+    "sources": [
+     87
+    ],
+    "fields": []
+   },
+   {
+    "key": "op-allow-location-125",
+    "name": "Allow location",
+    "method": "POST",
+    "path": "/location/allow",
+    "screen": "scr-3-location",
+    "trigger": 125,
+    "entity": null,
+    "kind": "action",
+    "confidence": "inferred",
+    "sources": [
+     125
+    ],
+    "fields": []
+   }
+  ]
+ },
+ "links": {
+  "edges": [
+   {
+    "rel": "triggers",
+    "node": 87,
+    "screen": "scr-2-interests",
+    "label": "Continue",
+    "op": "op-continue-87"
+   },
+   {
+    "rel": "triggers",
+    "node": 125,
+    "screen": "scr-3-location",
+    "label": "Allow location",
+    "op": "op-allow-location-125"
+   }
+  ],
+  "gaps": []
+ },
+ "pages": [
+  {
+   "id": 1,
+   "key": "page-onboarding",
+   "name": "Onboarding",
+   "screens": [
+    "scr-1-welcome",
+    "scr-2-interests",
+    "scr-3-location",
+    "scr-4-all-set"
+   ],
+   "file": "index.html"
+  }
+ ],
+ "functions": {
+  "declared": false,
+  "items": [
+   {
+    "key": "fn-onboarding",
+    "name": "Onboarding",
+    "summary": "",
+    "screens": [
+     "scr-1-welcome",
+     "scr-2-interests",
+     "scr-3-location",
+     "scr-4-all-set"
+    ],
+    "operations": [
+     "op-continue-87",
+     "op-allow-location-125"
+    ],
+    "tools": [],
+    "endpoints": [],
+    "entities": [],
+    "actors": [
+     "user"
+    ],
+    "next": []
+   }
+  ],
+  "unassigned": {
+   "screens": [],
+   "operations": [],
+   "tools": []
+  },
+  "missing": []
+ },
+ "logic": {
+  "declared": false,
+  "rules": [],
+  "machines": [],
+  "missing": []
+ },
+ "data": {
+  "entities": []
+ },
+ "architecture": {
+  "declared": false,
+  "components": [
+   {
+    "key": "arc-people",
+    "name": "People",
+    "kind": "client",
+    "tech": "",
+    "description": "Use the app",
+    "implements": [],
+    "code": [],
+    "source": "suggested"
+   },
+   {
+    "key": "arc-front-end",
+    "name": "Front end",
+    "kind": "frontend",
+    "tech": "",
+    "description": "The app people use",
+    "implements": [
+     "scr-1-welcome",
+     "scr-2-interests",
+     "scr-3-location",
+     "scr-4-all-set"
+    ],
+    "code": [],
+    "source": "suggested"
+   },
+   {
+    "key": "arc-back-end",
+    "name": "Back end",
+    "kind": "service",
+    "tech": "",
+    "description": "Runs the operations and the rules",
+    "implements": [
+     "op-continue-87",
+     "op-allow-location-125"
+    ],
+    "code": [],
+    "source": "suggested"
+   }
+  ],
+  "links": [
+   {
+    "from": "arc-people",
+    "to": "arc-front-end",
+    "label": "uses"
+   },
+   {
+    "from": "arc-front-end",
+    "to": "arc-back-end",
+    "label": "2 calls"
+   }
+  ],
+  "missing": []
+ }
+}

@@ -1,4 +1,4 @@
-// specs/FUNCTIONS.md: how the product works at a glance. One diagram (who → functions → data,
+// wcraft/specs/FUNCTIONS.md: how the product works at a glance. One diagram (who → functions → data,
 // with where each function leads), then one short section per function. The other specs link here:
 // every screen says which function it belongs to, the API groups its operations by function.
 import { mdEscape } from '../util/common.mjs';
@@ -19,7 +19,7 @@ export function functionsContract(manifest) {
   };
 }
 
-/** The diagram, in Mermaid (GitHub renders it). `prefix` is the path from the spec to specs/. */
+/** The diagram, in Mermaid (GitHub renders it). `prefix` is the path from the spec to the specs folder. */
 export function functionsMermaid(manifest) {
   const f = manifest.functions;
   const L = ['flowchart LR'];

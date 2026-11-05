@@ -19,6 +19,7 @@ import { readNotes } from './contract.mjs';
 import { diffManifests, updateChangelog, summaryLine } from './diff.mjs';
 import { agentPrompt, runAgent, sanitizeNotes, DEFAULT_AGENT } from './agent.mjs';
 import { checkParity, parityMarkdown } from '../parity/check.mjs';
+import { GRAPH, spec, proto, link, PROTOTYPE } from '../layout.mjs';
 
 export class Workspace {
   /**
@@ -95,14 +96,14 @@ export class Workspace {
     this.manifest = buildManifest(model, { surface });
     this.thumbnail = thumbnail;
     // What changed since the manifest on disk (the last run, or what git checked out).
-    const prevFile = this.file('specs/manifest.json');
+    const prevFile = this.file(spec('manifest.json'));
     let prev = null;
     try { prev = fs.existsSync(prevFile) ? JSON.parse(fs.readFileSync(prevFile, 'utf8')) : null; } catch { prev = null; }
     if (prev?.source?.hash !== this.manifest.source.hash) {
       this.changes = diffManifests(prev, this.manifest);
       // Not on the very first run into an empty folder: nothing to compare with.
       if (prev) {
-        const cf = this.file('specs/CHANGES.md');
+        const cf = this.file(spec('CHANGES.md'));
         const next = updateChangelog(fs.existsSync(cf) ? fs.readFileSync(cf, 'utf8') : null, this.changes);
         if (next) writeFileSafe(cf, next);
         this.emit('log', { level: 'info', message: `Design changed: ${summaryLine(this.changes)}` });
@@ -141,27 +142,27 @@ export class Workspace {
   plan() {
     const m = this.manifest;
     const jobs = [];
-    jobs.push({ id: 'product:functions', group: 'product', title: 'Functions', file: 'specs/FUNCTIONS.md', build: notes => functionsSpec(m, { notes }) });
-    jobs.push({ id: 'product:logic', group: 'product', title: 'Logic', file: 'specs/LOGIC.md', build: notes => logicSpec(m, { notes }) });
-    jobs.push({ id: 'product:data', group: 'product', title: 'Data', file: 'specs/DATA.md', build: notes => dataSpec(m, { notes }) });
-    jobs.push({ id: 'product:api', group: 'product', title: 'API & MCP', file: 'specs/API.md', build: notes => apiOverviewSpec(m, { notes }) });
-    jobs.push({ id: 'product:architecture', group: 'product', title: 'Architecture', file: 'specs/ARCHITECTURE.md', build: notes => architectureSpec(m, { notes }) });
-    for (const s of m.screens) jobs.push({ id: `front:screen:${s.key}`, group: 'front', title: `Screen · ${s.name}`, file: `specs/front/screens/${s.key}.md`, fingerprint: s.fingerprint, node: s.id, screen: s.key, build: notes => screenSpec(this.model, m, s, { notes, ops: m.domain.operations, code: this.codeCache?.get(s.id), hasRender: fs.existsSync(this.file(`prototype/screens/${s.key}.png`)) }) });
-    for (const c of m.components) jobs.push({ id: `front:component:${c.key}`, group: 'front', title: `Component · ${c.name}`, file: `specs/front/components/${c.key}.md`, fingerprint: c.fingerprint, node: c.id, build: notes => componentSpec(this.model, m, c, { notes, code: this.codeCache?.get(`c${c.id}`) }) });
+    jobs.push({ id: 'product:functions', group: 'product', title: 'Functions', file: spec('FUNCTIONS.md'), build: notes => functionsSpec(m, { notes }) });
+    jobs.push({ id: 'product:logic', group: 'product', title: 'Logic', file: spec('LOGIC.md'), build: notes => logicSpec(m, { notes }) });
+    jobs.push({ id: 'product:data', group: 'product', title: 'Data', file: spec('DATA.md'), build: notes => dataSpec(m, { notes }) });
+    jobs.push({ id: 'product:api', group: 'product', title: 'API & MCP', file: spec('API.md'), build: notes => apiOverviewSpec(m, { notes }) });
+    jobs.push({ id: 'product:architecture', group: 'product', title: 'Architecture', file: spec('ARCHITECTURE.md'), build: notes => architectureSpec(m, { notes }) });
+    for (const s of m.screens) jobs.push({ id: `front:screen:${s.key}`, group: 'front', title: `Screen · ${s.name}`, file: spec('front/screens', `${s.key}.md`), fingerprint: s.fingerprint, node: s.id, screen: s.key, build: notes => screenSpec(this.model, m, s, { notes, ops: m.domain.operations, code: this.codeCache?.get(s.id), hasRender: fs.existsSync(this.file(proto('screens', `${s.key}.png`))) }) });
+    for (const c of m.components) jobs.push({ id: `front:component:${c.key}`, group: 'front', title: `Component · ${c.name}`, file: spec('front/components', `${c.key}.md`), fingerprint: c.fingerprint, node: c.id, build: notes => componentSpec(this.model, m, c, { notes, code: this.codeCache?.get(`c${c.id}`) }) });
     if (m.surface?.mcp) {
-      jobs.push({ id: 'front:mcp', group: 'front', title: 'MCP server', file: 'specs/front/mcp/README.md', build: notes => mcpIndexSpec(m, { notes }) });
-      for (const t of m.surface.mcp.tools) jobs.push({ id: `front:mcp:${t.name}`, group: 'front', title: `MCP · ${t.name}`, file: `specs/front/mcp/${t.key}.md`, node: `tool:${t.name}`, build: notes => mcpToolSpec(m, t, { notes }) });
+      jobs.push({ id: 'front:mcp', group: 'front', title: 'MCP server', file: spec('front/mcp/README.md'), build: notes => mcpIndexSpec(m, { notes }) });
+      for (const t of m.surface.mcp.tools) jobs.push({ id: `front:mcp:${t.name}`, group: 'front', title: `MCP · ${t.name}`, file: spec('front/mcp', `${t.key}.md`), node: `tool:${t.name}`, build: notes => mcpToolSpec(m, t, { notes }) });
     }
     if (m.surface?.api) {
-      jobs.push({ id: 'front:api', group: 'front', title: 'Public API', file: 'specs/front/api/README.md', build: notes => apiIndexSpec(m, { notes }) });
-      for (const ep of m.surface.api.endpoints) jobs.push({ id: `front:api:${ep.key}`, group: 'front', title: `API · ${ep.method} ${ep.path}`, file: `specs/front/api/${ep.key}.md`, node: `ep:${ep.method} ${ep.path}`, build: notes => endpointSpec(m, ep, { notes }) });
+      jobs.push({ id: 'front:api', group: 'front', title: 'Public API', file: spec('front/api/README.md'), build: notes => apiIndexSpec(m, { notes }) });
+      for (const ep of m.surface.api.endpoints) jobs.push({ id: `front:api:${ep.key}`, group: 'front', title: `API · ${ep.method} ${ep.path}`, file: spec('front/api', `${ep.key}.md`), node: `ep:${ep.method} ${ep.path}`, build: notes => endpointSpec(m, ep, { notes }) });
     }
-    if (m.screens.length || m.tokens.variables.length) jobs.push({ id: 'front:tokens', group: 'front', title: 'Design tokens', file: 'specs/front/tokens.md', build: notes => tokensSpec(m, { notes }), extra: () => [['specs/front/tokens.css', tokensCss(m)]] });
-    if (m.screens.length) jobs.push({ id: 'front:flows', group: 'front', title: 'Navigation & flows', file: 'specs/front/flows.md', build: notes => flowsSpec(m, { notes }) });
-    jobs.push({ id: 'back:domain', group: 'back', title: 'Domain model', file: 'specs/back/domain.md', build: notes => domainSpec(m, { notes }) });
-    jobs.push({ id: 'back:api', group: 'back', title: 'API & OpenAPI', file: 'specs/back/api.md', build: notes => apiSpec(m, { notes }), extra: () => [['specs/back/openapi.json', `${JSON.stringify(openapi(m), null, 2)}\n`]] });
-    jobs.push({ id: 'links:map', group: 'links', title: 'Front ⇄ back map', file: 'specs/LINKS.md', build: notes => linksSpec(m, { notes }) });
-    jobs.push({ id: 'back:conventions', group: 'back', title: 'Back-end conventions', file: 'specs/back/conventions.md', build: notes => conventionsSpec(m, { notes }) });
+    if (m.screens.length || m.tokens.variables.length) jobs.push({ id: 'front:tokens', group: 'front', title: 'Design tokens', file: spec('front/tokens.md'), build: notes => tokensSpec(m, { notes }), extra: () => [[spec('front/tokens.css'), tokensCss(m)]] });
+    if (m.screens.length) jobs.push({ id: 'front:flows', group: 'front', title: 'Navigation & flows', file: spec('front/flows.md'), build: notes => flowsSpec(m, { notes }) });
+    jobs.push({ id: 'back:domain', group: 'back', title: 'Domain model', file: spec('back/domain.md'), build: notes => domainSpec(m, { notes }) });
+    jobs.push({ id: 'back:api', group: 'back', title: 'API & OpenAPI', file: spec('back/api.md'), build: notes => apiSpec(m, { notes }), extra: () => [[spec('back/openapi.json'), `${JSON.stringify(openapi(m), null, 2)}\n`]] });
+    jobs.push({ id: 'links:map', group: 'links', title: 'Front ⇄ back map', file: spec('LINKS.md'), build: notes => linksSpec(m, { notes }) });
+    jobs.push({ id: 'back:conventions', group: 'back', title: 'Back-end conventions', file: spec('back/conventions.md'), build: notes => conventionsSpec(m, { notes }) });
     return jobs;
   }
 
@@ -180,9 +181,9 @@ export class Workspace {
     await pool(m.screens, 2, async s => {
       try {
         const png = await this.source.render(s.id, 2);
-        if (png) writeFileSafe(this.file(`prototype/screens/${s.key}.png`), png);
+        if (png) writeFileSafe(this.file(proto('screens', `${s.key}.png`)), png);
         const html = await this.source.code(s.id, 'html');
-        if (html) writeFileSafe(this.file(`prototype/figcraft/${s.key}.html`), html);
+        if (html) writeFileSafe(this.file(proto('figcraft', `${s.key}.html`)), html);
       } catch (e) { this.emit('log', { level: 'warn', message: `FigCraft render of ${s.name} failed: ${e.message}` }); }
     });
     await pool(m.components, 2, async c => {
@@ -192,11 +193,15 @@ export class Workspace {
   }
 
   writePrototype() {
-    const html = renderPrototype(this.model, this.manifest);
-    writeFileSafe(this.file('prototype/index.html'), html);
-    writeFileSafe(this.file('prototype/tokens.css'), tokensCss(this.manifest));
-    if (this.thumbnail) writeFileSafe(this.file('prototype/thumbnail.png'), this.thumbnail);
-    return html;
+    const files = renderPrototype(this.model, this.manifest);
+    for (const f of files) writeFileSafe(this.file(proto(f.file)), f.html);
+    // A page that is no longer in the design: its file goes.
+    const keep = new Set(files.map(f => f.file));
+    const dir = this.file(PROTOTYPE);
+    if (fs.existsSync(dir)) for (const n of fs.readdirSync(dir)) if (n.endsWith('.html') && !keep.has(n)) fs.rmSync(path.join(dir, n));
+    writeFileSafe(this.file(proto('tokens.css')), tokensCss(this.manifest));
+    if (this.thumbnail) writeFileSafe(this.file(proto('thumbnail.png')), this.thumbnail);
+    return files;
   }
 
   async runJob(job, { force }) {
@@ -263,7 +268,7 @@ export class Workspace {
 
   /**
    * Spec ⇄ code: find the `@weshcraft` tags in the project's code, write the product graph code graphs
-   * index (weshcraft.graph.mjs next to the design) and specs/TRACE.md + trace.json. Also on demand (weshcraft_trace):
+   * index (wcraft/graph.mjs) and specs/TRACE.md + trace.json. Also on demand (weshcraft_trace):
    * code changes do not trigger a run.
    */
   writeTrace() {
@@ -276,10 +281,10 @@ export class Workspace {
     const before = recordedGraphPath(this.outDir);
     if (before !== graphFile) { const old = this.file(before); try { if (fs.readFileSync(old, 'utf8').includes('WeshCraft product graph')) fs.rmSync(old); } catch { /* none */ } }
     this.graphFile = graphFile;
-    if (!trace.elements.length) { for (const f of ['specs/TRACE.md', 'specs/trace.json']) fs.rmSync(this.file(f), { force: true }); return trace; }
+    if (!trace.elements.length) { for (const f of [spec('TRACE.md'), spec('trace.json')]) fs.rmSync(this.file(f), { force: true }); return trace; }
     put(graphFile, graphModule(this.manifest, trace, { graphFile }));
-    put('specs/TRACE.md', `${traceSpec(this.manifest, trace, { graphFile })}\n`);
-    put('specs/trace.json', `${JSON.stringify({ graph: graphFile, coverage: trace.coverage, elements: trace.elements.map(e => ({ id: e.id, kind: e.kind, name: e.name, tag: e.kind === 'operation' ? e.refs[1] : e.refs[0], code: e.code.map(t => ({ file: t.file, line: t.line, symbol: t.symbol, lang: t.lang })) })), unknown: trace.unknown.map(t => ({ file: t.file, line: t.line, ref: t.ref })) }, null, 1)}\n`);
+    put(spec('TRACE.md'), `${traceSpec(this.manifest, trace, { graphFile })}\n`);
+    put(spec('trace.json'), `${JSON.stringify({ graph: graphFile, coverage: trace.coverage, elements: trace.elements.map(e => ({ id: e.id, kind: e.kind, name: e.name, tag: e.kind === 'operation' ? e.refs[1] : e.refs[0], code: e.code.map(t => ({ file: t.file, line: t.line, symbol: t.symbol, lang: t.lang })) })), unknown: trace.unknown.map(t => ({ file: t.file, line: t.line, ref: t.ref })) }, null, 1)}\n`);
     this.emit('trace', { coverage: trace.coverage, unknown: trace.unknown.length });
     return trace;
   }
@@ -287,7 +292,7 @@ export class Workspace {
   /** Specs for screens/components deleted in FigCraft are removed, not left to rot. */
   removeOrphans() {
     const keep = new Set(this.plan().map(j => j.file));
-    for (const dir of ['specs/front/screens', 'specs/front/components', 'specs/front/mcp', 'specs/front/api']) {
+    for (const dir of [spec('front/screens'), spec('front/components'), spec('front/mcp'), spec('front/api')]) {
       const abs = this.file(dir);
       if (!fs.existsSync(abs)) continue;
       for (const f of fs.readdirSync(abs)) {
@@ -302,8 +307,8 @@ export class Workspace {
   check() {
     const report = checkParity(this.manifest, this.outDir, { graphFile: this.graphFile });
     this.report = report;
-    writeFileSafe(this.file('specs/PARITY.md'), parityMarkdown(report, this.manifest));
-    writeFileSafe(this.file('specs/parity.json'), `${JSON.stringify(report, null, 1)}\n`);
+    writeFileSafe(this.file(spec('PARITY.md')), parityMarkdown(report, this.manifest));
+    writeFileSafe(this.file(spec('parity.json')), `${JSON.stringify(report, null, 1)}\n`);
     this.emit('parity', { report });
     return report;
   }
@@ -325,21 +330,23 @@ export class Workspace {
 
   writeIndex() {
     const m = this.manifest;
+    const here = spec('README.md');
+    const rel = to => link(here, to);
     const L = [`# ${m.source.name} — specifications`, ''];
     const from = [m.screens.length ? 'the FigCraft prototype' : null, m.surface?.mcp ? 'the MCP server' : null, m.surface?.api ? 'the public API' : null].filter(Boolean).join(', ');
     L.push(`Generated by WeshCraft from ${from || 'the design'} \`${m.source.hash}\`. Parity: ${this.report.ok ? '✅ in sync' : '❌ out of sync'} (${this.report.score}%, see [PARITY.md](PARITY.md)).`);
     L.push('');
-    L.push(`- ${m.screens.length ? 'Clickable prototype' : 'Interface catalog'}: [\`prototype/index.html\`](../prototype/index.html)`);
-    L.push('- Manifest (machine-readable inventory): [`manifest.json`](manifest.json)');
+    L.push(`- ${m.screens.length ? 'Clickable prototype' : 'Interface catalog'}: [\`${proto('index.html')}\`](${rel(proto('index.html'))})`);
+    L.push(`- Manifest (machine-readable inventory): [\`${spec('manifest.json')}\`](${rel(spec('manifest.json'))})`);
     L.push('');
-    // The specs in the project's folders (edited in the Specs panel, saved in .weshcraft.json).
+    // The specs in the project's folders (edited in the Specs panel, saved in wcraft/config.json).
     {
       const { tree, titles } = this.specTree();
       L.push('## Specs');
       L.push('');
-      const link = id => `[${titles[id].title}](${titles[id].file.replace(/^specs\//, '')})`;
+      const linkTo = id => `[${titles[id].title}](${rel(titles[id].file)})`;
       const walk = (f, depth) => {
-        for (const id of f.items) L.push(`${'  '.repeat(depth)}- ${link(id)}`);
+        for (const id of f.items) L.push(`${'  '.repeat(depth)}- ${linkTo(id)}`);
         for (const sub of f.folders) { L.push(`${'  '.repeat(depth)}- **${sub.name}**`); walk(sub, depth + 1); }
       };
       walk(tree, 0);
@@ -350,7 +357,7 @@ export class Workspace {
     if (m.screens.length) {
       L.push('| Screen | Size | Texts | Interactions | Back-end calls |');
       L.push('|---|---|---|---|---|');
-      for (const s of m.screens) L.push(`| [${s.name}](front/screens/${s.key}.md) | ${s.width}×${s.height} | ${s.texts.length} | ${s.actions.length} | ${m.domain.operations.filter(o => o.screen === s.key).map(o => `\`${o.method} ${o.path}\``).join(', ') || '—'} |`);
+      for (const s of m.screens) L.push(`| [${s.name}](${rel(spec('front/screens', `${s.key}.md`))}) | ${s.width}×${s.height} | ${s.texts.length} | ${s.actions.length} | ${m.domain.operations.filter(o => o.screen === s.key).map(o => `\`${o.method} ${o.path}\``).join(', ') || '—'} |`);
       L.push('');
     }
     if (m.surface?.mcp) { L.push(`- [MCP server](front/mcp/README.md): ${m.surface.mcp.tools.map(t => `[\`${t.name}\`](front/mcp/${t.key}.md)`).join(' · ')}`); }
@@ -371,7 +378,7 @@ export class Workspace {
     L.push('');
     L.push('[Domain model](back/domain.md) · [API](back/api.md) ([OpenAPI](back/openapi.json)) · [Conventions](back/conventions.md)');
     L.push('');
-    writeFileSafe(this.file('specs/README.md'), `${L.join('\n')}\n`);
+    writeFileSafe(this.file(here), `${L.join('\n')}\n`);
   }
 
   state() {

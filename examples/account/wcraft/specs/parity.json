@@ -1,0 +1,23 @@
+{
+ "ok": true,
+ "score": 100,
+ "checks": 131,
+ "errors": 0,
+ "warnings": 2,
+ "issues": [
+  {
+   "level": "warning",
+   "code": "functions-suggested",
+   "file": "wcraft/specs/FUNCTIONS.md",
+   "message": "the function is suggested from the prototype: name them and give each a purpose (the Functions view, or weshcraft_edit)"
+  },
+  {
+   "level": "warning",
+   "code": "gap-unloaded-data",
+   "file": "wcraft/specs/LINKS.md",
+   "message": "Subscription.plan is shown on scr-profile but no operation on that screen loads Subscription",
+   "node": 14
+  }
+ ],
+ "sourceHash": "e868cb3c8b18019b"
+}

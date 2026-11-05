@@ -7,15 +7,15 @@ import { createRequire } from 'node:module';
 import { startHost } from './host.mjs';
 const [ROOT, WORK, OUT = WORK] = process.argv.slice(2);
 const { chromium } = createRequire(import.meta.url)('playwright');
-fs.rmSync(WORK, { recursive: true, force: true }); fs.mkdirSync(path.join(WORK, 'design'), { recursive: true });
-fs.copyFileSync(path.join(ROOT, 'test/fixtures/ridgeline-onboarding.figcraft'), path.join(WORK, 'design/App.figcraft'));
+fs.rmSync(WORK, { recursive: true, force: true }); fs.mkdirSync(path.join(WORK, 'wcraft/design'), { recursive: true });
+fs.copyFileSync(path.join(ROOT, 'test/fixtures/ridgeline-onboarding.figcraft'), path.join(WORK, 'wcraft/design/App.figcraft'));
 const { createService, listen } = await import(path.join(ROOT, 'openchamber/service/main.js'));
 const service = createService(); const s = listen({ port: 47996, token: 't', service });
 const host = await startHost({ root: ROOT, sdkDir: path.join(ROOT, 'node_modules/@openchamber/sdk'), service: { port: 47996, token: 't' } });
 const b = await chromium.launch(); const errs = [];
 const R = []; const ok = (n, c, i = '') => R.push(`${c ? 'PASS' : 'FAIL'} ${n}${i ? ` — ${i}` : ''}`);
 const sleep = ms => new Promise(r => setTimeout(r, ms));
-const cfg = () => { try { return JSON.parse(fs.readFileSync(path.join(WORK, '.weshcraft.json'), 'utf8')).specTree ?? null; } catch { return null; } };
+const cfg = () => { try { return JSON.parse(fs.readFileSync(path.join(WORK, 'wcraft/config.json'), 'utf8')).specTree ?? null; } catch { return null; } };
 try {
   for (const [w, theme] of [[1500, 'light']]) {
     const p = await b.newPage({ viewport: { width: w + 20, height: 820 } });
@@ -105,7 +105,7 @@ try {
       ok(`${w}: specs in default folders`, (await f.locator('#groups > .tfolder > .trow.head .t-name').allInnerTexts()).join('|').startsWith('Product|Front end'));
       await f.locator('#addFolder').click(); await sleep(400);
       await f.locator('#groups .t-rename').fill('Onboarding'); await p.keyboard.press('Enter'); await sleep(800);
-      ok(`${w}: new folder saved to .weshcraft.json`, cfg()?.folders?.some(x => x.name === 'Onboarding'), JSON.stringify(cfg()));
+      ok(`${w}: new folder saved to wcraft/config.json`, cfg()?.folders?.some(x => x.name === 'Onboarding'), JSON.stringify(cfg()));
       const item = f.locator('#groups .trow.item').filter({ hasText: /^Screen/ }).first();
       const id = await item.getAttribute('data-id');
       await item.hover(); await item.locator('.t-more').click(); await sleep(300);

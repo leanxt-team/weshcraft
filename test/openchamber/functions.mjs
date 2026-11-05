@@ -7,15 +7,15 @@ import { createRequire } from 'node:module';
 import { startHost } from './host.mjs';
 const [ROOT, WORK, OUT = WORK] = process.argv.slice(2);
 const { chromium } = createRequire(import.meta.url)('playwright');
-fs.rmSync(WORK, { recursive: true, force: true }); fs.mkdirSync(path.join(WORK, 'design'), { recursive: true });
-fs.copyFileSync(path.join(ROOT, 'test/fixtures/account.figcraft.json'), path.join(WORK, 'design/App.figcraft.json'));
+fs.rmSync(WORK, { recursive: true, force: true }); fs.mkdirSync(path.join(WORK, 'wcraft/design'), { recursive: true });
+fs.copyFileSync(path.join(ROOT, 'test/fixtures/account.figcraft.json'), path.join(WORK, 'wcraft/design/App.figcraft.json'));
 const { createService, listen } = await import(path.join(ROOT, 'openchamber/service/main.js'));
 const service = createService(); const s = listen({ port: 47998, token: 't', service });
 const host = await startHost({ root: ROOT, sdkDir: path.join(ROOT, 'node_modules/@openchamber/sdk'), service: { port: 47998, token: 't' } });
 const b = await chromium.launch(); const errs = [];
 const R = []; const ok = (n, c, i = '') => R.push(`${c ? 'PASS' : 'FAIL'} ${n}${i ? ` — ${i}` : ''}`);
 const sleep = ms => new Promise(r => setTimeout(r, ms));
-const declared = () => { const d = JSON.parse(fs.readFileSync(path.join(WORK, 'design/App.figcraft.json'), 'utf8')); return JSON.parse(d.nodes[String(d.pages[0])].pluginData?.weshcraft || '{}').functions ?? null; };
+const declared = () => { const d = JSON.parse(fs.readFileSync(path.join(WORK, 'wcraft/design/App.figcraft.json'), 'utf8')); return JSON.parse(d.nodes[String(d.pages[0])].pluginData?.weshcraft || '{}').functions ?? null; };
 try {
   const open = async (w, h, theme) => {
     const p = await b.newPage({ viewport: { width: w + 20, height: h + 20 } });

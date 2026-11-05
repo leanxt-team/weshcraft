@@ -2,37 +2,43 @@
 
 An **advanced spec**: a folder in a git repository that holds a visual prototype and the front-end and back-end specifications generated from it, with machine-checkable links between all three. Plain markdown and JSON, readable without any tool; `weshcraft check` verifies it, `/wesh-plan-view-mode` iterates on it, `weshcraft_sync` keeps it in a branch.
 
-Identify it by `specs/manifest.json` with `"schema": "weshcraft/manifest@2"` (v1 manifests: `@1`, no links).
+Identify it by `wcraft/specs/manifest.json` with `"schema": "weshcraft/manifest@2"` (v1 manifests: `@1`, no links).
 
 ## Layout
 
+Everything lives in one folder, `wcraft/`:
+
 ```
-design/<name>.figcraft            source of truth for screens: a FigCraft document (edited in WeshCraft or FigCraft)
-design/weshcraft.surface.json     source of truth for non-visual fronts (optional): names an OpenAPI
-design/openapi.yaml|json          document and an MCP tool list, and pins tool ⇄ endpoint links
-design/<server>.mcp.json          an MCP server's tools/resources/prompts (snapshot of a live server)
-prototype/index.html              clickable prototype rendered from the design (data-node="<id>"), plus a
-                                  catalog of MCP tools (data-node="tool:<name>") and endpoints (data-node="ep:<METHOD path>")
-prototype/tokens.css              design tokens as CSS custom properties
-prototype/screens/*.png           FigCraft renders, when generated from a live FigCraft (visual reference)
-specs/manifest.json               the extracted inventory (below); generated
-specs/README.md                   index + traceability
-specs/PARITY.md, parity.json      last parity result
-specs/CHANGES.md                  design changelog, newest first
-specs/FUNCTIONS.md                how the product works: functions → screens, operations, data, journey
-specs/LOGIC.md                    rules and lifecycles
-specs/DATA.md                     entities, relations, use
-specs/API.md                      operations, endpoints, MCP tools by function
-specs/ARCHITECTURE.md             components, technologies, links
-specs/LINKS.md                    front ⇄ back map
-specs/TRACE.md, trace.json        spec ⇄ code: element → code tagged `@weshcraft <ref>`
-design/weshcraft.graph.mjs        product graph for code graphs (codegraph): functions → screens → operations → entities → code
-specs/front/screens/<key>.md      one per screen
-specs/front/components/<key>.md   one per component (set)
-specs/front/tokens.md, tokens.css, flows.md   (only with screens)
-specs/front/mcp/README.md, tool-<name>.md     (only with an MCP server)
-specs/front/api/README.md, ep-<method>-<path>.md   (only with a public API)
-specs/back/domain.md, api.md, openapi.json, conventions.md
+wcraft/design/<name>.figcraft      source of truth for screens: a FigCraft document (edited in WeshCraft or FigCraft)
+wcraft/design/weshcraft.surface.json   source of truth for non-visual fronts (optional): names an OpenAPI
+wcraft/design/openapi.yaml|json        document and an MCP tool list, and pins tool ⇄ endpoint links
+wcraft/design/<server>.mcp.json        an MCP server's tools/resources/prompts (snapshot of a live server)
+wcraft/prototype/index.html            the page the prototype opens on: clickable prototype rendered from the design
+                                       (data-node="<id>"), plus a catalog of MCP tools (data-node="tool:<name>") and
+                                       endpoints (data-node="ep:<METHOD path>")
+wcraft/prototype/page-<name>.html      the other pages of the design, one file per page (a top bar switches pages;
+                                       a screen that links to another page opens that page)
+wcraft/prototype/tokens.css            design tokens as CSS custom properties
+wcraft/prototype/screens/*.png         FigCraft renders, when generated from a live FigCraft (visual reference)
+wcraft/specs/manifest.json             the extracted inventory (below); generated
+wcraft/specs/README.md                 index + traceability
+wcraft/specs/PARITY.md, parity.json    last parity result
+wcraft/specs/CHANGES.md                design changelog, newest first
+wcraft/specs/FUNCTIONS.md              how the product works: functions → screens, operations, data, journey
+wcraft/specs/LOGIC.md                  rules and lifecycles
+wcraft/specs/DATA.md                   entities, relations, use
+wcraft/specs/API.md                    operations, endpoints, MCP tools by function
+wcraft/specs/ARCHITECTURE.md           components, technologies, links
+wcraft/specs/LINKS.md                  front ⇄ back map
+wcraft/specs/TRACE.md, trace.json      spec ⇄ code: element → code tagged `@weshcraft <ref>`
+wcraft/graph.mjs                       product graph for code graphs (codegraph): functions → screens → operations → entities → code
+wcraft/specs/front/screens/<key>.md    one per screen
+wcraft/specs/front/components/<key>.md one per component (set)
+wcraft/specs/front/tokens.md, tokens.css, flows.md   (only with screens)
+wcraft/specs/front/mcp/README.md, tool-<name>.md     (only with an MCP server)
+wcraft/specs/front/api/README.md, ep-<method>-<path>.md   (only with a public API)
+wcraft/specs/back/domain.md, api.md, openapi.json, conventions.md
+wcraft/config.json                     the project's settings: the remembered design, the spec folders
 .github/workflows/weshcraft-parity.yml | ci/weshcraft.gitlab-ci.yml   CI parity gate
 ```
 
@@ -76,16 +82,16 @@ Fails (exit 1) when any of these differ between a fresh extraction of the design
 ## Lifecycle in git
 
 1. **Iterate**: change the design (WeshCraft's Design tab, agents through `weshcraft_edit`, or FigCraft itself) → specs regenerate in parallel → parity.
-2. **Update**: on an existing spec folder, `weshcraft diff --against <ref>` (or `specs/CHANGES.md`) says what changed in the design; only changed specs are rewritten; Notes survive.
+2. **Update**: on an existing spec folder, `weshcraft diff --against <ref>` (or `wcraft/specs/CHANGES.md`) says what changed in the design; only changed specs are rewritten; Notes survive.
 3. **Sync**: `weshcraft_sync` / `--sync`: `git` (commit only these paths, current branch, hooks run, optional push) or `github:` / `gitlab:` (commit to a branch through the API; PR/MR opened once, then updated with the latest changelog). Only in-sync states are synced.
-4. **Gate**: the CI job re-runs `weshcraft check` on every push touching `design/`, `specs/` or `prototype/`.
-5. **Build**: code is reviewed against `specs/front/screens/*.md` §Acceptance criteria, `specs/back/api.md` and `openapi.json` (`wesh-review --spec specs/README.md`).
+4. **Gate**: the CI job re-runs `weshcraft check` on every push touching `wcraft/`.
+5. **Build**: code is reviewed against `wcraft/specs/front/screens/*.md` §Acceptance criteria, `wcraft/specs/back/api.md` and `openapi.json` (`wesh-review --spec wcraft/specs/README.md`).
 
 Commit messages: `docs(specs): <name>: <change summary>`, body = prototype hash, parity, changelog lines.
 
 ## Product functions
 
-`specs/FUNCTIONS.md` (contract kind `functions`) describes the product as a handful of functions. Each has a key (`fn-<slug>`), a name, a one-line purpose, who uses it (`user`: people in the app, `agent`: AI agents through MCP tools, `api`: integrations through the public API), its screens (in journey order), operations, MCP tools and public endpoints, the entities it reads and writes, and the functions it leads to (navigation from one of its screens to another function's). A Mermaid diagram shows who → functions → data, with ⇒ for where each function leads.
+`wcraft/specs/FUNCTIONS.md` (contract kind `functions`) describes the product as a handful of functions. Each has a key (`fn-<slug>`), a name, a one-line purpose, who uses it (`user`: people in the app, `agent`: AI agents through MCP tools, `api`: integrations through the public API), its screens (in journey order), operations, MCP tools and public endpoints, the entities it reads and writes, and the functions it leads to (navigation from one of its screens to another function's). A Mermaid diagram shows who → functions → data, with ⇒ for where each function leads.
 
 Functions are declared in the design: the first page's `pluginData.weshcraft` holds `{"functions": [{"name", "summary", "screens": [node ids], "operations": ["METHOD /path"], "tools": ["name"]}]}` (`operations` and `tools` only for those no screen reaches). A service without screens declares them in `weshcraft.surface.json` (`"functions"`, same shape, no screens). Until declared, they are suggested from the prototype: flows, canvas sections, wizard steps (one way in, one way on), screens about the same entity, variants of one screen, API tags; the spec says so.
 
@@ -93,11 +99,11 @@ The other specs follow them: a screen spec's header names its function (contract
 
 ## Spec ⇄ code
 
-Code says what it implements with a tag in a comment next to the symbol: `// @weshcraft scr-sign-up`, `# @weshcraft POST /users`, `/** @weshcraft fn-join, User */`. Refs: a key (`fn-…`, `scr-…`, `cmp-…`, `op-…`), `METHOD /path`, an entity name, an MCP tool name; each spec header gives its element's tag (`Code tag`). Any language; dependencies, build output, `prototype/` and `specs/` are not scanned.
+Code says what it implements with a tag in a comment next to the symbol: `// @weshcraft scr-sign-up`, `# @weshcraft POST /users`, `/** @weshcraft fn-join, User */`. Refs: a key (`fn-…`, `scr-…`, `cmp-…`, `op-…`), `METHOD /path`, an entity name, an MCP tool name; each spec header gives its element's tag (`Code tag`). Any language; dependencies, build output and the `wcraft/` folder are not scanned.
 
 From the tags, every run (and `weshcraft trace`, `weshcraft_generate`) writes:
-- `weshcraft.graph.mjs` next to the design file (usually `design/weshcraft.graph.mjs`; `design/` for a service without one): the product as JavaScript that is never imported or run, one exported function per product function (`fn…`), screen (`screen…`), component (`component…`), operation (`op…`), entity (`entity…`) and MCP tool (`tool…`), each documented (purpose, spec link, tag, non-JS code locations) and calling what it is made of: the product its functions in journey order, a function its screens, operations and tools, a screen its components, operations and the entities it shows, an operation the entity it returns, a tool its operation. Each one also imports and calls the exported JavaScript/TypeScript symbols tagged for it; code in other languages is named in its comment. Code graphs index it like the rest of the code: `codegraph explore "how does Sign up work"` returns the function, its screens and operations and the code behind them; `codegraph callers SignUpPage` names the screen it implements; `codegraph impact fetchMe --depth 4` reaches the screens and functions a change touches. Kept out of paths code graphs treat as tests (`specs/`, `test/`).
-- `specs/TRACE.md` and `specs/trace.json`: per function, each element with its tag and code locations; what has no code yet; tags that name nothing.
+- `wcraft/graph.mjs`, in the WeshCraft folder: the product as JavaScript that is never imported or run, one exported function per product function (`fn…`), screen (`screen…`), component (`component…`), operation (`op…`), entity (`entity…`) and MCP tool (`tool…`), each documented (purpose, spec link, tag, non-JS code locations) and calling what it is made of: the product its functions in journey order, a function its screens, operations and tools, a screen its components, operations and the entities it shows, an operation the entity it returns, a tool its operation. Each one also imports and calls the exported JavaScript/TypeScript symbols tagged for it; code in other languages is named in its comment. Code graphs index it like the rest of the code: `codegraph explore "how does Sign up work"` returns the function, its screens and operations and the code behind them; `codegraph callers SignUpPage` names the screen it implements; `codegraph impact fetchMe --depth 4` reaches the screens and functions a change touches. Kept out of paths code graphs treat as tests (`wcraft/`, `test/`).
+- `wcraft/specs/TRACE.md` and `wcraft/specs/trace.json`: per function, each element with its tag and code locations; what has no code yet; tags that name nothing.
 
 Parity (warnings): `trace-unknown` (a tag that names nothing in the design), `trace-stale` / `trace-missing` (the product graph does not match the design and the tagged code: `weshcraft generate` or `weshcraft trace`).
 

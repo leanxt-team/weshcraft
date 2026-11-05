@@ -131,7 +131,7 @@ export function createFunctionsView({ root, getManifest, getTrace = () => null, 
       ${row('Who', [...new Set(uses.flatMap(([f]) => f.actors))].map(a => esc(ACTORS[a])).join(', '))}`;
   }
 
-  // Code that implements the function's elements (tags `@weshcraft <ref>` in the code), from specs/trace.json.
+  // Code that implements the function's elements (tags `@weshcraft <ref>` in the code), from wcraft/specs/trace.json.
   function codeRows(f) {
     const tr = getTrace();
     if (!tr?.elements) return '';
@@ -229,7 +229,7 @@ export function createFunctionsView({ root, getManifest, getTrace = () => null, 
     pressed();
     detail();
     draw();
-    if (sel && spec) openFile(`specs/FUNCTIONS.md#${sel}`, { quiet: true });
+    if (sel && spec) openFile(`wcraft/specs/FUNCTIONS.md#${sel}`, { quiet: true });
   }
 
   // ---- editing ----
@@ -292,11 +292,11 @@ export function createFunctionsView({ root, getManifest, getTrace = () => null, 
     const sc = t.closest('[data-screen]');
     if (sc) return showScreen(sc.dataset.screen);
     const op = t.closest('[data-op]');
-    if (op) return openFile(`specs/back/api.md#${op.dataset.op}`);
+    if (op) return openFile(`wcraft/specs/back/api.md#${op.dataset.op}`);
     const en = t.closest('[data-entity]');
-    if (en) return openFile(`specs/back/domain.md#entity-${en.dataset.entity.toLowerCase()}`);
+    if (en) return openFile(`wcraft/specs/back/domain.md#entity-${en.dataset.entity.toLowerCase()}`);
     const sp = t.closest('[data-spec]');
-    if (sp) return openFile(`specs/FUNCTIONS.md#${sp.dataset.spec}`);
+    if (sp) return openFile(`wcraft/specs/FUNCTIONS.md#${sp.dataset.spec}`);
     const c = t.closest('.fn-card');
     if (c) return select(c.dataset.f);
     const ac = t.closest('.fn-actor');

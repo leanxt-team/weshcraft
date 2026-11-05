@@ -28,7 +28,7 @@ const R = [];
 const ok = (n, c, i = '') => R.push(`${c ? 'PASS' : 'FAIL'} ${n}${i && !c ? ` — ${i.slice(0, 400)}` : ''}`);
 const explore = run(CG, ['explore', 'how does the Sign up function work']);
 ok('explore: the function, its screens and their code', /fnSignUp/.test(explore) && /screenSignUp/.test(explore) && /SignUpPage/.test(explore), explore);
-ok('explore: the product graph is not taken for tests', !/weshcraft\.graph\.mjs`?\)? — .*tests: `design/.test(explore));
+ok('explore: the product graph is not taken for tests', !/wcraft\/graph\.mjs`?\)? — .*tests:/.test(explore));
 const callers = run(CG, ['callers', 'SignUpPage']);
 ok('callers: the screen a component implements', /screenSignUp/.test(callers), callers);
 const impact = run(CG, ['impact', 'fetchMe', '--depth', '4']);

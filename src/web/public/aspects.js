@@ -130,19 +130,19 @@ function refPicker(m, name, selected) {
 /** Where an element's spec is. */
 function specOf(m, id) {
   const o = m.domain.operations.find(x => x.key === id);
-  if (o) return `specs/back/api.md#${o.key}`;
-  if (id.startsWith('entity:')) return `specs/DATA.md#data-${id.slice(7).toLowerCase()}`;
-  if (id.startsWith('field:')) return `specs/DATA.md#data-${id.slice(6).split('.')[0].toLowerCase()}`;
-  if (id.startsWith('tool:')) { const t = m.surface?.mcp?.tools.find(x => x.name === id.slice(5)); return t ? `specs/front/mcp/${t.key}.md` : null; }
-  if (id.startsWith('fn-')) return `specs/FUNCTIONS.md#${id}`;
-  if (id.startsWith('scr-')) return `specs/front/screens/${id}.md`;
-  if (id.startsWith('cmp-')) return `specs/front/components/${id}.md`;
+  if (o) return `wcraft/specs/back/api.md#${o.key}`;
+  if (id.startsWith('entity:')) return `wcraft/specs/DATA.md#data-${id.slice(7).toLowerCase()}`;
+  if (id.startsWith('field:')) return `wcraft/specs/DATA.md#data-${id.slice(6).split('.')[0].toLowerCase()}`;
+  if (id.startsWith('tool:')) { const t = m.surface?.mcp?.tools.find(x => x.name === id.slice(5)); return t ? `wcraft/specs/front/mcp/${t.key}.md` : null; }
+  if (id.startsWith('fn-')) return `wcraft/specs/FUNCTIONS.md#${id}`;
+  if (id.startsWith('scr-')) return `wcraft/specs/front/screens/${id}.md`;
+  if (id.startsWith('cmp-')) return `wcraft/specs/front/components/${id}.md`;
   return null;
 }
 const chip = (m, id, cls = '') => `<button type="button" class="av-chip ${cls}" data-open="${esc(specOf(m, id) ?? '')}">${esc(refLabel(m, id))}</button>`;
 const banner = (text, editable, keepId) => `<div class="fn-banner av-banner"><div>${text}</div>${editable && keepId ? `<button type="button" class="btn primary small" id="${keepId}">Keep as declared</button>` : ''}</div>`;
 const head = (title, sub, actions = '') => `<div class="av-head"><div><h2>${esc(title)}</h2><p>${sub}</p></div><div class="av-actions">${actions}</div></div>`;
-const PRODUCT_TABS = [['functions', 'Functions'], ['logic', 'Logic'], ['data', 'Data'], ['api', 'API & MCP'], ['architecture', 'Architecture']];
+const PRODUCT_TABS = [['execsum', 'Summary'], ['functions', 'Functions'], ['logic', 'Logic'], ['data', 'Data'], ['api', 'API & MCP'], ['architecture', 'Architecture']];
 /** On a phone (one view at a time), the product views share one bottom-bar button: this strip switches between them. */
 export const productNav = active => `<nav class="pnav" aria-label="Product">${PRODUCT_TABS.map(([k, l]) => `<button type="button" data-pnav="${k}" aria-current="${k === active}">${l}</button>`).join('')}</nav>`;
 
@@ -223,18 +223,18 @@ export function createLogicView({ root, getManifest, isEditable, openFile, log }
     const editable = isEditable();
     const inferred = l.rules.some(r => r.source === 'inferred') || l.machines.some(x => x.source === 'inferred');
     root.innerHTML = `${productNav('logic')}
-      ${head('Logic', `What the screens and the API cannot show: ${plural(l.rules.length, 'rule')}, ${plural(l.machines.length, 'lifecycle')}.`, `${editable ? '<button type="button" class="btn small" id="lgAddRule">+ Rule</button><button type="button" class="btn small" id="lgAddMachine">+ Lifecycle</button>' : ''}<button type="button" class="btn ghost small" data-open="specs/LOGIC.md">Spec</button>`)}
+      ${head('Logic', `What the screens and the API cannot show: ${plural(l.rules.length, 'rule')}, ${plural(l.machines.length, 'lifecycle')}.`, `${editable ? '<button type="button" class="btn small" id="lgAddRule">+ Rule</button><button type="button" class="btn small" id="lgAddMachine">+ Lifecycle</button>' : ''}<button type="button" class="btn ghost small" data-open="wcraft/specs/LOGIC.md">Spec</button>`)}
       ${inferred ? banner(`<strong>${l.declared ? 'Partly inferred.' : 'Inferred.'}</strong> From required request fields, status values and the operations that change them. Keep them as declared, then complete what the design cannot say.`, editable, 'lgKeep') : ''}
       <section class="av-sec"><h3>Lifecycles</h3>${l.machines.length ? l.machines.map(x => `
         <article class="av-card lg-card">
-          <header><span class="av-title">${esc(x.entity)}<span class="muted">.${esc(x.field)}</span></span>${x.source === 'inferred' ? '<span class="av-badge">inferred</span>' : ''}<span class="spacer"></span>${editable ? `<button type="button" class="fn-edit av-edit" data-edit-machine="${esc(x.key)}" title="Edit lifecycle" aria-label="Edit lifecycle">${ICON.edit}</button>` : ''}<button type="button" class="av-link" data-open="specs/LOGIC.md#${esc(x.key)}">spec</button></header>
+          <header><span class="av-title">${esc(x.entity)}<span class="muted">.${esc(x.field)}</span></span>${x.source === 'inferred' ? '<span class="av-badge">inferred</span>' : ''}<span class="spacer"></span>${editable ? `<button type="button" class="fn-edit av-edit" data-edit-machine="${esc(x.key)}" title="Edit lifecycle" aria-label="Edit lifecycle">${ICON.edit}</button>` : ''}<button type="button" class="av-link" data-open="wcraft/specs/LOGIC.md#${esc(x.key)}">spec</button></header>
           ${machineSvg(x)}
           <div class="lg-trans">${x.create ? `<span class="av-chip ok">created by ${esc(x.create.via)}</span>` : ''}${x.transitions.map(t => `<span class="av-chip">${t.from === '*' ? 'any' : esc(t.from)} → ${esc(t.to)}${t.via ? ` <small>${esc(t.via)}</small>` : ''}</span>`).join('')}${(x.unresolved ?? []).map(u => `<button type="button" class="av-chip warn" data-edit-machine="${esc(x.key)}" title="This operation changes ${esc(x.entity)}: say to which state">${esc(u.via)} → ?</button>`).join('')}</div>
         </article>`).join('') : `<p class="av-empty">No lifecycle yet. ${editable ? 'Add one for data that changes state (an order: draft → paid → shipped).' : ''}</p>`}</section>
       <section class="av-sec"><h3>Rules</h3>${l.rules.length ? `<div class="lg-rules">${['validation', 'permission', 'calculation', 'policy', 'event'].map(k => l.rules.filter(r => r.kind === k)).filter(x => x.length).map(list => list.map(r => `
         <article class="av-card lg-rule c-${KIND_COLORS[r.kind]}">
           <header><span class="lg-kind">${esc(r.kind)}</span>${r.source === 'inferred' ? '<span class="av-badge">inferred</span>' : ''}<span class="spacer"></span>${editable ? `<button type="button" class="fn-edit av-edit" data-edit-rule="${esc(r.key)}" title="Edit rule" aria-label="Edit rule">${ICON.edit}</button>` : ''}</header>
-          <div class="av-title" data-open="specs/LOGIC.md#${esc(r.key)}">${esc(r.name)}</div>
+          <div class="av-title" data-open="wcraft/specs/LOGIC.md#${esc(r.key)}">${esc(r.name)}</div>
           ${r.text ? `<p>${esc(r.text)}</p>` : ''}
           ${r.applies.length ? `<div class="av-chips">${r.applies.map(id => chip(m, id)).join('')}</div>` : ''}
         </article>`).join('')).join('')}</div>` : `<p class="av-empty">No rule yet.</p>`}</section>`;
@@ -347,11 +347,11 @@ export function createDataView({ root, getManifest, openFile, log }) {
     const fn = new Map((m.functions?.items ?? []).map(f => [f.key, f]));
     const row = (label, html) => (html ? `<div class="fn-drow"><span>${label}</span><div>${html}</div></div>` : '');
     const lc = m.logic?.machines.find(x => x.entity === e.name);
-    box.innerHTML = `<div class="fn-dhead"><h3>${esc(e.name)}</h3><button type="button" class="btn ghost small" data-open="specs/DATA.md#data-${esc(e.name.toLowerCase())}">Open in the spec</button></div>
+    box.innerHTML = `<div class="fn-dhead"><h3>${esc(e.name)}</h3><button type="button" class="btn ghost small" data-open="wcraft/specs/DATA.md#data-${esc(e.name.toLowerCase())}">Open in the spec</button></div>
       ${row('Written by', e.writtenBy.map(k => chip(m, k)).join(''))}${row('Read by', e.readBy.map(k => chip(m, k)).join(''))}
       ${row('Shown on', e.shownOn.map(k => chip(m, k)).join(''))}${row('Operations', e.operations.map(k => chip(m, k)).join(''))}
       ${row('Relations', e.relations.map(r => `<span class="av-chip">${esc(r.field)} → ${esc(r.to)}${r.many ? ' (many)' : ''}</span>`).join(''))}
-      ${lc ? row('Lifecycle', `<button type="button" class="av-chip" data-open="specs/LOGIC.md#${esc(lc.key)}">${lc.states.map(esc).join(' → ')}</button>`) : ''}`;
+      ${lc ? row('Lifecycle', `<button type="button" class="av-chip" data-open="wcraft/specs/LOGIC.md#${esc(lc.key)}">${lc.states.map(esc).join(' → ')}</button>`) : ''}`;
   }
   function render() {
     const m = getManifest();
@@ -360,7 +360,7 @@ export function createDataView({ root, getManifest, openFile, log }) {
     if (sel && !d.entities.some(e => e.name === sel)) sel = null;
     const relCount = d.entities.reduce((n, e) => n + e.relations.length, 0);
     root.innerHTML = `${productNav('data')}
-      ${head('Data', `${plural(d.entities.length, 'entity', 'entities')}, ${plural(relCount, 'relation')}. Fields come from the design (bound layers) and the API schemas.`, '<button type="button" class="btn ghost small" data-open="specs/DATA.md">Spec</button>')}
+      ${head('Data', `${plural(d.entities.length, 'entity', 'entities')}, ${plural(relCount, 'relation')}. Fields come from the design (bound layers) and the API schemas.`, '<button type="button" class="btn ghost small" data-open="wcraft/specs/DATA.md">Spec</button>')}
       ${d.entities.length ? `<div class="dt-grid">${d.entities.map(e => {
         const lc = m.logic?.machines.find(x => x.entity === e.name);
         const rel = new Map(e.relations.map(r => [r.field, r]));
@@ -401,12 +401,12 @@ export function createApiView({ root, getManifest, openFile, log }) {
     const row = o => {
       const from = [...m.screens.filter(s => s.key === o.screen).map(s => chip(m, s.key, 'scr')), ...tools.filter(t => t.op === o.key).map(t => chip(m, `tool:${t.name}`, 'tool')), ...(o.endpoint ? ['<span class="av-chip pub">public</span>'] : [])];
       const ent = entityOf(o);
-      return `<div class="api-row" data-open="specs/back/api.md#${esc(o.key)}" role="button" tabindex="0"><span class="verb v-${esc(o.method.toLowerCase())}">${esc(o.method)}</span><code class="api-path">${esc(o.path).replace(/\{([^}]+)\}/g, '<i>{$1}</i>')}</code><span class="api-name">${esc(o.name)}</span><span class="api-from">${from.join('')}</span><span class="api-ret">${ent ? `<button type="button" class="av-chip ent" data-open="specs/DATA.md#data-${esc(ent.toLowerCase())}">${esc(ent)}${o.kind === 'list' ? '[]' : ''}</button>` : ''}</span>${o.confidence !== 'explicit' ? '<span class="av-badge">inferred</span>' : ''}</div>`;
+      return `<div class="api-row" data-open="wcraft/specs/back/api.md#${esc(o.key)}" role="button" tabindex="0"><span class="verb v-${esc(o.method.toLowerCase())}">${esc(o.method)}</span><code class="api-path">${esc(o.path).replace(/\{([^}]+)\}/g, '<i>{$1}</i>')}</code><span class="api-name">${esc(o.name)}</span><span class="api-from">${from.join('')}</span><span class="api-ret">${ent ? `<button type="button" class="av-chip ent" data-open="wcraft/specs/DATA.md#data-${esc(ent.toLowerCase())}">${esc(ent)}${o.kind === 'list' ? '[]' : ''}</button>` : ''}</span>${o.confidence !== 'explicit' ? '<span class="av-badge">inferred</span>' : ''}</div>`;
     };
     root.innerHTML = `${productNav('api')}
-      ${head('API & MCP', `${plural(ops.length, 'operation')}${eps.length ? ` · ${plural(eps.length, 'public endpoint')}` : ''}${tools.length ? ` · ${plural(tools.length, 'MCP tool')}` : ''}${(m.surface?.api?.auth ?? []).length ? ` · auth: ${m.surface.api.auth.map(a => esc(a.scheme ?? a.type)).join(', ')}` : ''}`, `<input type="search" class="av-search" id="apiFilter" placeholder="Filter" value="${esc(filter)}" aria-label="Filter operations"><button type="button" class="btn ghost small" data-open="specs/API.md">Spec</button><button type="button" class="btn ghost small" data-open="specs/back/api.md">Details</button>`)}
-      ${groups.map(([fn, list]) => `<section class="av-sec api-g"><h3>${fn ? `<button type="button" class="av-h" data-open="specs/FUNCTIONS.md#${esc(fn.key)}">${esc(fn.name)}</button>${fn.summary ? `<small>${esc(fn.summary)}</small>` : ''}` : 'Not in a function'}</h3><div class="api-list">${list.map(row).join('')}</div></section>`).join('') || `<p class="av-empty">${ops.length ? 'Nothing matches.' : 'No operation yet: annotate a button or a screen with POST /path in the design, or add an OpenAPI / MCP surface.'}</p>`}
-      ${tools.length ? `<section class="av-sec"><h3>MCP tools</h3><div class="api-tools">${tools.filter(t => !f || t.name.toLowerCase().includes(f)).map(t => `<article class="av-card api-tool" data-open="specs/front/mcp/${esc(t.key)}.md" role="button" tabindex="0"><header><span class="av-title">${esc(t.name)}</span><span class="spacer"></span>${t.hints?.readOnlyHint ? '<span class="av-badge ok">read-only</span>' : ''}${t.hints?.destructiveHint ? '<span class="av-badge bad">destructive</span>' : ''}</header><p>${esc((t.description || '').slice(0, 140))}</p><div class="av-chips">${t.op ? chip(m, t.op, 'op') : '<span class="av-chip warn">no operation</span>'}${t.input.length ? `<span class="av-chip">${plural(t.input.length, 'argument')}</span>` : ''}</div></article>`).join('')}</div></section>` : ''}`;
+      ${head('API & MCP', `${plural(ops.length, 'operation')}${eps.length ? ` · ${plural(eps.length, 'public endpoint')}` : ''}${tools.length ? ` · ${plural(tools.length, 'MCP tool')}` : ''}${(m.surface?.api?.auth ?? []).length ? ` · auth: ${m.surface.api.auth.map(a => esc(a.scheme ?? a.type)).join(', ')}` : ''}`, `<input type="search" class="av-search" id="apiFilter" placeholder="Filter" value="${esc(filter)}" aria-label="Filter operations"><button type="button" class="btn ghost small" data-open="wcraft/specs/API.md">Spec</button><button type="button" class="btn ghost small" data-open="wcraft/specs/back/api.md">Details</button>`)}
+      ${groups.map(([fn, list]) => `<section class="av-sec api-g"><h3>${fn ? `<button type="button" class="av-h" data-open="wcraft/specs/FUNCTIONS.md#${esc(fn.key)}">${esc(fn.name)}</button>${fn.summary ? `<small>${esc(fn.summary)}</small>` : ''}` : 'Not in a function'}</h3><div class="api-list">${list.map(row).join('')}</div></section>`).join('') || `<p class="av-empty">${ops.length ? 'Nothing matches.' : 'No operation yet: annotate a button or a screen with POST /path in the design, or add an OpenAPI / MCP surface.'}</p>`}
+      ${tools.length ? `<section class="av-sec"><h3>MCP tools</h3><div class="api-tools">${tools.filter(t => !f || t.name.toLowerCase().includes(f)).map(t => `<article class="av-card api-tool" data-open="wcraft/specs/front/mcp/${esc(t.key)}.md" role="button" tabindex="0"><header><span class="av-title">${esc(t.name)}</span><span class="spacer"></span>${t.hints?.readOnlyHint ? '<span class="av-badge ok">read-only</span>' : ''}${t.hints?.destructiveHint ? '<span class="av-badge bad">destructive</span>' : ''}</header><p>${esc((t.description || '').slice(0, 140))}</p><div class="av-chips">${t.op ? chip(m, t.op, 'op') : '<span class="av-chip warn">no operation</span>'}${t.input.length ? `<span class="av-chip">${plural(t.input.length, 'argument')}</span>` : ''}</div></article>`).join('')}</div></section>` : ''}`;
     const inp = root.querySelector('#apiFilter');
     inp?.addEventListener('input', () => { filter = inp.value; const pos = inp.selectionStart; render(); const again = root.querySelector('#apiFilter'); again.focus(); again.setSelectionRange(pos, pos); });
   }
@@ -428,7 +428,7 @@ export function createArchitectureView({ root, getManifest, getTrace = () => nul
   bindCommon(root, { openFile, log });
   const save = (value, label) => saveOp('architecture', value, label, log);
   let sel = null;
-  // Code folders behind a component: where the code tagged for what it implements lives (specs/trace.json).
+  // Code folders behind a component: where the code tagged for what it implements lives (wcraft/specs/trace.json).
   const codeDirs = c => {
     const tr = getTrace();
     const ids = new Set(c.implements);
@@ -522,7 +522,7 @@ export function createArchitectureView({ root, getManifest, getTrace = () => nul
       </article>`;
     };
     root.innerHTML = `${productNav('architecture')}
-      ${head('Architecture', `${plural(a.components.length, 'component')}, ${plural(a.links.length, 'link')}.`, `${editable ? '<button type="button" class="btn small" id="arAdd">+ Component</button><button type="button" class="btn small" id="arLink">+ Link</button>' : ''}<button type="button" class="btn ghost small" data-open="specs/ARCHITECTURE.md">Spec</button>`)}
+      ${head('Architecture', `${plural(a.components.length, 'component')}, ${plural(a.links.length, 'link')}.`, `${editable ? '<button type="button" class="btn small" id="arAdd">+ Component</button><button type="button" class="btn small" id="arLink">+ Link</button>' : ''}<button type="button" class="btn ghost small" data-open="wcraft/specs/ARCHITECTURE.md">Spec</button>`)}
       ${!a.declared ? banner('<strong>Suggested.</strong> From the design, the API and the MCP surface. Keep it, then name the real technologies, services, stores and external systems.', editable, 'arKeep') : ''}
       <div class="ar-cols">${cols.map(([label, list]) => `<div class="ar-col"><h4>${esc(label)}</h4>${list.map(card).join('') || '<p class="av-empty small">—</p>'}</div>`).join('')}<svg class="ar-wires" aria-hidden="true"><defs><marker id="arA" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z"/></marker></defs><g></g></svg><svg class="ar-wires ar-labels" aria-hidden="true"><g></g></svg></div>
       <div class="fn-detail" id="arDetail">${detailHtml(m, a)}</div>`;
@@ -537,7 +537,7 @@ export function createArchitectureView({ root, getManifest, getTrace = () => nul
     if (!c) return '<p class="muted">Click a component to see what it implements and who it talks to.</p>';
     const name = new Map(a.components.map(x => [x.key, x.name]));
     const row = (label, html) => (html ? `<div class="fn-drow"><span>${label}</span><div>${html}</div></div>` : '');
-    return `<div class="fn-dhead"><h3>${esc(c.name)}</h3><button type="button" class="btn ghost small" data-open="specs/ARCHITECTURE.md#${esc(c.key)}">Open in the spec</button></div>
+    return `<div class="fn-dhead"><h3>${esc(c.name)}</h3><button type="button" class="btn ghost small" data-open="wcraft/specs/ARCHITECTURE.md#${esc(c.key)}">Open in the spec</button></div>
       ${row('Kind', esc(c.kind))}${row('Technology', esc(c.tech))}${row('Stack', techDetail(c.tech))}${row('Implements', c.implements.map(id => chip(m, id)).join(''))}
       ${row('Talks to', a.links.filter(l => l.from === c.key).map(l => `<span class="av-chip">${esc(name.get(l.to))}${l.label ? ` <small>${esc(l.label)}</small>` : ''}</span>`).join(''))}
       ${row('Called by', a.links.filter(l => l.to === c.key).map(l => `<span class="av-chip">${esc(name.get(l.from))}${l.label ? ` <small>${esc(l.label)}</small>` : ''}</span>`).join(''))}

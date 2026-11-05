@@ -1,0 +1,16 @@
+{
+ "ok": true,
+ "score": 100,
+ "checks": 314,
+ "errors": 0,
+ "warnings": 1,
+ "issues": [
+  {
+   "level": "warning",
+   "code": "functions-suggested",
+   "file": "wcraft/specs/FUNCTIONS.md",
+   "message": "the function is suggested from the prototype: name them and give each a purpose (the Functions view, or weshcraft_edit)"
+  }
+ ],
+ "sourceHash": "e249123dd8bfcc22"
+}

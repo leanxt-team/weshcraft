@@ -231,6 +231,15 @@ function hidePrototype() {
   document.body.classList.remove('oc-proto-open');
   protoView.querySelector('#ocProtoFrame').srcdoc = '';
 }
+// The prototype is one file per page: a page link asks the host to open that page.
+window.addEventListener('message', e => {
+  const frame = protoView?.querySelector('#ocProtoFrame');
+  if (!frame || e.source !== frame.contentWindow) return;
+  const m = e.data || {};
+  if (m.weshcraft !== 'navigate' || typeof m.file !== 'string') return;
+  frame.onload = () => { if (m.key) frame.contentWindow?.postMessage({ weshcraft: 'show', key: m.key }, '*'); };
+  window.__wc.frame(frame, `/out/wcraft/prototype/${m.file}`);
+});
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && protoView && !protoView.hidden) { e.preventDefault(); e.stopPropagation(); hidePrototype(); } }, true);
 
 window.__wc = {

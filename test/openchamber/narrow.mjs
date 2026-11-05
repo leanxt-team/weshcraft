@@ -83,7 +83,7 @@ await o.p.screenshot({ path: `${OUT}/n-found.png` });
 ok('several designs: the user picks', /apps\/mobile\/design\/account\.figcraft\.json/.test(await o.f.locator('.ed-found').innerText()) && /apps\/web\/design\/onboarding\.figcraft/.test(await o.f.locator('.ed-found').innerText()));
 await o.f.locator('.ed-open', { hasText: 'apps/mobile/design/account.figcraft.json' }).click();
 ok('open in place: editor shows its screens', !!await (async () => { for (let i = 0; i < 60; i++) { if (await o.f.locator('#edScreen [data-node]').count() > 3) return true; await o.p.waitForTimeout(250); } return false; })());
-ok('choice remembered for the project', JSON.parse(fs.readFileSync(path.join(P4, '.weshcraft.json'), 'utf8')).file === 'apps/mobile/design/account.figcraft.json');
+ok('choice remembered for the project', JSON.parse(fs.readFileSync(path.join(P4, 'wcraft/config.json'), 'utf8')).file === 'apps/mobile/design/account.figcraft.json');
 ok('edited in place (no copy)', !fs.existsSync(path.join(P4, 'design')));
 await o.p.screenshot({ path: `${OUT}/n-opened.png` });
 await o.p.close();

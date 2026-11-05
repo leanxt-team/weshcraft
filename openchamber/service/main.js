@@ -152,7 +152,7 @@ export function createService(deps = {}) {
     if (!name || LOOPBACK.test(name) || !/^[\w.:\[\]-]{1,255}$/.test(name)) return own;
     const s = await share(p);
     const h = name.includes(':') && !name.startsWith('[') ? `[${name}]` : name;
-    return { url: `http://${h}:${s.port}/out/prototype/index.html?token=${s.token}`, base: `http://${h}:${s.port}`, token: s.token, shared: true };
+    return { url: `http://${h}:${s.port}/out/wcraft/prototype/index.html?token=${s.token}`, base: `http://${h}:${s.port}`, token: s.token, shared: true };
   }
 
   // ---- chunked uploads -----------------------------------------------------------------------

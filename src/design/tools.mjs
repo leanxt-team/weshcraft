@@ -1,6 +1,7 @@
 // MCP tools to design directly in WeshCraft (no FigCraft app needed): read the design cheaply,
 // change it in one batched, undoable call, and get the spec consequences back.
 import path from 'node:path';
+import fs from 'node:fs';
 import { createRequire } from 'node:module';
 import { tree, find, props, tokens, subtree } from './describe.mjs';
 import { openEditable } from './source.mjs';
@@ -10,6 +11,7 @@ import { toDeclared, ACTORS } from '../model/functions.mjs';
 import { logicToDeclared, architectureToDeclared, RULE_KINDS, COMPONENT_KINDS } from '../model/aspects.mjs';
 import { renderPrototype } from '../proto/html.mjs';
 import { summaryLine, diffManifests } from '../spec/diff.mjs';
+import { DESIGN } from '../layout.mjs';
 
 const PROPS_DOC = 'Props: name x y width height visible opacity clip fill (#hex|null) stroke strokeWeight strokeAlign radius (n|[tl,tr,br,bl]) shadow ({x,y,blur,spread,color}|null) blur text fontFamily fontStyle fontWeight fontSize lineHeight (n|"140%"|"auto") letterSpacing align (left|center|right) layout ("vertical"|"horizontal"|"none"|{mode,gap,padding,align,crossAlign,wrap}) gap padding (n|[v,h]|[t,r,b,l]) sizing ({h,v}: fixed|hug|fill) absolute devStatus description. align values: start center end space-between.';
 const ID = { description: 'layer id (number or "#12"), an exact layer name, or a ref from the same batch', type: ['number', 'string'] };
@@ -47,7 +49,7 @@ export const DESIGN_TOOLS = [
   { name: 'design_tokens', description: 'List design tokens, or create/update one (name + value) and optionally paint layers with it (apply: ids).', inputSchema: { type: 'object', properties: { name: { type: 'string' }, value: { type: ['string', 'number'] }, mode: { type: 'string' }, collection: { type: 'string' }, apply: { type: 'array', items: ID } } } },
   {
     name: 'design_functions',
-    description: 'The product functions: how the product works at a glance (Functions view, specs/FUNCTIONS.md). A handful of functions (Sign up, Find a trail, Pay…), each with a one-line purpose and the screens that make it; operations, data, who uses it and where it leads follow from the design. Screen specs, the API spec and the maps refer to them. Without arguments: the current functions (declared, or suggested from the prototype until you declare them) and what no function covers. To change them (one undo step): functions:[{name, summary, screens, operations?, tools?}] replaces the list; set:{name, rename?, summary?, screens?, addScreens?, removeScreens?, operations?, tools?} adds or updates one (the others stay; suggested ones become declared); remove:"name". screens: ids or exact screen names, each screen in one function; operations: "METHOD /path" for API-only operations; tools: MCP tool names not already reached through an operation.',
+    description: 'The product functions: how the product works at a glance (Functions view, wcraft/specs/FUNCTIONS.md). A handful of functions (Sign up, Find a trail, Pay…), each with a one-line purpose and the screens that make it; operations, data, who uses it and where it leads follow from the design. Screen specs, the API spec and the maps refer to them. Without arguments: the current functions (declared, or suggested from the prototype until you declare them) and what no function covers. To change them (one undo step): functions:[{name, summary, screens, operations?, tools?}] replaces the list; set:{name, rename?, summary?, screens?, addScreens?, removeScreens?, operations?, tools?} adds or updates one (the others stay; suggested ones become declared); remove:"name". screens: ids or exact screen names, each screen in one function; operations: "METHOD /path" for API-only operations; tools: MCP tool names not already reached through an operation.',
     inputSchema: { type: 'object', properties: {
       functions: { type: 'array', items: { type: 'object', properties: { name: { type: 'string' }, summary: { type: 'string' }, screens: { type: 'array', items: ID }, operations: { type: 'array', items: { type: 'string' } }, tools: { type: 'array', items: { type: 'string' } } }, required: ['name'] } },
       set: { type: 'object', properties: { name: { type: 'string' }, rename: { type: 'string' }, summary: { type: 'string' }, screens: { type: 'array', items: ID }, addScreens: { type: 'array', items: ID }, removeScreens: { type: 'array', items: ID }, operations: { type: 'array', items: { type: 'string' } }, tools: { type: 'array', items: { type: 'string' } } }, required: ['name'] },
@@ -56,7 +58,7 @@ export const DESIGN_TOOLS = [
   },
   {
     name: 'design_logic',
-    description: `Business logic (Logic view, specs/LOGIC.md): rules (${RULE_KINDS.join(', ')}) and the lifecycle of data (state machines). Without arguments: current rules and state machines, declared or inferred (required request fields, status enums and the operations that move them; transitions an operation makes but whose target is unknown are listed as unresolved). To change (one undo step): rule:{name, kind, text, applies} adds or updates a rule (applies: functions, screens, operations "METHOD /path", entities, Entity.field, tools); removeRule:"name"; states:{entity, field?, states:[…], initial?, transitions:[{from (state or "*"), to, via ("METHOD /path" or words)}]} declares or replaces an entity's state machine; removeStates:"Entity"; keep:true declares the inferred ones as they are. Facts the design or API already state (screens, fields, operations) stay there: logic holds what they cannot show.`,
+    description: `Business logic (Logic view, wcraft/specs/LOGIC.md): rules (${RULE_KINDS.join(', ')}) and the lifecycle of data (state machines). Without arguments: current rules and state machines, declared or inferred (required request fields, status enums and the operations that move them; transitions an operation makes but whose target is unknown are listed as unresolved). To change (one undo step): rule:{name, kind, text, applies} adds or updates a rule (applies: functions, screens, operations "METHOD /path", entities, Entity.field, tools); removeRule:"name"; states:{entity, field?, states:[…], initial?, transitions:[{from (state or "*"), to, via ("METHOD /path" or words)}]} declares or replaces an entity's state machine; removeStates:"Entity"; keep:true declares the inferred ones as they are. Facts the design or API already state (screens, fields, operations) stay there: logic holds what they cannot show.`,
     inputSchema: { type: 'object', properties: {
       rule: { type: 'object', properties: { name: { type: 'string' }, kind: { type: 'string', enum: RULE_KINDS }, text: { type: 'string' }, applies: { type: 'array', items: { type: 'string' } } }, required: ['name'] },
       removeRule: { type: 'string' },
@@ -66,7 +68,7 @@ export const DESIGN_TOOLS = [
   },
   {
     name: 'design_architecture',
-    description: `Architecture (Architecture view, specs/ARCHITECTURE.md): the system's components (${COMPONENT_KINDS.join(', ')}) and how they talk. Without arguments: the current architecture (declared, or suggested from the design, the API and the MCP surface). To change (one undo step; a suggested architecture becomes declared): component:{name, kind, tech, description, implements:[functions, screens, "METHOD /path", entities, tools], code:[paths]} adds or updates one; removeComponent:"name"; link:{from, to, label} adds one (same ends: label updated); removeLink:{from, to}; keep:true declares the suggestion as it is.`,
+    description: `Architecture (Architecture view, wcraft/specs/ARCHITECTURE.md): the system's components (${COMPONENT_KINDS.join(', ')}) and how they talk. Without arguments: the current architecture (declared, or suggested from the design, the API and the MCP surface). To change (one undo step; a suggested architecture becomes declared): component:{name, kind, tech, description, implements:[functions, screens, "METHOD /path", entities, tools], code:[paths]} adds or updates one; removeComponent:"name"; link:{from, to, label} adds one (same ends: label updated); removeLink:{from, to}; keep:true declares the suggestion as it is.`,
     inputSchema: { type: 'object', properties: {
       component: { type: 'object', properties: { name: { type: 'string' }, rename: { type: 'string' }, kind: { type: 'string', enum: COMPONENT_KINDS }, tech: { type: 'string' }, description: { type: 'string' }, implements: { type: 'array', items: { type: 'string' } }, code: { type: 'array', items: { type: 'string' } } }, required: ['name'] },
       removeComponent: { type: 'string' },
@@ -80,7 +82,7 @@ export const DESIGN_TOOLS = [
   { name: 'design_screenshot', description: 'PNG of a screen as the prototype renders it (needs Playwright with Chromium on this machine).', inputSchema: { type: 'object', properties: { id: ID, scale: { type: 'number' } }, required: ['id'] } },
 ];
 
-export const NEW_DESIGN_TOOL = { name: 'design_new', description: 'Start a new, empty design (design/<name>.figcraft) in this project and edit it here. Only when the project has no design yet.', inputSchema: { type: 'object', properties: { name: { type: 'string' } }, required: ['name'] } };
+export const NEW_DESIGN_TOOL = { name: 'design_new', description: 'Start a new, empty design (wcraft/design/<name>.figcraft) in this project and edit it here. Only when the project has no design yet.', inputSchema: { type: 'object', properties: { name: { type: 'string' } }, required: ['name'] } };
 
 const out = (t, isError = false) => ({ content: [{ type: 'text', text: typeof t === 'string' ? t : JSON.stringify(t) }], isError });
 
@@ -93,7 +95,8 @@ export async function callDesignTool(ws, name, args = {}) {
   if (name === 'design_new') {
     if (ws.source) return out(`this project already has a design: ${ws.describe()}`, true);
     const base = String(args.name || 'design').replace(/[^\w.-]+/g, '-').replace(/^-+|-+$/g, '') || 'design';
-    const file = path.join(ws.outDir, 'design', `${base}.figcraft`);
+    const file = path.join(ws.outDir, DESIGN, `${base}.figcraft`);
+    fs.mkdirSync(path.dirname(file), { recursive: true });
     ws.useSource(openEditable(file, args.name));
     rememberDesign(ws.outDir, path.relative(ws.outDir, file).split(path.sep).join('/'));
     await ws.run();
@@ -247,7 +250,11 @@ async function screenshot(ws, store, id, scale) {
   try { ({ chromium } = createRequire(import.meta.url)('playwright')); } catch { return out('design_screenshot needs Playwright (npm i -g playwright && npx playwright install chromium). The live view shows the same screen.', true); }
   const model = store.toModel();
   const manifest = buildManifest(model);
-  const html = renderPrototype(model, manifest);
+  // The prototype is one file per page: the layer lives in the file of its page.
+  const files = renderPrototype(model, manifest);
+  const file = files.find(f => f.html.includes(`data-node="${id}"`));
+  if (!file) return out(`#${id} is not on a screen (only layers inside screens render)`, true);
+  const html = file.html;
   const browser = await chromium.launch(process.env.WESHCRAFT_CHROMIUM ? { executablePath: process.env.WESHCRAFT_CHROMIUM } : {});
   try {
     const page = await browser.newPage({ deviceScaleFactor: scale, viewport: { width: 1400, height: 1000 } });

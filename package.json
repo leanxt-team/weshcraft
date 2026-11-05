@@ -13,7 +13,7 @@
   "scripts": {
     "start": "node bin/weshcraft.mjs serve",
     "test": "node --test test/weshcraft.test.mjs",
-    "demo": "node -e \"const fs=require('fs');fs.mkdirSync('.weshcraft-demo/design',{recursive:true});if(!fs.existsSync('.weshcraft-demo/design/ridgeline-app.figcraft'))fs.copyFileSync('test/fixtures/ridgeline-app.figcraft','.weshcraft-demo/design/ridgeline-app.figcraft')\" && node bin/weshcraft.mjs serve --out .weshcraft-demo",
+    "demo": "node -e \"const fs=require('fs');fs.mkdirSync('.weshcraft-demo/wcraft/design',{recursive:true});if(!fs.existsSync('.weshcraft-demo/wcraft/design/ridgeline-app.figcraft'))fs.copyFileSync('test/fixtures/ridgeline-app.figcraft','.weshcraft-demo/wcraft/design/ridgeline-app.figcraft')\" && node bin/weshcraft.mjs serve --out .weshcraft-demo",
     "build:openchamber": "node openchamber/build.mjs",
     "test:openchamber": "node test/openchamber/all.mjs",
     "test:codegraph": "node test/codegraph.mjs",

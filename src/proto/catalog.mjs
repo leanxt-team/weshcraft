@@ -1,5 +1,5 @@
 // The "prototype" of a service without screens: a browsable catalog of its MCP tools and public
-// API endpoints, rendered into prototype/index.html next to (or instead of) the screens.
+// API endpoints, rendered into wcraft/prototype/index.html next to (or instead of) the screens.
 import { escapeHtml as e } from '../util/common.mjs';
 import { exampleFor } from '../surface/load.mjs';
 
@@ -30,7 +30,7 @@ function mcpSection(manifest) {
       <details><summary>Arguments <span class="cat-count">${t.input.length}</span></summary>${fields(t.input)}</details>
       ${t.output ? `<details><summary>Structured output <span class="cat-count">${t.output.length}</span></summary>${fields(t.output)}</details>` : ''}
       <details><summary>Example call</summary><pre class="cat-code"><code>${e(call)}</code></pre></details>
-      <footer>${op ? `<span class="cat-link" title="Back-end operation">→ <b class="m m-${e(op.method.toLowerCase())}">${e(op.method)}</b> ${e(op.path)}</span>` : t.link === 'none' ? '<span class="cat-link muted">Implemented in the server</span>' : '<span class="cat-link warn">No back-end operation</span>'}<a class="cat-spec" href="../specs/front/mcp/${e(t.key)}.md" data-open="specs/front/mcp/${e(t.key)}.md">Spec</a></footer>
+      <footer>${op ? `<span class="cat-link" title="Back-end operation">→ <b class="m m-${e(op.method.toLowerCase())}">${e(op.method)}</b> ${e(op.path)}</span>` : t.link === 'none' ? '<span class="cat-link muted">Implemented in the server</span>' : '<span class="cat-link warn">No back-end operation</span>'}<a class="cat-spec" href="../specs/front/mcp/${e(t.key)}.md" data-open="wcraft/specs/front/mcp/${e(t.key)}.md">Spec</a></footer>
     </article>`;
   };
   return `<section class="sc-screen cat" id="surface-mcp" data-screen="surface-mcp" aria-label="MCP server" hidden>
@@ -66,7 +66,7 @@ function apiSection(manifest) {
         ${x.body ? `<h3>Body${x.body.ref ? ` <code>${e(x.body.ref)}</code>` : ''}</h3>${fields(x.body.fields)}` : ''}
         <h3>Responses</h3><div class="cat-list">${x.responses.map(r => `<div class="cat-row"><i class="st st-${e(r.status[0])}">${e(r.status)}</i><span>${e(r.description)}</span><span class="muted">${r.schema ? e(r.schema + (r.list ? '[]' : '')) : ''}</span></div>`).join('')}</div>
         <h3>Example</h3><pre class="cat-code"><code>${e(curl)}</code></pre>
-        <footer>${used.length ? `<span class="cat-link">MCP ${used.map(n => `<code>${e(n)}</code>`).join(' ')}</span>` : '<span></span>'}<a class="cat-spec" href="../specs/front/api/${e(x.key)}.md" data-open="specs/front/api/${e(x.key)}.md">Spec</a></footer>
+        <footer>${used.length ? `<span class="cat-link">MCP ${used.map(n => `<code>${e(n)}</code>`).join(' ')}</span>` : '<span></span>'}<a class="cat-spec" href="../specs/front/api/${e(x.key)}.md" data-open="wcraft/specs/front/api/${e(x.key)}.md">Spec</a></footer>
       </div>
     </details>`;
   };

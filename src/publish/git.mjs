@@ -5,6 +5,7 @@ import fs from 'node:fs';
 import crypto from 'node:crypto';
 import path from 'node:path';
 import { ciFiles } from './ci.mjs';
+import { DESIGN, SPECS, PROTOTYPE, GRAPH, spec } from '../layout.mjs';
 
 const TEXT = new Set(['.md', '.json', '.html', '.css', '.yml', '.yaml', '.txt', '.js', '.mjs', '.svg']);
 
@@ -18,18 +19,18 @@ export function collectFiles(outDir, { designFile, designInputs, prefix = '', ci
       else files.push({ path: path.posix.join(prefix, rel), data: fs.readFileSync(path.join(outDir, rel)) });
     }
   };
-  for (const d of ['prototype', 'specs']) if (fs.existsSync(path.join(outDir, d))) walk(d);
-  // The product graph (code graphs index it): next to the design.
-  let graph = 'design/weshcraft.graph.mjs';
-  try { graph = JSON.parse(fs.readFileSync(path.join(outDir, 'specs/trace.json'), 'utf8')).graph || graph; } catch { /* no trace yet */ }
+  for (const d of [PROTOTYPE, SPECS]) if (fs.existsSync(path.join(outDir, d))) walk(d);
+  // The product graph (code graphs index it): in the WeshCraft folder.
+  let graph = GRAPH;
+  try { graph = JSON.parse(fs.readFileSync(path.join(outDir, spec('trace.json')), 'utf8')).graph || graph; } catch { /* no trace yet */ }
   if (fs.existsSync(path.join(outDir, graph))) files.push({ path: path.posix.join(prefix, graph), data: fs.readFileSync(path.join(outDir, graph)) });
-  // Design inputs (a .figcraft, OpenAPI, MCP tool lists, surface files) go to design/ by name.
+  // Design inputs (a .figcraft, OpenAPI, MCP tool lists, surface files) go to the design folder by name.
   const inputs = designInputs ?? (designFile ? [{ abs: designFile, arg: '--file' }] : []);
   const args = [];
   const seen = new Set();
   for (const x of inputs) {
-    if (!fs.existsSync(x.abs) || x.abs.startsWith(path.resolve(outDir, 'specs'))) continue;
-    const p = designPath && x.arg === '--file' ? designPath : path.posix.join(prefix, 'design', path.basename(x.abs));
+    if (!fs.existsSync(x.abs) || x.abs.startsWith(path.resolve(outDir, SPECS))) continue;
+    const p = designPath && x.arg === '--file' ? designPath : path.posix.join(prefix, DESIGN, path.basename(x.abs));
     if (seen.has(p)) continue;
     seen.add(p);
     files.push({ path: p, data: fs.readFileSync(x.abs) });
@@ -52,8 +53,8 @@ export function prBody(report, manifest, extra = '') {
     `|---|---|---|---|---|---|`,
     `| ${report.ok ? '✅' : '❌'} ${report.score}% (${report.checks} checks) | ${manifest.screens.length} | ${manifest.components.length} | ${manifest.tokens.variables.length} | ${manifest.domain.entities.length} | ${manifest.domain.operations.length} |`,
     '',
-    '- Clickable prototype: `prototype/index.html`',
-    '- Index: `specs/README.md` · parity report: `specs/PARITY.md`',
+    '- Clickable prototype: `wcraft/prototype/index.html`',
+    '- Index: `wcraft/specs/README.md` · parity report: `wcraft/specs/PARITY.md`',
   ];
   if (!report.ok) {
     lines.push('', '<details><summary>Parity issues</summary>', '');

@@ -36,10 +36,11 @@
       <div class="stage-tools">
       <label class="toggle protoonly" title="Outline layers that call the back end (blue) or show its data (green). Click one to open its back-end spec."><input type="checkbox" id="overlay"> Data links</label>
       <label class="toggle protoonly" title="Open the spec of the screen shown in the prototype"><input type="checkbox" id="follow" checked> Follow</label>
-      <a class="link protoonly" id="openProto" href="/out/prototype/index.html" target="_blank" rel="noopener" title="Open the prototype in a new tab">↗</a>
+      <a class="link protoonly" id="openProto" href="/out/wcraft/prototype/index.html" target="_blank" rel="noopener" title="Open the prototype in a new tab">↗</a>
       </div>
       <button type="button" class="pane-toggle right" data-panel="right" aria-label="Hide the spec" title="Hide the spec"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 6l-6 6 6 6M19 6l-6 6 6 6"/></svg></button>
     </div>
+    <div class="tabpanel scroll" data-panel="execsum" hidden><div id="exview" class="exview"><p class="empty">No run yet.</p></div></div>
     <div class="tabpanel scroll" data-panel="functions" hidden><div id="fnview" class="fnview"><p class="empty">No run yet.</p></div></div>
     <div class="tabpanel scroll" data-panel="logic" hidden><div id="logicview" class="avview"><p class="empty">No run yet.</p></div></div>
     <div class="tabpanel scroll" data-panel="data" hidden><div id="dataview" class="avview"><p class="empty">No run yet.</p></div></div>
@@ -127,6 +128,7 @@
 </main>
 
 <nav class="rail" id="rail" role="tablist" aria-label="Sections" aria-orientation="vertical">
+  <button role="tab" class="tab rail-btn" aria-selected="false" data-tab="execsum" id="execsumTab" title="Exec summary"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5.5h16M4 10.5h10M4 15.5h13M4 20h7"/><circle cx="19" cy="10.5" r="2.2"/></svg><span>Exec summary</span></button>
   <button role="tab" class="tab rail-btn" aria-selected="false" data-tab="functions" id="functionsTab" title="Functions"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="7" height="6" rx="1.5"/><rect x="14" y="4" width="7" height="6" rx="1.5"/><rect x="8.5" y="14" width="7" height="6" rx="1.5"/><path d="M10 7h4M6.5 10v2.5h5.5V14M17.5 10v2.5H12"/></svg><span>Functions</span></button>
   <button role="tab" class="tab rail-btn" aria-selected="false" data-tab="logic" title="Logic"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="6" cy="6" r="2.5"/><circle cx="18" cy="12" r="2.5"/><circle cx="6" cy="18" r="2.5"/><path d="M8.5 6H12a3 3 0 0 1 3 3v.5M8.5 18H12a3 3 0 0 0 3-3v-.5"/></svg><span>Logic</span></button>
   <button role="tab" class="tab rail-btn" aria-selected="false" data-tab="data" title="Data"><svg viewBox="0 0 24 24" aria-hidden="true"><ellipse cx="12" cy="5.5" rx="7" ry="2.5"/><path d="M5 5.5v13c0 1.4 3.1 2.5 7 2.5s7-1.1 7-2.5v-13M5 12c0 1.4 3.1 2.5 7 2.5s7-1.1 7-2.5"/></svg><span>Data</span></button>
@@ -145,7 +147,7 @@
 <button type="button" class="fab" id="openSpec" hidden>View spec <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></button>
 <nav class="phonebar" aria-label="Views">
   <button type="button" data-view="specs" aria-label="Specs"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6h12M8 12h12M8 18h12"/><circle cx="4" cy="6" r="1"/><circle cx="4" cy="12" r="1"/><circle cx="4" cy="18" r="1"/></svg><span>Specs</span><i class="pb-badge" id="pbSpecs"></i></button>
-  <button type="button" data-view="functions" aria-label="Product: functions, logic, data, API, architecture"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="7" height="6" rx="1.5"/><rect x="14" y="4" width="7" height="6" rx="1.5"/><rect x="8.5" y="14" width="7" height="6" rx="1.5"/><path d="M10 7h4M6.5 10v2.5h5.5V14M17.5 10v2.5H12"/></svg><span>Product</span></button>
+  <button type="button" data-view="execsum" aria-label="Product: summary, functions, logic, data, API, architecture"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="7" height="6" rx="1.5"/><rect x="14" y="4" width="7" height="6" rx="1.5"/><rect x="8.5" y="14" width="7" height="6" rx="1.5"/><path d="M10 7h4M6.5 10v2.5h5.5V14M17.5 10v2.5H12"/></svg><span>Product</span></button>
   <button type="button" data-view="design" aria-label="Design" hidden id="pbDesign"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20l4-1 11-11-3-3L5 16z"/><path d="M14 7l3 3"/></svg><span>Design</span></button>
   <button type="button" data-view="proto" aria-label="Prototype"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="2.5" width="12" height="19" rx="3"/><path d="M10.5 18.5h3"/></svg><span>Prototype</span></button>
   <button type="button" data-view="links" aria-label="Front and back links"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="6" r="2"/><circle cx="5" cy="18" r="2"/><circle cx="19" cy="12" r="2"/><path d="M7 6c6 0 6 6 10 6M7 18c6 0 6-6 10-6"/></svg><span>Links</span><i class="pb-badge warn" id="pbLinks"></i></button>
@@ -177,7 +179,7 @@
 <dialog id="publishDlg">
   <form method="dialog" id="publishForm">
     <h2>Publish &amp; sync to git</h2>
-    <p class="muted">Commits <code>prototype/</code>, <code>specs/</code>, the <code>.figcraft</code> source and a CI parity check. GitHub/GitLab: to a branch, with a pull/merge request. Local git: in the repository around the output folder, where Claude Code and OpenCode see it.</p>
+    <p class="muted">Commits <code>wcraft/prototype/</code>, <code>wcraft/specs/</code>, the <code>.figcraft</code> source and a CI parity check. GitHub/GitLab: to a branch, with a pull/merge request. Local git: in the repository around the output folder, where Claude Code and OpenCode see it.</p>
     <fieldset class="seg wide three">
       <label><input type="radio" name="provider" value="github" checked> GitHub</label>
       <label><input type="radio" name="provider" value="gitlab"> GitLab</label>

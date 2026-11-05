@@ -17,20 +17,24 @@ import { collectFiles } from '../src/publish/git.mjs';
 import { writeZip } from '../src/util/zip.mjs';
 import { Syncer, parseTarget } from '../src/publish/sync.mjs';
 import { SurfaceSource } from '../src/surface/load.mjs';
+import { migrate, DESIGN, spec } from '../src/layout.mjs';
 
 const HELP = `weshcraft — a spec-oriented FigCraft: design in the browser or over MCP, get front/back specs that match it.
+
+Everything WeshCraft writes for a project lives in one folder: wcraft/ (the specs, the prototype,
+the design documents and the settings).
 
 Usage
   weshcraft serve    [source] [--out DIR] [--port 4600] [--host 127.0.0.1] [--token T] [--agent [CMD]]
                      [--figcraft-web URL] [--no-watch] [--read-only] [--concurrency N]
       Browser workspace: design editor, clickable prototype, live spec builder, parity, publish.
-      MCP over HTTP at /mcp. Edits the .figcraft in place (default: design/*.figcraft, or start one).
+      MCP over HTTP at /mcp. Edits the .figcraft in place (default: wcraft/design/*.figcraft, or start one).
   weshcraft mcp      [source] [--out DIR] [--web [--port 4600]] [--agent [CMD]] [--no-auto] [--read-only]
       MCP server on stdio: design_* (edit the design), weshcraft_* (specs), figcraft_* with a live FigCraft.
-  weshcraft new      NAME [--out DIR]                 create design/NAME.figcraft (an empty FigCraft document)
+  weshcraft new      NAME [--out DIR]                 create wcraft/design/NAME.figcraft (an empty FigCraft document)
   weshcraft generate [source] [--out DIR] [--force] [--agent [CMD]]
   weshcraft check    --file F [--out DIR] [--format text|markdown|json]    exit 1 when out of sync
-  weshcraft trace    --file F [--out DIR] [--format text|json]             spec ⇄ code: rescan @weshcraft tags, rewrite design/weshcraft.graph.mjs and specs/TRACE.md
+  weshcraft trace    --file F [--out DIR] [--format text|json]             spec ⇄ code: rescan @weshcraft tags, rewrite wcraft/graph.mjs and wcraft/specs/TRACE.md
   weshcraft diff     --file F [--out DIR] [--against GIT_REF] [--format markdown|json]
       What changed in the design since the specs on disk (or committed at GIT_REF).
   weshcraft publish  [source] --provider github|gitlab --repo OWNER/NAME [--branch B] [--base B] [--api-url URL]
@@ -100,11 +104,20 @@ function syncer(ws, o) {
 
 function workspace(o, { editable = false } = {}) {
   const outDir = path.resolve(o.out ?? '.');
+  // A project written before the wcraft folder: move its files in first, so everything is in one place.
+  const { relocated } = migrate(outDir, m => process.stderr.write(`weshcraft: ${m}\n`));
+  // A path that moved (the design, a surface file) still points at the same file.
+  const follow = f => {
+    const abs = path.resolve(f);
+    const rel = path.relative(outDir, abs).split(path.sep).join('/');
+    return relocated[rel] ? path.join(outDir, relocated[rel]) : abs;
+  };
   let file = o.file ?? o.positionals[0];
-  // serve / mcp in a project: open its design (remembered, design/, or the only one in the repo).
+  // serve / mcp in a project: open its design (remembered, wcraft/design/, or the only one in the repo).
   if (!file && editable && !o.mcp && !o.attach) { const found = projectDesign(outDir); if (found) file = path.join(outDir, found.file); }
-  const surfaces = o.surface ?? [], servers = o['mcp-server'] ?? [];
-  const surface = surfaces.length || servers.length ? new SurfaceSource({ files: surfaces, servers, snapshotDir: path.join(outDir, 'design') }) : null;
+  if (file) file = follow(file);
+  const surfaces = (o.surface ?? []).map(follow), servers = o['mcp-server'] ?? [];
+  const surface = surfaces.length || servers.length ? new SurfaceSource({ files: surfaces, servers, snapshotDir: path.join(outDir, DESIGN) }) : null;
   const source = sourceFromOptions({ file: file && path.resolve(file), mcp: o.mcp, attach: o.attach, figcraftCli: o['figcraft-cli'], surfaceOnly: !!surface, editable, readOnly: !!o['read-only'] });
   return new Workspace({
     source, surface, outDir, concurrency: o.concurrency ? Number(o.concurrency) : 6,
@@ -140,8 +153,9 @@ async function main() {
       const name = o.positionals[0];
       if (!name) { process.stderr.write('weshcraft new NAME\n'); process.exitCode = 2; return; }
       const outDir = path.resolve(o.out ?? '.');
-      const file = path.join(outDir, 'design', `${name.replace(/[^\w.-]+/g, '-')}.figcraft`);
+      const file = path.join(outDir, DESIGN, `${name.replace(/[^\w.-]+/g, '-')}.figcraft`);
       if (fs.existsSync(file)) { process.stderr.write(`${path.relative(process.cwd(), file)} already exists\n`); process.exitCode = 1; return; }
+      fs.mkdirSync(path.dirname(file), { recursive: true });
       openEditable(file, name);
       process.stdout.write(`created ${path.relative(process.cwd(), file)}. Next: weshcraft serve\n`);
       return;
@@ -174,7 +188,7 @@ async function main() {
     case 'check': {
       const ws = workspace(o);
       try {
-        // Compare with a fresh extraction, leaving specs/manifest.json and CHANGES.md untouched.
+        // Compare with a fresh extraction, leaving wcraft/specs/manifest.json and CHANGES.md untouched.
         const { model } = ws.source ? await ws.source.load() : { model: emptyModel() };
         const manifest = buildManifest(model, { surface: ws.surface ? await ws.surface.load() : null });
         const report = checkParity(manifest, ws.outDir);
@@ -197,7 +211,7 @@ async function main() {
         else {
           for (const e of tr.elements) if (e.code.length) process.stdout.write(`${e.kind.padEnd(9)} ${e.name}: ${e.code.map(t => `${t.file}:${t.line}${t.symbol ? ` ${t.symbol}` : ''}`).join(', ')}\n`);
           for (const t of tr.unknown) process.stdout.write(`unknown   ${t.file}:${t.line} @weshcraft ${t.ref}\n`);
-          process.stdout.write(`${tr.coverage.traced}/${tr.coverage.total} elements have code · ${ws.graphFile} · specs/TRACE.md\n`);
+          process.stdout.write(`${tr.coverage.traced}/${tr.coverage.total} elements have code · ${ws.graphFile} · ${spec('TRACE.md')}\n`);
         }
       } finally { ws.source?.close(); }
       return;
@@ -211,9 +225,9 @@ async function main() {
         if (o.against) {
           const { execFileSync } = await import('node:child_process');
           const top = execFileSync('git', ['rev-parse', '--show-toplevel'], { cwd: out, encoding: 'utf8' }).trim();
-          const rel = path.relative(top, path.join(out, 'specs', 'manifest.json')).split(path.sep).join('/');
+          const rel = path.relative(top, path.join(out, spec('manifest.json'))).split(path.sep).join('/');
           try { prev = JSON.parse(execFileSync('git', ['show', `${o.against}:${rel}`], { cwd: top, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] })); } catch { prev = null; }
-        } else if (fs.existsSync(path.join(out, 'specs', 'manifest.json'))) prev = JSON.parse(fs.readFileSync(path.join(out, 'specs', 'manifest.json'), 'utf8'));
+        } else if (fs.existsSync(path.join(out, spec('manifest.json')))) prev = JSON.parse(fs.readFileSync(path.join(out, spec('manifest.json')), 'utf8'));
         const { model } = ws.source ? await ws.source.load() : { model: emptyModel() };
         const { diffManifests, changesMarkdown, summaryLine } = await import('../src/spec/diff.mjs');
         const d = diffManifests(prev, buildManifest(model, { surface: ws.surface ? await ws.surface.load() : null }));
@@ -249,7 +263,7 @@ async function main() {
       // MCP config for Claude Code (.mcp.json) and/or OpenCode (opencode.json), in this folder.
       const cli = o['figcraft-cli'] || 'figcraft-cli';
       const surfaceArgs = [...(o.surface ?? []).flatMap(f => ['--surface', f]), ...(o['mcp-server'] ?? []).flatMap(c => ['--mcp-server', c])];
-      // Default: WeshCraft edits the project's design itself (design/*.figcraft, or design_new).
+      // Default: WeshCraft edits the project's design itself (wcraft/design/*.figcraft, or design_new).
       const visual = o.attach ? ['--attach', o.attach, '--figcraft-cli', cli] : o.mcp ? ['--mcp', '--figcraft-cli', cli] : o.file ? ['--file', o.file] : [];
       const serverArgs = ['mcp', ...visual, ...surfaceArgs, '--out', '.', '--web', ...(o.sync ? ['--sync', o.sync] : []), ...(o['sync-push'] ? ['--sync-push'] : [])];
       // From a checkout: run this very file. With WESHCRAFT_PACKAGE (e.g. github:you/weshcraft): npx it.

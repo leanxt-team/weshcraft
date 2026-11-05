@@ -11,6 +11,7 @@ import { parseTarget } from '../publish/sync.mjs';
 import { resolveToken } from '../publish/credentials.mjs';
 import { callDesignTool } from '../design/tools.mjs';
 import { PUBLIC_TOOLS, NEW_TOOL, callPublic } from './toolset.mjs';
+import { ROOT } from '../layout.mjs';
 
 const PROTOCOL = '2025-06-18';
 
@@ -21,10 +22,10 @@ const SPEC_TOOLS = [
   { name: 'weshcraft_generate', description: 'Snapshot the design, rebuild the front prototype and regenerate every front/back spec in parallel, then check parity. Unchanged specs are skipped unless force is true.', inputSchema: { type: 'object', properties: { force: { type: 'boolean' } } } },
   { name: 'weshcraft_check', description: 'Check that specs and prototype match the current design exactly. Returns issues with file, node and fix hint.', inputSchema: { type: 'object', properties: {} } },
   { name: 'weshcraft_manifest', description: 'The proto manifest (screens, texts, interactions, components, tokens, flows, domain, operations), or one screen of it.', inputSchema: { type: 'object', properties: { screen: { type: 'string', description: 'screen key, e.g. scr-home' } } } },
-  { name: 'weshcraft_trace', description: 'Spec ⇄ code: which code implements each function, screen, component, operation, entity and MCP tool, found from `@weshcraft <ref>` tags in comments next to the symbol (`// @weshcraft scr-sign-up`, `# @weshcraft POST /users`; the ref is in each spec header). Rescans the code and rewrites design/weshcraft.graph.mjs (the product graph codegraph indexes: codegraph explore "how does <function> work", codegraph impact <symbol>) and specs/TRACE.md. Call it after implementing or moving code. Filter with function (key or name) or untraced:true for what has no code yet.', inputSchema: { type: 'object', properties: { function: { type: 'string' }, untraced: { type: 'boolean' } } } },
-  { name: 'weshcraft_spec_folders', description: 'The specs in folders (the Specs panel, specs/README.md, saved in .weshcraft.json). Without arguments: the folder tree with each spec\'s id and title. With tree: {folders: [{name, folders, items: [spec ids]}], items: [spec ids]} replaces it (specs left out go back to their default folder).', inputSchema: { type: 'object', properties: { tree: { type: 'object' } } } },
+  { name: 'weshcraft_trace', description: 'Spec ⇄ code: which code implements each function, screen, component, operation, entity and MCP tool, found from `@weshcraft <ref>` tags in comments next to the symbol (`// @weshcraft scr-sign-up`, `# @weshcraft POST /users`; the ref is in each spec header). Rescans the code and rewrites wcraft/graph.mjs (the product graph codegraph indexes: codegraph explore "how does <function> work", codegraph impact <symbol>) and wcraft/specs/TRACE.md. Call it after implementing or moving code. Filter with function (key or name) or untraced:true for what has no code yet.', inputSchema: { type: 'object', properties: { function: { type: 'string' }, untraced: { type: 'boolean' } } } },
+  { name: 'weshcraft_spec_folders', description: 'The specs in folders (the Specs panel, wcraft/specs/README.md, saved in wcraft/config.json). Without arguments: the folder tree with each spec\'s id and title. With tree: {folders: [{name, folders, items: [spec ids]}], items: [spec ids]} replaces it (specs left out go back to their default folder).', inputSchema: { type: 'object', properties: { tree: { type: 'object' } } } },
   { name: 'weshcraft_links', description: 'Front ⇄ back links: which layers trigger or submit to which operation, which layers show which entity field and which operation loads it, plus gaps. Filter by screen key, operation key or Entity.field.', inputSchema: { type: 'object', properties: { screen: { type: 'string' }, op: { type: 'string' }, field: { type: 'string' } } } },
-  { name: 'weshcraft_read_spec', description: 'Read a generated file, e.g. specs/front/screens/scr-home.md or specs/back/api.md.', inputSchema: { type: 'object', properties: { path: { type: 'string' } }, required: ['path'] } },
+  { name: 'weshcraft_read_spec', description: 'Read a generated file, e.g. wcraft/specs/front/screens/scr-home.md or wcraft/specs/back/api.md.', inputSchema: { type: 'object', properties: { path: { type: 'string' } }, required: ['path'] } },
   { name: 'weshcraft_write_notes', description: 'Replace the Notes block of one spec (states, edge cases, a11y, analytics, open questions). Generated sections are not editable: change the design instead (design_* tools). Cite layers as `#id`.', inputSchema: { type: 'object', properties: { path: { type: 'string' }, notes: { type: 'string' } }, required: ['path', 'notes'] } },
   { name: 'weshcraft_sync', description: 'Sync prototype + specs to git now, and optionally set the target: github:owner/repo[@branch] or gitlab:group/project[@branch] (API commit to a branch, PR/MR opened once then updated), or git[@branch] (commit in the local repository holding the output folder; push optional). auto: also sync after every in-sync regeneration.', inputSchema: { type: 'object', properties: { target: { type: 'string' }, auto: { type: 'boolean' }, pr: { type: 'boolean' }, push: { type: 'boolean' }, base: { type: 'string' }, apiUrl: { type: 'string' } } } },
   { name: 'weshcraft_publish', description: 'Commit prototype + specs (+ CI parity check and the .figcraft source) to a branch and open or update a GitHub PR / GitLab MR. Access is inherited (OpenChamber account, gh/glab login, git credentials, GITHUB_TOKEN/GITLAB_TOKEN).', inputSchema: { type: 'object', properties: { provider: { type: 'string', enum: ['github', 'gitlab'] }, repo: { type: 'string', description: 'owner/name (GitHub) or group/project (GitLab)' }, branch: { type: 'string' }, base: { type: 'string' }, title: { type: 'string' }, apiUrl: { type: 'string' } }, required: ['provider', 'repo'] } },
@@ -55,8 +56,12 @@ export class WeshCraftMcp {
   }
 
   safePath(p) {
-    const abs = path.resolve(this.ws.outDir, String(p || ''));
-    if (!abs.startsWith(this.ws.outDir + path.sep)) throw new Error('path must stay inside the WeshCraft output folder');
+    // The path of a file in the project: inside the WeshCraft folder. The old spelling
+    // (specs/…, prototype/…) still works, so a path from an older session still finds its file.
+    let rel = String(p || '').replace(/^\/+/, '');
+    if (!rel.startsWith(`${ROOT}/`)) rel = `${ROOT}/${rel}`;
+    const abs = path.resolve(this.ws.outDir, rel);
+    if (!abs.startsWith(this.ws.outDir + path.sep)) throw new Error('path must stay inside the WeshCraft folder');
     return abs;
   }
 
@@ -94,7 +99,7 @@ export class WeshCraftMcp {
           const inFn = id => !fn || id === fn.key || fn.screens.includes(id) || fn.operations.includes(id) || fn.tools.some(t => `tool:${t}` === id) || fn.entities.some(e => `entity:${e.name}` === id);
           const els = tr.elements.filter(e => inFn(e.id) && (!args.untraced || (!e.code.length && e.kind !== 'function')));
           return text({
-            coverage: tr.coverage, graph: this.ws.graphFile, map: 'specs/TRACE.md',
+            coverage: tr.coverage, graph: this.ws.graphFile, map: 'wcraft/specs/TRACE.md',
             elements: els.map(e => ({ kind: e.kind, name: e.name, tag: `@weshcraft ${e.kind === 'operation' ? e.refs[1] : e.refs[0]}`, spec: e.spec, code: e.code.map(t => `${t.file}:${t.line}${t.symbol ? ` ${t.symbol}` : ''}`) })),
             ...(tr.unknown.length ? { tagsPointingNowhere: tr.unknown.map(t => `${t.file}:${t.line} @weshcraft ${t.ref}`) } : {}),
           });

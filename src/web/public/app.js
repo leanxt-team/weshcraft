@@ -2,6 +2,7 @@
 // prototype layers, parity list, notes editing and publishing.
 import { createEditor } from '/app/editor.js';
 import { createFunctionsView } from '/app/functions.js';
+import { createExecSummaryView } from '/app/execsum.js';
 import { createLogicView, createDataView, createApiView, createArchitectureView } from '/app/aspects.js';
 import { spreadEnds } from '/app/wires.js';
 import { buildTree, folderAt, countItems, allFolders, addFolder, renameFolder, removeFolder, moveItem, moveFolder } from '/app/spectree.js';
@@ -10,7 +11,7 @@ const $ = s => document.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
 let editor = null;
-const state = { jobs: new Map(), current: null, view: 'read', summary: null, report: null, streams: new Map(), protoHash: null };
+const state = { jobs: new Map(), current: null, view: 'read', summary: null, report: null, streams: new Map(), protoHash: null, protoFile: 'index.html' };
 
 // ---- markdown (small, escapes everything first) ----------------------------------------------
 function inline(s) {
@@ -92,7 +93,7 @@ function renderJobs() {
 
 // ---- spec folders: the project's own organisation of the list --------------------------------
 // Folders and subfolders, made, renamed, removed (what they hold moves up) and filled by dragging
-// a spec or a folder, or with the ⋯ menu. Saved in .weshcraft.json (specTree), shared with specs/README.md.
+// a spec or a folder, or with the ⋯ menu. Saved in wcraft/config.json (specTree), shared with wcraft/specs/README.md.
 const FOLD_KEY = 'weshcraft.folds.v1';
 const folds = (() => { try { return new Set(JSON.parse(localStorage.getItem(FOLD_KEY) || '[]')); } catch { return new Set(); } })();
 const saveFolds = () => { try { localStorage.setItem(FOLD_KEY, JSON.stringify([...folds])); } catch { /* private window */ } };
@@ -469,7 +470,7 @@ function openFile(target) {
 document.addEventListener('weshcraft:screen', e => {
   const reader = document.querySelector('.reader');
   if (!document.body.classList.contains('editing') || !$('#follow')?.checked || !reader || getComputedStyle(reader).display === 'none') return;
-  openFile(`specs/front/screens/${e.detail.key}.md`);
+  openFile(`wcraft/specs/front/screens/${e.detail.key}.md`);
 });
 
 // ---- product functions -----------------------------------------------------------------------
@@ -486,9 +487,9 @@ const refreshAspects = () => { for (const v of Object.values(aspects)) v.refresh
 // The product strip (phones): Functions · Logic · Data · API & MCP · Architecture
 document.addEventListener('click', e => { const b = e.target.closest('[data-pnav]'); if (!b) return; if (phone.matches) setPhoneView(b.dataset.pnav); else selectTab(b.dataset.pnav); });
 
-// Spec ⇄ code (specs/trace.json): which code implements each element, from `@weshcraft` tags.
+// Spec ⇄ code (wcraft/specs/trace.json): which code implements each element, from `@weshcraft` tags.
 function loadTrace() {
-  fetch('/out/specs/trace.json').then(r => (r.ok ? r.json() : null)).then(j => { state.trace = j; fnView.refresh(); aspects.architecture.refresh(); }).catch(() => {});
+  fetch('/out/wcraft/specs/trace.json').then(r => (r.ok ? r.json() : null)).then(j => { state.trace = j; fnView.refresh(); aspects.architecture.refresh(); }).catch(() => {});
 }
 const fnView = createFunctionsView({
   root: $('#fnview'),
@@ -499,6 +500,15 @@ const fnView = createFunctionsView({
   openFile: (f, { quiet } = {}) => { if (quiet && phone.matches) return; openFile(f); if (!quiet && phone.matches) setPhoneView('read'); else if (!quiet) showSpec(); },
   showScreen: key => { if (phone.matches) setPhoneView('proto'); else selectTab('proto'); state.protoScreen = key; protoPost({ weshcraft: 'show', key }); },
   log,
+});
+
+// The executive summary: the product in one screen, above Functions.
+const exView = createExecSummaryView({
+  root: $('#exview'),
+  getManifest: () => state.manifest,
+  getReport: () => state.report,
+  openFile: f => { openFile(f); if (phone.matches) setPhoneView('read'); else showSpec(); },
+  showScreen: key => { if (phone.matches) setPhoneView('proto'); else selectTab('proto'); state.protoScreen = key; protoPost({ weshcraft: 'show', key }); },
 });
 
 // ---- front ⇄ back link map ------------------------------------------------------------------
@@ -620,14 +630,14 @@ function selectLink(k, { open = true } = {}) {
   protoPost({ weshcraft: 'highlightMany', items });
   if (!state.linkKey || !open) return;
   const m = state.manifest;
-  if (k.startsWith('o:')) openFile(`specs/back/api.md#${k.slice(2)}`);
-  else if (k.startsWith('f:') || k.startsWith('e:')) openFile(`specs/back/domain.md#entity-${k.slice(2).split('.')[0].toLowerCase()}`);
+  if (k.startsWith('o:')) openFile(`wcraft/specs/back/api.md#${k.slice(2)}`);
+  else if (k.startsWith('f:') || k.startsWith('e:')) openFile(`wcraft/specs/back/domain.md#entity-${k.slice(2).split('.')[0].toLowerCase()}`);
   else {
     const e = m.links.edges.find(x => `n:${x.node}` === k);
     if (!e) return;
-    if (e.screen === 'mcp') openFile(`specs/front/mcp/${m.surface.mcp.tools.find(t => `tool:${t.name}` === e.node)?.key}.md`);
-    else if (e.screen === 'api') openFile(`specs/front/api/${m.surface.api.endpoints.find(x => `ep:${x.method} ${x.path}` === e.node)?.key}.md`);
-    else openFile(`specs/front/screens/${e.screen}.md`);
+    if (e.screen === 'mcp') openFile(`wcraft/specs/front/mcp/${m.surface.mcp.tools.find(t => `tool:${t.name}` === e.node)?.key}.md`);
+    else if (e.screen === 'api') openFile(`wcraft/specs/front/api/${m.surface.api.endpoints.find(x => `ep:${x.method} ${x.path}` === e.node)?.key}.md`);
+    else openFile(`wcraft/specs/front/screens/${e.screen}.md`);
   }
 }
 $('#linkmap').addEventListener('click', e => { const b = e.target.closest('[data-k]'); if (b) selectLink(b.dataset.k); });
@@ -636,19 +646,26 @@ $('#overlay').addEventListener('change', e => protoPost({ weshcraft: 'overlay', 
 
 // ---- prototype iframe ------------------------------------------------------------------------
 const protoPost = msg => $('#proto').contentWindow?.postMessage(msg, '*');
+// The prototype is one file per page: the app follows the page the prototype is on.
+function loadProto(file, key) {
+  state.protoFile = file;
+  const frame = $('#proto');
+  frame.classList.add('loading');
+  // Embedded hosts (the OpenChamber page) load the prototype their own way.
+  // No #fragment in the src: fragment navigation inside an iframe scrolls the parent page too.
+  (window.__wc?.frame ?? ((f, u) => { f.src = u; }))(frame, `/out/wcraft/prototype/${file}?v=${state.protoHash}`);
+  frame.onload = () => {
+    requestAnimationFrame(() => frame.classList.remove('loading'));
+    if (key) protoPost({ weshcraft: 'show', key });
+    else if (state.protoScreen) protoPost({ weshcraft: 'show', key: state.protoScreen });
+    if ($('#overlay').checked) protoPost({ weshcraft: 'overlay', on: true });
+  };
+}
 function reloadProto(hash) {
   if (state.protoHash === hash) return;
   state.protoHash = hash;
   // No #fragment in the src: fragment navigation inside an iframe scrolls the parent page too.
-  const frame = $('#proto');
-  frame.classList.add('loading');
-  // Embedded hosts (the OpenChamber page) load the prototype their own way.
-  (window.__wc?.frame ?? ((f, u) => { f.src = u; }))(frame, `/out/prototype/index.html?v=${hash}`);
-  frame.onload = () => {
-    requestAnimationFrame(() => frame.classList.remove('loading'));
-    if (state.protoScreen) protoPost({ weshcraft: 'show', key: state.protoScreen });
-    if ($('#overlay').checked) protoPost({ weshcraft: 'overlay', on: true });
-  };
+  loadProto(state.protoFile || 'index.html');
 }
 window.addEventListener('message', e => {
   if (e.source !== $('#proto').contentWindow) return;
@@ -658,11 +675,13 @@ window.addEventListener('message', e => {
     const op = m.op?.split(' ')[0];
     const field = m.field?.split(' ')[0];
     if (state.graph) { state.linkKey = null; selectLink(`n:${m.node}`, { open: false }); }
-    if (op) openFile(`specs/back/api.md#${op}`);
-    else if (field) openFile(`specs/back/domain.md#entity-${field.split('.')[0].toLowerCase()}`);
+    if (op) openFile(`wcraft/specs/back/api.md#${op}`);
+    else if (field) openFile(`wcraft/specs/back/domain.md#entity-${field.split('.')[0].toLowerCase()}`);
     return;
   }
-  if (m.weshcraft === 'open' && typeof m.file === 'string' && /^specs\//.test(m.file)) { openFile(m.file); if (phone.matches) setPhoneView('read'); return; }
+  if (m.weshcraft === 'open' && typeof m.file === 'string' && /^wcraft\/specs\//.test(m.file)) { openFile(m.file); if (phone.matches) setPhoneView('read'); return; }
+  // Another page of the prototype: open it.
+  if (m.weshcraft === 'navigate' && typeof m.file === 'string') { loadProto(m.file, m.key); return; }
   if (m.weshcraft === 'screen') state.protoScreen = m.key;
   if (m.weshcraft === 'screen' && $('#follow').checked) {
     const j = state.jobs.get(m.key === 'surface-mcp' ? 'front:mcp' : m.key === 'surface-api' ? 'front:api' : `front:screen:${m.key}`);
@@ -686,12 +705,15 @@ function applySummary(s) {
   if (pb) pb.textContent = label;
   $('#hash').textContent = s.hash;
   $('#manifest').textContent = 'Loading…';
-  fetch('/out/specs/manifest.json').then(r => r.text()).then(t => {
+  fetch('/out/wcraft/specs/manifest.json').then(r => r.text()).then(t => {
     $('#manifest').innerHTML = esc(t)
       .replace(/(&quot;[^&]*?&quot;)(\s*:)/g, '<span class="jk">$1</span>$2')
       .replace(/:\s(&quot;.*?&quot;)/g, ': <span class="js">$1</span>')
       .replace(/:\s(-?\d[\d.e+-]*|true|false|null)/g, ': <span class="jn">$1</span>');
-    try { state.manifest = JSON.parse(t); state.linkKey = null; state.linkSel = null; renderLinkMap(); fnView.refresh(); refreshAspects(); } catch { /* partial write */ }
+    try { state.manifest = JSON.parse(t); state.linkKey = null; state.linkSel = null; renderLinkMap(); exView.refresh(); fnView.refresh(); refreshAspects(); } catch { /* partial write */ }
+    // The page the prototype was on may be gone: back to the entry point.
+    const pages = state.manifest?.pages ?? [];
+    if (pages.length && !pages.some(p => p.file === state.protoFile)) { state.protoFile = 'index.html'; if (state.protoHash) loadProto('index.html'); }
   });
   loadTrace();
 }
@@ -756,9 +778,9 @@ async function init() {
     if (editable || st.source === 'nothing') { if (phone.matches) setPhoneView('design'); else selectTab('design'); }
   });
   if (!st.summary && !st.running) run(false);
-  // Deep link (PR links, bookmarks): ?open=specs/front/screens/scr-home.md#anchor
+  // Deep link (PR links, bookmarks): ?open=wcraft/specs/front/screens/scr-home.md#anchor
   const open = new URLSearchParams(location.search).get('open');
-  if (open && /^specs\//.test(open)) { openFile(open); if (phone.matches) setPhoneView('read'); }
+  if (open && /^wcraft\/specs\//.test(open)) { openFile(open); if (phone.matches) setPhoneView('read'); }
 }
 async function run(force) {
   await fetch('/api/run', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ force }) });
@@ -782,7 +804,7 @@ $('#issues').addEventListener('click', e => {
   const li = e.target.closest('li[data-file]');
   if (!li) return;
   openFile(li.dataset.file);
-  if (/^specs\//.test(li.dataset.file)) pickedInList();
+  if (/^wcraft\/specs\//.test(li.dataset.file)) pickedInList();
   if (li.dataset.node) protoPost({ weshcraft: 'highlight', node: li.dataset.node });
 });
 $('#doc').addEventListener('click', e => {
@@ -793,7 +815,7 @@ $('#doc').addEventListener('click', e => {
     e.preventDefault();
     const base = ($('#doc').dataset.file || '').split('/').slice(0, -1);
     const target = a.dataset.href.split('#')[0];
-    if (target.includes('prototype/index.html')) { const key = a.dataset.href.split('#')[1]; selectTab('proto'); protoPost({ weshcraft: 'show', key }); return; }
+    if (target.includes('wcraft/prototype/')) { const key = a.dataset.href.split('#')[1]; selectTab('proto'); loadProto(target.split('/').pop(), key); return; }
     const parts = [...base];
     for (const seg of target.split('/')) { if (seg === '..') parts.pop(); else if (seg && seg !== '.') parts.push(seg); }
     openFile(parts.join('/'));
@@ -910,6 +932,7 @@ function selectTab(t) {
   if (t === 'figcraft' && $('#design').src === 'about:blank') $('#design').src = $('#design').dataset.src;
   if (t === 'design') editor?.shown();
   if (t === 'links') requestAnimationFrame(drawWires);
+  if (t === 'execsum') requestAnimationFrame(exView.draw);
   if (t === 'functions') requestAnimationFrame(fnView.draw);
   if (aspects[t]) requestAnimationFrame(aspects[t].draw);
 }
@@ -1018,9 +1041,9 @@ init();
 const phone = window.matchMedia('(max-width: 720px)');
 function setPhoneView(v) {
   document.body.dataset.view = v;
-  const product = ['functions', 'logic', 'data', 'api', 'architecture'].includes(v);
-  document.querySelectorAll('.phonebar [data-view]').forEach(b => b.setAttribute('aria-current', String(b.dataset.view === v || (product && b.dataset.view === 'functions'))));
-  if (['proto', 'links', 'manifest', 'design', 'functions', 'logic', 'data', 'api', 'architecture'].includes(v)) selectTab(v);
+  const product = ['execsum', 'functions', 'logic', 'data', 'api', 'architecture'].includes(v);
+  document.querySelectorAll('.phonebar [data-view]').forEach(b => b.setAttribute('aria-current', String(b.dataset.view === v || (product && b.dataset.view === 'execsum'))));
+  if (['proto', 'links', 'manifest', 'design', 'execsum', 'functions', 'logic', 'data', 'api', 'architecture'].includes(v)) selectTab(v);
   if (v === 'links') requestAnimationFrame(drawWires);
   window.scrollTo(0, 0);
 }
@@ -1056,7 +1079,7 @@ moreDlg.addEventListener('click', e => {
   else if (act === 'sync') $('#syncPill').click();
   else if (act === 'zip') $('#zip').click();
   else if (act === 'manifest') setPhoneView('manifest');
-  else if (act === 'openproto') (window.__wc?.open ?? (u => window.open(u, '_blank', 'noopener')))('/out/prototype/index.html');
+  else if (act === 'openproto') (window.__wc?.open ?? (u => window.open(u, '_blank', 'noopener')))('/out/wcraft/prototype/index.html');
 });
 // Tab-bar badges: build progress and link gaps.
 new MutationObserver(() => {
