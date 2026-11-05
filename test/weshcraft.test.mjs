@@ -1029,3 +1029,38 @@ test('logic, data, API & MCP, architecture: inferred, declared with tools, specs
   ws.source.store.undo(); await ws.settled();
   assert.ok(!(await call('design_logic', {})).rules.some(x => x.name === 'Ghost'));
 });
+
+test('architecture technologies: recognised from the tech text, with icon, description and alternatives', async () => {
+  const { matchTech, techIcon, techFacts, searchTech, TECH, BY_ID } = await import('../src/web/public/techcatalog.js');
+  const names = t => matchTech(t).map(e => e.id);
+  assert.deepEqual(names('Node 22 · Fastify · PostgreSQL 16'), ['nodejs', 'fastify', 'postgres']);
+  assert.deepEqual(names('Postgres on RDS'), ['postgres', 'aws-rds']);
+  assert.deepEqual(names('PostgreSQL database'), ['postgres'], 'a generic word next to a product adds nothing');
+  assert.deepEqual(names('AWS Lambda, S3 and DynamoDB'), ['aws-lambda', 'aws-s3', 'aws-dynamodb']);
+  assert.deepEqual(names('React Native + Expo'), ['reactnative', 'expo'], 'longest name first');
+  assert.deepEqual(names('Azure Functions with Cosmos DB'), ['azure-functions', 'azure-cosmos']);
+  assert.deepEqual(names('message queue'), ['g-queue'], 'generic blocks fill the gaps');
+  assert.deepEqual(names('our own thing'), []);
+  // every entry draws, every alternative is a known entry or a plain name, every category is listed
+  for (const e of TECH) { assert.match(techIcon(e), /^<svg class="ti /, e.id); assert.ok(e.desc.length > 12, e.id); for (const a of e.alts) assert.ok(BY_ID.has(a) || /[A-Z.]/.test(a), `${e.id} → ${a}`); }
+  assert.ok(TECH.length > 400 && TECH.filter(e => e.cat === 'aws').length >= 25 && TECH.filter(e => e.cat === 'azure').length >= 20 && TECH.filter(e => e.cat === 'gcp').length >= 20);
+  assert.match(techIcon(BY_ID.get('postgres')), /<path fill="#4169E1"/, 'brand mark in its colour');
+  assert.match(techIcon(BY_ID.get('aws-sqs')), />aws</, 'cloud service: generic glyph with the provider badge');
+  assert.deepEqual(techFacts(BY_ID.get('redis')).alternatives.slice(0, 2), ['Valkey', 'Memcached']);
+  assert.equal(searchTech('lambda')[0].id, 'aws-lambda');
+  // the spec says what each named technology is and what could replace it
+  const { architectureSpec } = await import('../src/spec/aspects.mjs');
+  const m = { source: { hash: 'h' }, functions: { items: [] }, screens: [], domain: { operations: [], entities: [] }, architecture: { declared: true, components: [{ key: 'arc-api', name: 'API', kind: 'service', tech: 'Python 3.12 · FastAPI · Redis', description: '', implements: [], code: [] }], links: [] } };
+  const md = architectureSpec(m);
+  assert.match(md, /## Technologies[\s\S]*\*\*FastAPI\*\*[^\n]*\| API \|[^\n]*Python API framework[^\n]*Django, Flask/);
+});
+
+test('weshcraft_read technologies: the catalog for agents, no design needed', async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'wc-tech-'));
+  const ws = new Workspace({ outDir: dir, source: null });
+  const mcp = new WeshCraftMcp({ workspace: ws, autoRun: false });
+  const r = JSON.parse((await mcp.callTool('weshcraft_read', { what: 'technologies', query: 'queue' })).content[0].text);
+  assert.ok(r.some(x => x.name === 'Amazon SQS' && x.alternatives.includes('RabbitMQ')), JSON.stringify(r).slice(0, 300));
+  const t = JSON.parse((await mcp.callTool('weshcraft_read', { what: 'technologies', text: 'Go · Gin · Postgres on Cloud SQL' })).content[0].text);
+  assert.deepEqual(t.map(x => x.name), ['Go', 'Gin', 'PostgreSQL', 'Cloud SQL']);
+});

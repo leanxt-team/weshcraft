@@ -23,7 +23,20 @@ export function declaredFrom(m) {
 }
 
 export function createFunctionsView({ root, getManifest, getTrace = () => null, isEditable, openFile, showScreen, log }) {
-  let sel = null;
+  let sel = null; // a function's key
+  let pick = null; // or who / which data: { a: actor } | { e: entity name }
+  // What a selection lights up: the function and what it touches, or everything linked to a Who or a Data block.
+  function lit(m) {
+    const F = m.functions.items;
+    if (sel) { const f = F.find(x => x.key === sel); return f ? { fns: new Set([f.key]), actors: new Set(f.actors), ents: new Set(f.entities.map(e => e.name)) } : null; }
+    if (!pick) return null;
+    const fns = F.filter(f => (pick.a ? f.actors.includes(pick.a) : f.entities.some(e => e.name === pick.e)));
+    return {
+      fns: new Set(fns.map(f => f.key)),
+      actors: pick.a ? new Set([pick.a]) : new Set(fns.flatMap(f => f.actors)),
+      ents: pick.e ? new Set([pick.e]) : new Set(fns.flatMap(f => f.entities.map(e => e.name))),
+    };
+  }
 
   async function save(list, label) {
     const r = await fetch('/api/design/op', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ops: [{ op: 'functions', functions: list }], label }) });
@@ -64,9 +77,9 @@ export function createFunctionsView({ root, getManifest, getTrace = () => null, 
     root.innerHTML = `${productNav('functions')}
       ${!F.declared ? `<div class="fn-banner"><div><strong>Suggested functions.</strong> Grouped from the prototype (flows, sections, navigation, API tags). ${editable ? 'Keep them, then rename them and give each a purpose.' : 'Name them with the agent (weshcraft_edit)' + (m.screens.length ? '' : ' or in weshcraft.surface.json (functions)') + '.'}</div>${editable ? '<button type="button" class="btn primary small" id="fnKeep">Keep these functions</button>' : ''}</div>` : ''}
       <div class="fn-cols">
-        <div class="fn-col fn-who"><h4>Who</h4>${actors.map(a => `<div class="fn-actor" data-a="${a}">${ACTOR_ICON[a]}<span>${ACTORS[a]}</span></div>`).join('') || '<p class="empty">—</p>'}</div>
+        <div class="fn-col fn-who"><h4>Who</h4>${actors.map(a => `<div class="fn-actor" role="button" tabindex="0" data-a="${a}" aria-pressed="${pick?.a === a}" title="What ${esc(ACTORS[a])} use">${ACTOR_ICON[a]}<span>${ACTORS[a]}</span></div>`).join('') || '<p class="empty">—</p>'}</div>
         <div class="fn-col fn-fns"><h4>Functions <span>${F.items.length}</span></h4>${F.items.map(card).join('')}${editable ? '<button type="button" class="fn-add" id="fnAdd">+ Function</button>' : ''}</div>
-        <div class="fn-col fn-data"><h4>Data</h4>${entities.map(e => `<div class="fn-entity" data-e="${esc(e)}"><svg viewBox="0 0 24 24" aria-hidden="true"><ellipse cx="12" cy="6" rx="7" ry="2.5"/><path d="M5 6v12c0 1.4 3.1 2.5 7 2.5s7-1.1 7-2.5V6"/></svg><span>${esc(e)}</span></div>`).join('') || '<p class="empty">—</p>'}</div>
+        <div class="fn-col fn-data"><h4>Data</h4>${entities.map(e => `<div class="fn-entity" role="button" tabindex="0" data-e="${esc(e)}" aria-pressed="${pick?.e === e}" title="Which functions read or write ${esc(e)}"><svg viewBox="0 0 24 24" aria-hidden="true"><ellipse cx="12" cy="6" rx="7" ry="2.5"/><path d="M5 6v12c0 1.4 3.1 2.5 7 2.5s7-1.1 7-2.5V6"/></svg><span>${esc(e)}</span></div>`).join('') || '<p class="empty">—</p>'}</div>
         <svg class="fn-wires" aria-hidden="true"><defs><marker id="fnArrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z"/></marker></defs><g class="g"></g></svg>
       </div>
       ${loose ? `<div class="fn-loose"><strong>Not in a function yet:</strong> ${[...u.screens.map(k => `<button type="button" data-screen="${esc(k)}">${esc(scr.get(k)?.name)}</button>`), ...u.operations.map(k => { const o = m.domain.operations.find(x => x.key === k); return `<button type="button" data-op="${esc(k)}">${esc(`${o.method} ${o.path}`)}</button>`; }), ...u.tools.map(t => `<span>${esc(t)}</span>`)].join(' ')}</div>` : ''}
@@ -80,7 +93,8 @@ export function createFunctionsView({ root, getManifest, getTrace = () => null, 
     const box = root.querySelector('#fnDetail');
     const f = m?.functions.items.find(x => x.key === sel);
     if (!box) return;
-    if (!f) { box.innerHTML = '<p class="muted">Click a function to see the screens, operations and data that make it.</p>'; return; }
+    if (!f && pick && m) { box.innerHTML = pickDetail(m); return; }
+    if (!f) { box.innerHTML = '<p class="muted">Click a function to see the screens, operations and data that make it, or a Who or Data block to see what it is linked to.</p>'; return; }
     const scr = new Map(m.screens.map(s => [s.key, s]));
     const ops = new Map(m.domain.operations.map(o => [o.key, o]));
     const name = new Map(m.functions.items.map(x => [x.key, x.name]));
@@ -95,6 +109,25 @@ export function createFunctionsView({ root, getManifest, getTrace = () => null, 
       ${row('Data', f.entities.map(e => `<button type="button" data-entity="${esc(e.name)}">${esc(e.name)} <small>${esc(e.access)}</small></button>`).join(''))}
       ${row('Leads to', f.next.map(n => `<button type="button" data-goto="${esc(n.to)}">${esc(name.get(n.to))}</button>`).join(''))}
       ${codeRows(f)}`;
+  }
+
+  function pickDetail(m) {
+    const F = m.functions.items;
+    const row = (label, html) => (html ? `<div class="fn-drow"><span>${label}</span><div>${html}</div></div>` : '');
+    const fnBtn = f => `<button type="button" data-goto="${esc(f.key)}">${esc(f.name)}</button>`;
+    if (pick.a) {
+      const fns = F.filter(f => f.actors.includes(pick.a));
+      const ents = [...new Set(fns.flatMap(f => f.entities.map(e => e.name)))];
+      return `<div class="fn-dhead"><h3>${esc(ACTORS[pick.a])}</h3></div>
+        ${row('Functions', fns.map(fnBtn).join(''))}
+        ${row('Data', ents.map(e => `<button type="button" data-entity="${esc(e)}">${esc(e)}</button>`).join(''))}`;
+    }
+    const uses = F.map(f => [f, f.entities.find(e => e.name === pick.e)]).filter(([, e]) => e);
+    const by = acc => uses.filter(([, e]) => (acc === 'reads' ? e.access === 'reads' : e.access !== 'reads')).map(([f]) => fnBtn(f)).join('');
+    return `<div class="fn-dhead"><h3>${esc(pick.e)}</h3><button type="button" class="btn ghost small" data-entity="${esc(pick.e)}">Open in the domain spec</button></div>
+      ${row('Written by', by('writes'))}
+      ${row('Read by', by('reads'))}
+      ${row('Who', [...new Set(uses.flatMap(([f]) => f.actors))].map(a => esc(ACTORS[a])).join(', '))}`;
   }
 
   // Code that implements the function's elements (tags `@weshcraft <ref>` in the code), from specs/trace.json.
@@ -123,7 +156,9 @@ export function createFunctionsView({ root, getManifest, getTrace = () => null, 
     const box = el => { const r = el.getBoundingClientRect(); return { l: r.left - base.left, r: r.right - base.left, t: r.top - base.top, b: r.bottom - base.top, y: (r.top + r.bottom) / 2 - base.top }; };
     const card = k => wrap.querySelector(`.fn-card[data-f="${CSS.escape(k)}"]`);
     const out = [];
-    const cls = (on, c) => `${c}${sel ? (on ? ' on' : ' off') : ''}`;
+    const L = lit(m);
+    const cls = (on, c) => `${c}${L ? (on ? ' on' : ' off') : ''}`;
+    const fnOn = k => !!L?.fns.has(k);
     for (const f of m.functions.items) {
       const c = card(f.key);
       if (!c) continue;
@@ -133,14 +168,14 @@ export function createFunctionsView({ root, getManifest, getTrace = () => null, 
         if (!el) continue;
         const ab = box(el);
         const x1 = ab.r, x2 = cb.l - 18, mid = (x2 - x1) / 2;
-        out.push(`<path class="${cls(sel === f.key, 'w who')}" d="M${x1} ${ab.y} C${x1 + mid} ${ab.y} ${x2 - mid} ${cb.y} ${x2} ${cb.y} L${cb.l} ${cb.y}"/>`);
+        out.push(`<path class="${cls(sel ? sel === f.key : fnOn(f.key) && (!pick.a || pick.a === a), 'w who')}" d="M${x1} ${ab.y} C${x1 + mid} ${ab.y} ${x2 - mid} ${cb.y} ${x2} ${cb.y} L${cb.l} ${cb.y}"/>`);
       }
       for (const e of f.entities) {
         const el = wrap.querySelector(`.fn-entity[data-e="${CSS.escape(e.name)}"]`);
         if (!el) continue;
         const eb = box(el);
         const x1 = cb.r, x2 = eb.l, mid = (x2 - x1) / 2;
-        out.push(`<path class="${cls(sel === f.key, `w data ${e.access === 'reads' ? 'reads' : 'writes'}`)}" d="M${x1} ${cb.y} C${x1 + mid} ${cb.y} ${x2 - mid} ${eb.y} ${x2} ${eb.y}" marker-end="url(#fnArrow)"/>`);
+        out.push(`<path class="${cls(sel ? sel === f.key : fnOn(f.key) && (!pick.e || pick.e === e.name), `w data ${e.access === 'reads' ? 'reads' : 'writes'}`)}" d="M${x1} ${cb.y} C${x1 + mid} ${cb.y} ${x2 - mid} ${eb.y} ${x2} ${eb.y}" marker-end="url(#fnArrow)"/>`);
       }
       // Where it leads: an arc in the gutter left of the cards.
       for (const n of f.next) {
@@ -148,22 +183,34 @@ export function createFunctionsView({ root, getManifest, getTrace = () => null, 
         if (!d) continue;
         const db = box(d);
         const x = cb.l - 4, y1 = cb.y + 8, y2 = db.y - 8, bend = Math.min(40, 14 + Math.abs(y2 - y1) / 10);
-        out.push(`<path class="${cls(sel === f.key || sel === n.to, 'w next')}" d="M${x} ${y1} C${x - bend} ${y1} ${x - bend} ${y2} ${x} ${y2}" marker-end="url(#fnArrow)"/>`);
+        out.push(`<path class="${cls(sel ? sel === f.key || sel === n.to : fnOn(f.key) && fnOn(n.to), 'w next')}" d="M${x} ${y1} C${x - bend} ${y1} ${x - bend} ${y2} ${x} ${y2}" marker-end="url(#fnArrow)"/>`);
       }
     }
     g.innerHTML = out.join('');
     wrap.querySelectorAll('.fn-actor, .fn-entity').forEach(el => {
-      const f = m.functions.items.find(x => x.key === sel);
-      const on = !f || (el.dataset.a ? f.actors.includes(el.dataset.a) : f.entities.some(e => e.name === el.dataset.e));
+      const on = !L || (el.dataset.a ? L.actors.has(el.dataset.a) : L.ents.has(el.dataset.e));
       el.classList.toggle('dim', !on);
+      el.classList.toggle('lit', !!L && on && !!pick && (el.dataset.a ? pick.a === el.dataset.a : pick.e === el.dataset.e));
     });
-    const near = k => k === sel || m.functions.items.find(x => x.key === sel)?.next.some(n => n.to === k) || m.functions.items.find(x => x.key === k)?.next.some(n => n.to === sel);
-    wrap.querySelectorAll('.fn-card').forEach(el => el.classList.toggle('dim', !!sel && !near(el.dataset.f)));
+    const near = k => (sel ? k === sel || m.functions.items.find(x => x.key === sel)?.next.some(n => n.to === k) || m.functions.items.find(x => x.key === k)?.next.some(n => n.to === sel) : fnOn(k));
+    wrap.querySelectorAll('.fn-card').forEach(el => el.classList.toggle('dim', !!L && !near(el.dataset.f)));
   }
 
+  function pressed() {
+    root.querySelectorAll('.fn-card').forEach(el => el.setAttribute('aria-pressed', String(el.dataset.f === sel)));
+    root.querySelectorAll('.fn-actor').forEach(el => el.setAttribute('aria-pressed', String(pick?.a === el.dataset.a)));
+    root.querySelectorAll('.fn-entity').forEach(el => el.setAttribute('aria-pressed', String(pick?.e === el.dataset.e)));
+  }
+  /** Who or Data: light up what it is linked to (again: clear). */
+  function choose(p) {
+    const same = pick && (p.a ? pick.a === p.a : pick.e === p.e);
+    sel = null; pick = same ? null : p;
+    pressed(); detail(); draw();
+  }
   function select(k, { spec = true } = {}) {
     sel = sel === k ? null : k;
-    root.querySelectorAll('.fn-card').forEach(el => el.setAttribute('aria-pressed', String(el.dataset.f === sel)));
+    pick = null;
+    pressed();
     detail();
     draw();
     if (sel && spec) openFile(`specs/FUNCTIONS.md#${sel}`, { quiet: true });
@@ -236,10 +283,17 @@ export function createFunctionsView({ root, getManifest, getTrace = () => null, 
     if (sp) return openFile(`specs/FUNCTIONS.md#${sp.dataset.spec}`);
     const c = t.closest('.fn-card');
     if (c) return select(c.dataset.f);
+    const ac = t.closest('.fn-actor');
+    if (ac) return choose({ a: ac.dataset.a });
+    const ent = t.closest('.fn-entity');
+    if (ent) return choose({ e: ent.dataset.e });
   });
   root.addEventListener('keydown', e => {
-    const c = e.target.closest?.('.fn-card');
-    if (c && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); select(c.dataset.f); }
+    if (e.key !== 'Enter' && e.key !== ' ') return;
+    const c = e.target.closest?.('.fn-card, .fn-actor, .fn-entity');
+    if (!c) return;
+    e.preventDefault();
+    if (c.dataset.f) select(c.dataset.f); else if (c.dataset.a) choose({ a: c.dataset.a }); else choose({ e: c.dataset.e });
   });
   new ResizeObserver(() => draw()).observe(root);
 
@@ -247,6 +301,6 @@ export function createFunctionsView({ root, getManifest, getTrace = () => null, 
     render,
     draw,
     /** After a regeneration: keep the selection if the function still exists. */
-    refresh() { const m = getManifest(); if (sel && !m?.functions?.items.some(x => x.key === sel)) sel = null; render(); },
+    refresh() { const m = getManifest(); if (sel && !m?.functions?.items.some(x => x.key === sel)) sel = null; if (pick && !m?.functions?.items.some(f => (pick.a ? f.actors.includes(pick.a) : f.entities.some(e => e.name === pick.e)))) pick = null; render(); },
   };
 }

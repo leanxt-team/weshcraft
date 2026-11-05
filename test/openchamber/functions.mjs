@@ -29,6 +29,7 @@ try {
   // wide
   let { p, f } = await open(1280, 820, 'light');
   await f.locator('.rail .tab[data-tab="functions"]').click(); await sleep(700);
+  if (await f.locator('.builder').isVisible()) { await f.locator('.stage-head .pane-toggle[data-panel="left"]').click(); await sleep(500); } // room for the diagram
   ok('wide: Functions tab in the header', true);
   ok('wide: suggested, with Keep', await f.locator('#fnKeep').isVisible());
   ok('wide: diagram drawn (wires)', await f.locator('.fn-wires path.w').count() >= 2, String(await f.locator('.fn-wires path.w').count()));
@@ -54,6 +55,18 @@ try {
   await f.locator('.fn-card[data-f="fn-join"]').click(); await sleep(700);
   ok('wide: picking a function opens it in the spec', /How the product works/.test(await f.locator('#doc').innerText()));
   await p.screenshot({ path: `${OUT}/f-wide-declared.png` });
+  // Who and Data light up what they are linked to
+  await f.locator('.fn-card[data-f="fn-join"]').click(); await sleep(300); // unselect
+  await f.locator('.fn-entity[data-e="Subscription"]').click(); await sleep(400);
+  const lit = async () => ({ dimCards: await f.locator('.fn-card.dim').evaluateAll(x => x.map(e => e.dataset.f)), dimEnts: await f.locator('.fn-entity.dim').evaluateAll(x => x.map(e => e.dataset.e)), on: await f.locator('.fn-wires path.on').count(), off: await f.locator('.fn-wires path.off').count(), detail: await f.locator('#fnDetail').innerText() });
+  let L = await lit();
+  ok('wide: Data block lights the functions that use it', L.dimCards.join() === 'fn-join' && L.on >= 1 && /Subscription[\s\S]*(Written|Read) by[\s\S]*Manage profile/.test(L.detail), JSON.stringify(L));
+  await p.screenshot({ path: `${OUT}/f-wide-data-pick.png` });
+  await f.locator('.fn-actor').first().click(); await sleep(400);
+  L = await lit();
+  ok('wide: Who block lights its functions and their data', !L.dimCards.length && !L.dimEnts.length && L.on >= 2 && /Functions[\s\S]*Join[\s\S]*Manage profile/.test(L.detail), JSON.stringify(L));
+  await f.locator('.fn-actor').first().click(); await sleep(300);
+  ok('wide: clicking it again clears the highlight', (await f.locator('.fn-wires path.on, .fn-wires path.off').count()) === 0 && (await f.locator('.fn-actor[aria-pressed="true"]').count()) === 0);
   await f.locator('.rail .tab[data-tab="links"]').click(); await sleep(600);
   ok('wide: the map labels screens with their function', /Join/.test(await f.locator('#linkmap .lfn').first().innerText().catch(() => '')));
   await f.locator('.rail .tab[data-tab="design"]').click(); await sleep(1200);

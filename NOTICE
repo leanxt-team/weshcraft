@@ -8,5 +8,8 @@ Third-party material
   (c) FigCraft contributors. The generated files under examples/ are derived from them.
 - WeshCraft speaks FigCraft's MCP protocol as documented in FigCraft's docs/mcp.md; it contains
   no FigCraft code.
+- src/web/public/techicons.js holds brand marks from Simple Icons (https://simpleicons.org), CC0 1.0.
+  The marks are trademarks of their owners and only name the technology a component uses; brands
+  without a mark there are shown as a neutral lettered badge, never as a copy of their logo.
 - wesh-bundle/ extends wesh (https://github.com/leanxt-team/wesh); see that project's licence for
   the files the patch modifies.

@@ -810,6 +810,10 @@ button.link { border: 0; background: none; padding: 0; cursor: pointer; justify-
 .fn-card:focus-visible { box-shadow: inset 0 0 0 2px var(--accent); }
 .fn-card[aria-pressed="true"] { box-shadow: inset 0 0 0 2px var(--accent); }
 .fn-card.dim, .fn-actor.dim, .fn-entity.dim { opacity: .35; }
+.fn-actor, .fn-entity { cursor: pointer; transition: opacity .2s, box-shadow .15s, background .15s; }
+.fn-actor:hover, .fn-entity:hover { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 45%, var(--hairline)); }
+.fn-actor[aria-pressed="true"], .fn-entity[aria-pressed="true"] { box-shadow: inset 0 0 0 2px var(--accent); background: color-mix(in srgb, var(--accent) 7%, var(--glass-strong)); }
+.fn-actor:focus-visible, .fn-entity:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .fn-top { display: flex; align-items: center; gap: 6px; }
 .fn-name { flex: 1; min-width: 0; font-size: 14px; font-weight: 650; letter-spacing: -.01em; }
 .fn-edit { display: grid; place-items: center; width: 24px; height: 24px; border: 0; border-radius: 7px; background: none; color: var(--muted); cursor: pointer; opacity: 0; transition: opacity .15s; }
@@ -1007,11 +1011,45 @@ button.av-chip:hover { box-shadow: inset 0 0 0 1px var(--accent); }
 /* Architecture */
 .ar-cols { position: relative; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0 44px; align-items: start; }
 .ar-col { position: relative; z-index: 1; display: grid; gap: 12px; min-width: 0; }
+.ar-col { grid-template-columns: minmax(0, 1fr); }
+.ar-card { min-width: 0; }
+.ar-card header { min-width: 0; }
+.ar-card header .av-title { min-width: 0; white-space: normal; overflow: hidden; text-overflow: clip; line-height: 1.2; flex: 1 1 auto; }
+.ar-card header .av-edit { opacity: 0; } .ar-card:hover header .av-edit, .ar-card:focus-within header .av-edit { opacity: 1; }
+.ar-tech span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ar-col h4 { margin: 0 0 2px; font-size: 11px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); }
 .ar-card { border-top: 3px solid var(--k, var(--muted)); border-radius: 8px 8px 14px 14px; }
 .ar-card.k-client { --k: var(--muted); } .ar-card.k-frontend { --k: var(--blue); } .ar-card.k-interface { --k: var(--violet); } .ar-card.k-service { --k: var(--accent); } .ar-card.k-queue { --k: var(--amber); } .ar-card.k-store { --k: var(--field); } .ar-card.k-external { --k: var(--red); }
 .ar-ic { display: grid; place-items: center; width: 22px; height: 22px; border-radius: 6px; background: color-mix(in srgb, var(--k) 14%, transparent); flex: none; }
-.ar-ic svg { width: 15px; height: 15px; fill: none; stroke: var(--k); stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.ar-ic { width: 28px; height: 28px; border-radius: 8px; }
+.ar-ic svg.ti-glyph { color: var(--k); }
+.ar-ic.has-tech { background: var(--glass-strong); box-shadow: inset 0 0 0 1px var(--hairline); }
+.ar-ic.has-tech svg.ti-glyph { color: var(--text-2); }
+/* technology icons: brand marks, lettered badges, generic glyphs */
+svg.ti { flex: none; display: inline-block; vertical-align: -2px; --ti-badge-bg: var(--glass-strong); }
+.ar-tech span { display: inline-flex; align-items: center; gap: 4px; }
+.tc-chip { display: inline-flex; align-items: center; gap: 5px; }
+.tc-chip.on { padding-right: 4px; }
+.tc-chip.on b { margin-left: 2px; width: 16px; height: 16px; display: grid; place-items: center; border-radius: 50%; font-weight: 600; color: var(--muted); cursor: pointer; }
+.tc-chip.on b:hover { background: var(--fill); color: var(--text); }
+.tc-info { display: flex; gap: 10px; align-items: flex-start; padding: 6px 0; }
+.tc-info + .tc-info { border-top: 1px solid var(--hairline); }
+.tc-info > svg { margin-top: 1px; }
+.tc-info small { color: var(--muted); font-size: 11px; margin-left: 4px; }
+.tc-info p { margin: 2px 0 4px; color: var(--text-2); font-size: 12.5px; }
+.tc-alts { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+.tc-alts > span:first-child { font-size: 11px; color: var(--muted); margin-right: 2px; }
+.tc-pick { display: grid; gap: 8px; margin: -2px 0 10px; }
+.tc-chosen { display: flex; flex-wrap: wrap; gap: 4px; min-height: 22px; align-items: center; }
+.tc-bar { display: flex; gap: 6px; }
+.tc-bar input { flex: 1; min-width: 0; }
+.tc-bar input, .tc-bar select { height: 30px; border-radius: 8px; border: 1px solid var(--hairline); background: var(--glass-strong); color: var(--text); padding: 0 8px; font: inherit; font-size: 12.5px; }
+.tc-grid { max-height: 230px; overflow: auto; display: grid; grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); gap: 4px; padding: 6px; border-radius: 10px; background: var(--fill-2); box-shadow: inset 0 0 0 1px var(--hairline); }
+.tc-h { grid-column: 1 / -1; font-size: 10.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); font-weight: 600; padding: 6px 2px 2px; }
+.tc-item { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 7px 4px 6px; border: 0; border-radius: 8px; background: var(--glass-strong); color: var(--text); cursor: pointer; font: inherit; font-size: 10.5px; line-height: 1.15; text-align: center; box-shadow: inset 0 0 0 1px var(--hairline); }
+.tc-item span { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.tc-item:hover { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 50%, var(--hairline)); }
+.tc-item[aria-selected="true"] { box-shadow: inset 0 0 0 2px var(--accent); background: color-mix(in srgb, var(--accent) 8%, var(--glass-strong)); }
 .ar-tech { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
 .ar-tech span { padding: 1px 7px; border-radius: 6px; background: var(--fill); font-size: 11px; font-weight: 500; }
 .ar-sum { margin-top: 6px; font-size: 11px; color: var(--muted); }
@@ -1024,7 +1062,7 @@ button.av-chip:hover { box-shadow: inset 0 0 0 1px var(--accent); }
 .ar-wires .lbl rect { fill: var(--glass-strong); stroke: var(--hairline); }
 .ar-wires .lbl text { font-size: 10.5px; fill: var(--text-2); }
 
-@container (max-width: 640px) {
+@container (max-width: 780px) {
   /* layers top to bottom: clients, front ends & interfaces, services, data & external */
   .ar-cols { display: flex; flex-direction: column; gap: 34px; }
   .ar-col { display: flex; flex-wrap: wrap; gap: 10px; align-items: stretch; }

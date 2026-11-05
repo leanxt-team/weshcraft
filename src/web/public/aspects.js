@@ -1,6 +1,7 @@
 // Logic, Data, API & MCP and Architecture views: the product's other aspects, next to Functions.
 // Each one is drawn natively from the manifest (no library), clicks through to its spec, and —
 // when the design is editable here — edits what it holds (logic, architecture) in one undo step.
+import { matchTech, techIcon, techFacts, searchTech, CATEGORIES, BY_ID, KIND_GENERIC } from '/app/techcatalog.js';
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const opLabel = o => `${o.method} ${o.path}`;
 const plural = (n, w, p = `${w}s`) => `${n} ${n === 1 ? w : p}`;
@@ -29,7 +30,7 @@ async function saveOp(op, value, label, log) {
 }
 
 /** A form in a dialog: fields → values; resolves null on cancel. `extra` buttons resolve with their value. */
-function formDialog({ title, body, submit = 'Save', danger = null, onSubmit }) {
+function formDialog({ title, body, submit = 'Save', danger = null, onSubmit, onOpen }) {
   return new Promise(resolve => {
     const d = document.createElement('dialog');
     d.className = 'fn-dialog av-dialog';
@@ -52,9 +53,55 @@ function formDialog({ title, body, submit = 'Save', danger = null, onSubmit }) {
       const rm = ev.target.closest('[data-rm-row]');
       if (rm) rm.closest('.av-row').remove();
     });
+    onOpen?.(form);
     d.showModal();
     form.querySelector('input, textarea, select')?.focus();
   });
+}
+
+// ---- technologies: icons, what each is, alternatives (techcatalog.js) ----------------------------
+const techLead = c => { const ts = matchTech(c.tech); return ts.find(e => e.cat !== 'generic') ?? ts[0] ?? BY_ID.get(KIND_GENERIC[c.kind] ?? 'g-server'); };
+const techChip = (e, size = 13) => `<span class="av-chip tc-chip" title="${esc(e.desc)}">${techIcon(e, { size, title: false })}${esc(e.name)}</span>`;
+/** What each technology of a component is, and what could replace it. */
+function techDetail(tech) {
+  const ts = matchTech(tech);
+  if (!ts.length) return '';
+  return ts.map(e => {
+    const f = techFacts(e);
+    return `<div class="tc-info">${techIcon(e, { size: 22 })}<div><div><b>${esc(f.name)}</b> <small>${esc(f.category)}</small></div><p>${esc(f.description)}</p>${f.alternatives.length ? `<div class="tc-alts"><span>Alternatives</span>${e.alts.map(a => (BY_ID.get(a) ? techChip(BY_ID.get(a), 12) : `<span class="av-chip tc-chip">${esc(a)}</span>`)).join('')}</div>` : ''}</div></div>`;
+  }).join('');
+}
+/** The technology picker under a "tech" field: what is recognised, a search, every icon by category. */
+function techPicker(value) {
+  return `<div class="tc-pick" data-tc>
+    <div class="tc-chosen" data-tc-chosen>${techChosen(value)}</div>
+    <div class="tc-bar"><input type="search" class="tc-q" data-tc-q placeholder="Search technologies (Postgres, Lambda, Redis…)" aria-label="Search technologies"><select data-tc-cat aria-label="Category"><option value="">All categories</option>${CATEGORIES.map(([k, l]) => `<option value="${k}">${esc(l)}</option>`).join('')}</select></div>
+    <div class="tc-grid" data-tc-grid role="listbox" aria-label="Technologies"></div>
+  </div>`;
+}
+function techChosen(value) {
+  const ts = matchTech(value);
+  return ts.length ? ts.map(e => `<span class="av-chip tc-chip on" data-tc-rm="${esc(e.id)}" title="${esc(e.desc)}">${techIcon(e, { size: 13, title: false })}${esc(e.name)}<b aria-label="Remove">×</b></span>`).join('') : '<span class="muted small">Pick below, or type: Node 22 · Fastify · PostgreSQL 16</span>';
+}
+function wireTechPicker(form, input) {
+  const box = form.querySelector('[data-tc]');
+  if (!box) return;
+  const grid = box.querySelector('[data-tc-grid]'), q = box.querySelector('[data-tc-q]'), cat = box.querySelector('[data-tc-cat]');
+  const has = id => matchTech(input.value).some(e => e.id === id);
+  const fill = () => {
+    const list = searchTech(q.value).filter(e => !cat.value || e.cat === cat.value);
+    const groups = q.value ? [['', list]] : CATEGORIES.map(([k, l]) => [l, list.filter(e => e.cat === k)]).filter(([, l]) => l.length);
+    grid.innerHTML = groups.map(([label, l]) => `${label ? `<div class="tc-h">${esc(label)}</div>` : ''}${l.map(e => `<button type="button" class="tc-item" role="option" data-tc-id="${esc(e.id)}" aria-selected="${has(e.id)}" title="${esc(`${e.name}: ${e.desc}`)}">${techIcon(e, { size: 22, title: false })}<span>${esc(e.name)}</span></button>`).join('')}`).join('') || '<p class="muted small">Nothing matches. Type it in the field above: it is kept as written.</p>';
+  };
+  const chosen = () => { box.querySelector('[data-tc-chosen]').innerHTML = techChosen(input.value); grid.querySelectorAll('.tc-item').forEach(b => b.setAttribute('aria-selected', String(has(b.dataset.tcId)))); };
+  const parts = () => input.value.split(/\s*·\s*/).map(s => s.trim()).filter(Boolean);
+  const add = e => { input.value = [...parts(), e.name].join(' · '); chosen(); };
+  const remove = e => { input.value = parts().filter(p => !matchTech(p).some(x => x.id === e.id)).join(' · '); chosen(); };
+  grid.addEventListener('click', ev => { const b = ev.target.closest('[data-tc-id]'); if (!b) return; const e = BY_ID.get(b.dataset.tcId); if (has(e.id)) remove(e); else add(e); });
+  box.querySelector('[data-tc-chosen]').addEventListener('click', ev => { const r = ev.target.closest('[data-tc-rm]'); if (r) remove(BY_ID.get(r.dataset.tcRm)); });
+  q.addEventListener('input', fill); cat.addEventListener('change', fill); input.addEventListener('input', chosen);
+  q.addEventListener('keydown', ev => { if (ev.key === 'Enter') { ev.preventDefault(); grid.querySelector('.tc-item')?.click(); } });
+  fill();
 }
 
 /** Options for "applies to / implements": functions, screens, operations, entities, tools. */
@@ -393,7 +440,7 @@ export function createArchitectureView({ root, getManifest, getTrace = () => nul
         // layers top to bottom: from the bottom of one card to the top of the next
         const down = b.t > a.b;
         const x1 = (a.l + a.r) / 2, x2 = (b.l + b.r) / 2, y1 = down ? a.b : a.t, y2 = down ? b.t : b.b, my = (y2 - y1) / 2;
-        d = `M${x1} ${y1} C${x1} ${y1 + my} ${x2} ${y2 - my} ${x2} ${y2}`; lx = x1 + (x2 - x1) * 0.25; ly = y1 + (y2 - y1) * 0.3;
+        d = `M${x1} ${y1} C${x1} ${y1 + my} ${x2} ${y2 - my} ${x2} ${y2}`; lx = x1 + (x2 - x1) * 0.62; ly = y1 + (y2 - y1) * 0.5; // toward the target: links leaving one card keep their labels apart
       } else if (a.col === b.col) { const x = a.r, bend = 26; d = `M${x} ${a.y} C${x + bend} ${a.y} ${x + bend} ${b.y} ${x} ${b.y}`; lx = x + bend; ly = (a.y + b.y) / 2; }
       else { const fwd = b.l > a.r; const x1 = fwd ? a.r : a.l, x2 = fwd ? b.l : b.r, mx = (x2 - x1) / 2; d = `M${x1} ${a.y} C${x1 + mx} ${a.y} ${x2 - mx} ${b.y} ${x2} ${b.y}`; lx = (x1 + x2) / 2; ly = (a.y + b.y) / 2; }
       out.push(`<path class="w${on ? '' : ' off'}" d="${d}" marker-end="url(#arA)"/>`);
@@ -411,8 +458,8 @@ export function createArchitectureView({ root, getManifest, getTrace = () => nul
     const card = c => {
       const dirs = codeDirs(c);
       return `<article class="av-card ar-card k-${esc(c.kind)}${sel === c.key ? ' sel' : ''}" data-c="${esc(c.key)}" tabindex="0" role="button">
-        <header><span class="ar-ic">${ICON[c.kind] ?? ICON.service}</span><span class="av-title">${esc(c.name)}</span><span class="spacer"></span>${editable ? `<button type="button" class="fn-edit av-edit" data-edit-c="${esc(c.key)}" title="Edit ${esc(c.name)}" aria-label="Edit ${esc(c.name)}">${ICON.edit}</button>` : ''}</header>
-        ${c.tech ? `<div class="ar-tech">${c.tech.split(/\s*[,+·]\s*/).map(t => `<span>${esc(t)}</span>`).join('')}</div>` : ''}
+        <header><span class="ar-ic${matchTech(c.tech).length ? ' has-tech' : ''}">${techIcon(techLead(c), { size: 18 })}</span><span class="av-title">${esc(c.name)}</span><span class="spacer"></span>${editable ? `<button type="button" class="fn-edit av-edit" data-edit-c="${esc(c.key)}" title="Edit ${esc(c.name)}" aria-label="Edit ${esc(c.name)}">${ICON.edit}</button>` : ''}</header>
+        ${c.tech ? `<div class="ar-tech">${c.tech.split(/\s*[,+·]\s*/).filter(Boolean).map(t => { const e = matchTech(t)[0]; return `<span${e ? ` title="${esc(e.desc)}"` : ''}>${e ? techIcon(e, { size: 12, title: false }) : ''}${esc(t)}</span>`; }).join('')}</div>` : ''}
         ${c.description ? `<p>${esc(c.description)}</p>` : ''}
         ${c.implements.length ? `<div class="ar-sum">${esc(summary(m, c))}</div>` : ''}
         ${dirs.length ? `<div class="ar-code">${dirs.slice(0, 4).map(d => `<code>${esc(d)}/</code>`).join('')}</div>` : ''}
@@ -431,7 +478,7 @@ export function createArchitectureView({ root, getManifest, getTrace = () => nul
     const name = new Map(a.components.map(x => [x.key, x.name]));
     const row = (label, html) => (html ? `<div class="fn-drow"><span>${label}</span><div>${html}</div></div>` : '');
     return `<div class="fn-dhead"><h3>${esc(c.name)}</h3><button type="button" class="btn ghost small" data-open="specs/ARCHITECTURE.md#${esc(c.key)}">Open in the spec</button></div>
-      ${row('Kind', esc(c.kind))}${row('Technology', esc(c.tech))}${row('Implements', c.implements.map(id => chip(m, id)).join(''))}
+      ${row('Kind', esc(c.kind))}${row('Technology', esc(c.tech))}${row('Stack', techDetail(c.tech))}${row('Implements', c.implements.map(id => chip(m, id)).join(''))}
       ${row('Talks to', a.links.filter(l => l.from === c.key).map(l => `<span class="av-chip">${esc(name.get(l.to))}${l.label ? ` <small>${esc(l.label)}</small>` : ''}</span>`).join(''))}
       ${row('Called by', a.links.filter(l => l.to === c.key).map(l => `<span class="av-chip">${esc(name.get(l.from))}${l.label ? ` <small>${esc(l.label)}</small>` : ''}</span>`).join(''))}
       ${row('Code', codeDirs(c).map(d => `<code>${esc(d)}/</code>`).join(' '))}`;
@@ -444,10 +491,12 @@ export function createArchitectureView({ root, getManifest, getTrace = () => nul
     await formDialog({
       title: c ? `Edit ${c.name}` : 'New component', danger: c ? 'Delete' : null,
       body: `<div class="row2"><label class="fn-field"><span>Name</span><input name="name" required maxlength="80" value="${esc(cur?.name ?? '')}" placeholder="Billing service"></label><label class="fn-field"><span>Kind</span><select name="kind">${['client', 'frontend', 'interface', 'service', 'queue', 'store', 'external'].map(k => `<option ${k === (cur?.kind ?? 'service') ? 'selected' : ''}>${k}</option>`).join('')}</select></label></div>
-        <label class="fn-field"><span>Technology</span><input name="tech" maxlength="120" value="${esc(cur?.tech ?? '')}" placeholder="Node 22 · Fastify · PostgreSQL 16"></label>
+        <label class="fn-field"><span>Technology</span><input name="tech" maxlength="160" value="${esc(cur?.tech ?? '')}" placeholder="Node 22 · Fastify · PostgreSQL 16"></label>
+        ${techPicker(cur?.tech ?? '')}
         <label class="fn-field"><span>Role</span><textarea name="description" rows="2" maxlength="400" placeholder="What it is responsible for">${esc(cur?.description ?? '')}</textarea></label>
         <label class="fn-field"><span>Code folders (comma separated)</span><input name="code" value="${esc((cur?.code ?? []).join(', '))}" placeholder="apps/api, packages/billing"></label>
         ${refPicker(m, 'implements', cur?.implements ?? [])}`,
+      onOpen: f => wireTechPicker(f, f.elements.tech),
       onSubmit: async (f, act) => {
         let components = decl.components.filter(x => !cur || x.name !== cur.name);
         let links = decl.links;

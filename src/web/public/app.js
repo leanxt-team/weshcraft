@@ -774,15 +774,12 @@ document.querySelectorAll('.reader .segbtn').forEach(b => b.addEventListener('cl
 // ---- sections (the rail on the right) and their side panels ---------------------------------------
 // Each section remembers which side panels it shows: the spec list (left), the spec (right), and in
 // Design the editor's screens & layers and its inspector. « / » on the section's head and toolbar.
-const PANEL_KEY = 'weshcraft.panels.v2';
-// Until someone chooses: the editor has its own screens and layers, so the spec list starts folded
-// there; the product diagrams need room, so it starts folded there too unless the window is wide.
-const PRODUCT_SECTIONS = ['functions', 'logic', 'data', 'api', 'architecture'];
-const panelDefaults = sec => (sec === 'design' ? { left: false } : PRODUCT_SECTIONS.includes(sec) && innerWidth < 1400 ? { left: false } : {});
+// One choice for every section: what is folded stays folded when the section changes.
+const PANEL_KEY = 'weshcraft.panels.v3';
 let panelPrefs = {};
 try { panelPrefs = JSON.parse(localStorage.getItem(PANEL_KEY) || '{}'); } catch { /* storage blocked */ }
 const section = () => document.body.dataset.section || 'proto';
-const panelState = (sec = section()) => ({ left: true, right: true, edl: true, edr: true, ...panelDefaults(sec), ...(panelPrefs[sec] ?? {}) });
+const panelState = () => ({ left: true, right: true, edl: true, edr: true, ...panelPrefs });
 const PANEL_LABEL = { left: 'the spec list', right: 'the spec', edl: 'screens and layers', edr: 'the inspector' };
 function applyPanels() {
   const st = panelState();
@@ -795,8 +792,8 @@ function applyPanels() {
     });
   }
 }
-function setPanel(k, open, sec = section()) {
-  panelPrefs = { ...panelPrefs, [sec]: { ...(panelPrefs[sec] ?? {}), [k]: open } };
+function setPanel(k, open) {
+  panelPrefs = { ...panelPrefs, [k]: open };
   try { localStorage.setItem(PANEL_KEY, JSON.stringify(panelPrefs)); } catch { /* storage blocked */ }
   applyPanels();
   requestAnimationFrame(() => window.dispatchEvent(new Event('resize')));

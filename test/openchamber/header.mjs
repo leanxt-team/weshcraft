@@ -1,5 +1,5 @@
 // Navigation in the rail panel: no header line, the section rail on the right, « » folding each
-// section's side panels (remembered per section), dividers, parity and ⋯ on the section line, and
+// side panels (one choice for every section, remembered), dividers, parity and ⋯ on the section line, and
 // the spec folders, at the widths an expanded rail panel takes.
 import fs from 'node:fs';
 import path from 'node:path';
@@ -45,7 +45,10 @@ try {
     ok(`${w}: one square icon per section`, ['Functions', 'Logic', 'Data', 'API & MCP', 'Architecture', 'Design', 'Prototype', 'Front ⇄ back', 'Manifest'].every(x => labels.includes(x)) && await f.locator('.rail .tab:visible svg').count() === labels.length, labels.join('|'));
     const tools = await fr.evaluate(() => { const r = s => document.querySelector(s).getBoundingClientRect(); const head = document.querySelector('.stage-head'); return { inHead: head.contains(document.querySelector('#parity')) && head.contains(document.querySelector('#more')), parity: r('#parity').right, more: [r('#more').left, r('#more').right], toggle: r('.stage-head .pane-toggle.right').left, head: r('.stage-head').right }; });
     ok(`${w}: parity and ⋯ at the end of the section line, before »`, tools.inHead && tools.more[0] - tools.parity < 16 && tools.toggle - tools.more[1] < 12, JSON.stringify(tools));
-    ok(`${w}: design: spec list folded by default, spec shown`, g.section === 'design' && !g.builder && g.reader && g.edl && g.edr, JSON.stringify(g));
+    ok(`${w}: everything shown at first`, g.section === 'design' && g.builder && g.reader && g.edl && g.edr, JSON.stringify(g));
+    await pane('left').click(); await sleep(400);
+    g = await geo();
+    ok(`${w}: « folds the spec list`, !g.builder && g.reader, JSON.stringify(g));
     ok(`${w}: canvas keeps room`, g.canvas.width > 280, String(g.canvas.width));
     ok(`${w}: no Design/Spec switch in the inspector`, !(await f.locator('.ed-itabs').isVisible().catch(() => false)));
     await f.locator('#edScreens li[data-id]').nth(1).click(); await sleep(1200);
@@ -90,13 +93,11 @@ try {
       if (await fr.evaluate(() => !document.body.classList.contains('no-right'))) { await pane('right').click(); await sleep(400); } // a short section alone (as in a tall panel)
       const h = await fr.evaluate(() => ({ vh: innerHeight, layout: document.querySelector('.layout').getBoundingClientRect().bottom, log: document.querySelector('.log').getBoundingClientRect().bottom }));
       ok(`${w}: a short section still fills the height, log line at the bottom`, h.log >= h.vh - 2 && h.layout >= h.vh - 40, JSON.stringify(h));
-      await pane('right').click(); await sleep(300);
       await f.locator('.rail .tab[data-tab="proto"]').click(); await sleep(600); }
     ok(`${w}: rail switches section, title follows`, g.section === 'proto' && g.title === 'Prototype' && await f.locator('.tabpanel[data-panel="proto"]').isVisible(), JSON.stringify([g.section, g.title]));
-    ok(`${w}: prototype: list and spec shown (its own choice)`, g.builder && g.reader && g.stage.width > 250, JSON.stringify(g.stage));
+    ok(`${w}: switching section keeps what is folded and shown`, g.builder && !g.reader && g.stage.width > 250, JSON.stringify(g));
     { const w0 = await width('.builder'); await drag('list', 40); const w1 = await width('.builder'); ok(`${w}: divider resizes the spec list`, Math.abs(w1 - w0 - 40) <= 3, `${Math.round(w0)} → ${Math.round(w1)}`); }
     await f.locator('.oc-split[data-split="list"]').dblclick(); await sleep(250);
-    await pane('right').click(); await sleep(300);
     await f.locator('#groups button.job >> nth=0').click(); await sleep(800);
     g = await geo();
     ok(`${w}: picking a spec shows the spec panel`, g.reader && /\w/.test(await f.locator('#doc').innerText()));
@@ -125,10 +126,11 @@ try {
     ok(`${w}: actions menu drops under ⋯`, menu.open && menu.top >= menu.bottom && menu.top < menu.bottom + 16 && Math.abs(menu.right - menu.mr) < 3, JSON.stringify(menu));
     await p.screenshot({ path: `${OUT}/h-${w}-menu.png` });
     await p.keyboard.press('Escape'); await sleep(200);
-    // the choices are remembered, per section
+    // the choice is remembered, and is the same in every section
+    await pane('left').click(); await sleep(300);
     await p.reload(); await f.locator('#edScreen [data-node]').first().waitFor({ timeout: 30000 }); await sleep(800); fr = p.frames().find(x => x.url().includes('guest-files'));
     g = await geo();
-    ok(`${w}: panel choices remembered per section`, g.section === 'design' && g.builder && !g.reader, JSON.stringify(g));
+    ok(`${w}: folded list remembered, in the next section too`, g.section === 'design' && !g.builder && g.reader, JSON.stringify(g));
     await p.close();
   }
 } catch (e) { R.push(`CRASH ${e.stack}`); }

@@ -8,6 +8,7 @@ import { mdEscape } from '../util/common.mjs';
 import { embedContract, notesBlock } from './contract.mjs';
 import { entityAnchor } from './links.mjs';
 import { entityOfOperation } from '../model/aspects.mjs';
+import { matchTech, techFacts } from '../web/public/techcatalog.js';
 
 const mid = s => String(s).replace(/[^A-Za-z0-9_]/g, '_');
 const q = s => String(s).replace(/"/g, "'").replace(/[<>|]/g, ' ');
@@ -185,6 +186,13 @@ export function architectureSpec(m, { notes: n, codeDirs = null } = {}) {
     if (a.links.length) {
       L.push('| From | To | How |', '|---|---|---|');
       for (const l of a.links) L.push(`| ${mdEscape(name.get(l.from))} | ${mdEscape(name.get(l.to))} | ${mdEscape(l.label || '—')} |`);
+      L.push('');
+    }    // What each named technology is, and what could replace it (the WeshCraft catalog).
+    const used = new Map();
+    for (const c of a.components) for (const e of matchTech(c.tech)) if (e.cat !== 'generic') { if (!used.has(e.id)) used.set(e.id, { e, by: [] }); used.get(e.id).by.push(c.name); }
+    if (used.size) {
+      L.push('## Technologies', '', '| Technology | Used by | What it is | Alternatives |', '|---|---|---|---|');
+      for (const { e, by } of used.values()) { const f = techFacts(e); L.push(`| **${mdEscape(f.name)}** <small>${mdEscape(f.category)}</small> | ${by.map(mdEscape).join(', ')} | ${mdEscape(f.description)} | ${f.alternatives.map(mdEscape).join(', ') || '—'} |`); }
       L.push('');
     }
   }

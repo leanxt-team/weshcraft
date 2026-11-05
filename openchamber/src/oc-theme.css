@@ -253,3 +253,18 @@ html.oc .ed-itabs { display: none; }
 /* product views: flat, OpenChamber's surfaces */
 html.oc .av-card, html.oc .api-row { background: var(--oc-bg); }
 html.oc .pnav button[aria-current="true"] { background: var(--oc-bg); box-shadow: 0 0 0 1px var(--oc-border); }
+
+/* the prototype, opened over WeshCraft in the panel, with a way back */
+.oc-protoview { position: fixed; inset: 0; z-index: 120; display: flex; flex-direction: column; background: var(--oc-bg); color: var(--oc-fg); }
+.oc-protoview[hidden] { display: none; }
+.oc-protobar { display: flex; align-items: center; gap: 8px; min-height: 42px; padding: 0 8px; border-bottom: 1px solid var(--oc-border); font: 13px var(--oc-font, system-ui); }
+.oc-protobar button { display: inline-flex; align-items: center; gap: 4px; height: 28px; padding: 0 10px 0 6px; border: 1px solid var(--oc-border); border-radius: var(--oc-radius, 8px); background: var(--oc-bg); color: var(--oc-fg); font: 500 12.5px var(--oc-font, system-ui); cursor: pointer; }
+.oc-protobar button:hover { background: var(--oc-hover); }
+.oc-protobar .oc-back { background: var(--oc-primary); border-color: var(--oc-primary); color: var(--oc-primary-fg); }
+.oc-protobar .oc-back:hover { background: var(--oc-primary); filter: brightness(1.06); }
+.oc-protobar .oc-back svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.oc-protobar .oc-protoout { padding: 0 10px; color: var(--oc-muted); }
+.oc-prototitle { font-weight: 600; }
+.oc-protospacer { flex: 1; }
+.oc-protoview iframe { flex: 1; width: 100%; border: 0; background: var(--oc-muted-surface); }
+body.oc-proto-open .rail { visibility: hidden; }

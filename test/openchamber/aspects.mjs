@@ -100,7 +100,11 @@ try {
   await f.locator('#arAdd').click(); await sleep(300);
   await f.locator('.av-dialog input[name="name"]').fill('Email service');
   await f.locator('.av-dialog select[name="kind"]').selectOption('external');
-  await f.locator('.av-dialog input[name="tech"]').fill('Postmark');
+  await f.locator('.av-dialog [data-tc-q]').fill('postm');
+  await f.locator('.av-dialog .tc-item[data-tc-id="postmark"]').click();
+  ok('architecture: the picker writes the technology', (await f.locator('.av-dialog input[name="tech"]').inputValue()) === 'Postmark' && await f.locator('.av-dialog [data-tc-chosen] .tc-chip').count() === 1);
+  await f.locator('.av-dialog [data-tc-q]').fill(''); await f.locator('.av-dialog [data-tc-cat]').selectOption('aws');
+  ok('architecture: hyperscaler services in the picker', await f.locator('.av-dialog .tc-item').count() >= 25 && await f.locator('.av-dialog .tc-item[data-tc-id="aws-ses"] svg.ti-aws').count() === 1);
   await f.locator('.av-dialog button[type="submit"]').click();
   await until(() => stored('architecture')?.components?.length === 5); await sleep(1500);
   await f.locator('#arLink').click(); await sleep(300);
@@ -114,6 +118,9 @@ try {
   await sleep(1200);
   await f.locator('#archview .ar-card[data-c="arc-back-end"]').click(); await sleep(400);
   ok('architecture: detail lists what it talks to', /Talks to[\s\S]*Email service/.test(await f.locator('#arDetail').innerText()));
+  ok('architecture: the card shows its technology icons', await f.locator('#archview .ar-card[data-c="arc-back-end"] .ar-ic.has-tech svg.ti-brand').count() === 1 && await f.locator('#archview .ar-card[data-c="arc-back-end"] .ar-tech svg.ti').count() === 2);
+  ok('architecture: detail says what each technology is, with alternatives', /Node\.js[\s\S]*JavaScript on the server[\s\S]*Alternatives[\s\S]*Deno[\s\S]*Fastify[\s\S]*Express/.test(await f.locator('#arDetail').innerText()), await f.locator('#arDetail').innerText());
+  ok('architecture: ARCHITECTURE.md lists the technologies and alternatives', /## Technologies[\s\S]*Postmark[^\n]*Resend/.test(spec('ARCHITECTURE.md')));
   ok('architecture: code folders shown', /server\//.test(await f.locator('#archview .ar-card[data-c="arc-back-end"]').innerText()));
   await p.screenshot({ path: `${OUT}/x-architecture.png` });
   ok('parity in sync after all edits', await until(async () => /In sync/.test(await f.locator('#parity').innerText()), 10000), await f.locator('#parity').innerText());

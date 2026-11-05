@@ -13,6 +13,7 @@
 // name, for older clients; they are not listed.
 import { toDeclared } from '../model/functions.mjs';
 import { logicToDeclared, architectureToDeclared, RULE_KINDS, COMPONENT_KINDS } from '../model/aspects.mjs';
+import { searchTech, techFacts, matchTech } from '../web/public/techcatalog.js';
 
 const OPS = [
   'Layers (applied in order; `ref` names what an op creates, later ops can use it as an id):',
@@ -23,7 +24,7 @@ const OPS = [
   'Product:',
   '{op:"function", name, rename?, summary?, screens?, addScreens?, removeScreens?, operations?, tools?} add/update a function · {op:"removeFunction", name} · {op:"keepFunctions"} declare the suggested ones',
   `{op:"rule", name, kind: ${RULE_KINDS.join('|')}, text?, applies?} · {op:"removeRule", name} · {op:"lifecycle", entity, field?, states, transitions:[{from (state or *), to, via}]} · {op:"removeLifecycle", entity} · {op:"keepLogic"}`,
-  `{op:"component", name, rename?, kind: ${COMPONENT_KINDS.join('|')}, tech?, description?, implements?, code?} · {op:"removeComponent", name} · {op:"connect", from, to, label?} · {op:"disconnect", from, to} · {op:"keepArchitecture"}`,
+  `{op:"component", name, rename?, kind: ${COMPONENT_KINDS.join('|')}, tech? ("Node 22 · Fastify · PostgreSQL 16": known names get their icon, description and alternatives), description?, implements?, code?} · {op:"removeComponent", name} · {op:"connect", from, to, label?} · {op:"disconnect", from, to} · {op:"keepArchitecture"}`,
   '{op:"specFolders", tree:{folders:[{name, folders, items:[spec ids]}], items}} how the spec list is organised',
   'Refs: layer ids (12, "#12"), exact names, or refs; screens by name or id; operations "METHOD /path"; entities, tools, functions by name.',
   'Props: name x y width height visible opacity clip fill stroke strokeWeight radius shadow blur text fontFamily fontStyle fontWeight fontSize lineHeight letterSpacing align layout ({mode,gap,padding,align,crossAlign,wrap}) gap padding sizing ({h,v}: fixed|hug|fill) devStatus description.',
@@ -33,11 +34,11 @@ export const PUBLIC_TOOLS = [
   { name: 'weshcraft_status', description: 'Where the project stands: the design, the product (functions, logic, architecture: declared or suggested), parity, spec ⇄ code coverage, sync, the live URL, and what to do next. Start here.', inputSchema: { type: 'object', properties: {} } },
   {
     name: 'weshcraft_read',
-    description: 'Read anything, compactly. what: tree (outline of the design, one line per layer; root: a screen) · find (query) · layer (id) · tokens · screenshot (id: a screen or layer, PNG) · functions · logic · data · api · architecture · links (front ⇄ back; screen, op, field filters) · trace (spec ⇄ code; function, untraced) · spec (path, e.g. specs/LOGIC.md) · folders (the spec tree) · manifest (screen) · parity.',
+    description: 'Read anything, compactly. what: tree (outline of the design, one line per layer; root: a screen) · find (query) · layer (id) · tokens · screenshot (id: a screen or layer, PNG) · functions · logic · data · api · architecture · links (front ⇄ back; screen, op, field filters) · trace (spec ⇄ code; function, untraced) · spec (path, e.g. specs/LOGIC.md) · folders (the spec tree) · manifest (screen) · parity · technologies (query: the catalog of 440 tools and cloud services with what each is and its alternatives; or text: what a component tech line is recognised as).',
     inputSchema: { type: 'object', properties: {
-      what: { type: 'string', enum: ['tree', 'find', 'layer', 'tokens', 'screenshot', 'functions', 'logic', 'data', 'api', 'architecture', 'links', 'trace', 'spec', 'folders', 'manifest', 'parity'] },
+      what: { type: 'string', enum: ['tree', 'find', 'layer', 'tokens', 'screenshot', 'functions', 'logic', 'data', 'api', 'architecture', 'links', 'trace', 'spec', 'folders', 'manifest', 'parity', 'technologies'] },
       root: { type: ['number', 'string'] }, depth: { type: 'number' }, query: { type: 'string' }, type: { type: 'string' }, id: { type: ['number', 'string'] }, scale: { type: 'number' },
-      path: { type: 'string' }, screen: { type: 'string' }, op: { type: 'string' }, field: { type: 'string' }, function: { type: 'string' }, untraced: { type: 'boolean' }, limit: { type: 'number' },
+      text: { type: 'string' }, path: { type: 'string' }, screen: { type: 'string' }, op: { type: 'string' }, field: { type: 'string' }, function: { type: 'string' }, untraced: { type: 'boolean' }, limit: { type: 'number' },
     }, required: ['what'] },
   },
   {
@@ -148,6 +149,11 @@ export async function callPublic(mcp, name, args = {}) {
       if (design[w]) {
         if (!ws.source?.store) return text(ws.source ? 'The design is not editable here (live FigCraft or --read-only): read the product with what: functions, data, api, manifest.' : 'No design yet: weshcraft_new.', true);
         return legacy(design[w], w === 'tokens' ? {} : args);
+      }
+      // the technology catalog: no design needed
+      if (w === 'technologies') {
+        const list = args.query ? searchTech(args.query, { limit: args.limit ?? 15 }) : matchTech(args.text ?? '');
+        return text(list.map(e => techFacts(e)));
       }
       if (!ws.manifest) await ws.run();
       switch (w) {

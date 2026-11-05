@@ -16,7 +16,8 @@
     "demo": "node -e \"const fs=require('fs');fs.mkdirSync('.weshcraft-demo/design',{recursive:true});if(!fs.existsSync('.weshcraft-demo/design/ridgeline-app.figcraft'))fs.copyFileSync('test/fixtures/ridgeline-app.figcraft','.weshcraft-demo/design/ridgeline-app.figcraft')\" && node bin/weshcraft.mjs serve --out .weshcraft-demo",
     "build:openchamber": "node openchamber/build.mjs",
     "test:openchamber": "node test/openchamber/all.mjs",
-    "test:codegraph": "node test/codegraph.mjs"
+    "test:codegraph": "node test/codegraph.mjs",
+    "build:tech-icons": "npm i --no-save simple-icons@16 && node scripts/build-tech-icons.mjs ."
   },
   "files": [
     "bin",

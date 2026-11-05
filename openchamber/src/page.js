@@ -203,6 +203,36 @@ const openOutside = async href => {
   try { await host.openUrl(/^https?:/.test(href) ? href : await serverUrl(href)); } catch (err) { host.toast({ kind: 'error', message: explain(err) }).catch(() => {}); }
 };
 
+// The prototype opens in the panel itself, over WeshCraft, with a way back: OpenChamber's desktop app
+// does not always open new tabs (and the panel cannot load URLs). A second button still tries outside.
+const isProto = href => /(^|\/)prototype\/index\.html/.test(href);
+let protoView = null;
+function showPrototype(href) {
+  const key = (/#([\w-]+)$/.exec(href) || [])[1] || null;
+  if (!protoView) {
+    protoView = document.createElement('div');
+    protoView.className = 'oc-protoview'; protoView.setAttribute('role', 'dialog'); protoView.setAttribute('aria-label', 'Prototype');
+    protoView.innerHTML = `<div class="oc-protobar"><button type="button" class="oc-back" id="ocProtoBack"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg>Back to WeshCraft</button><span class="oc-prototitle">Prototype</span><span class="oc-protospacer"></span><button type="button" class="oc-protoout" id="ocProtoOut" title="Try opening it in a browser tab">Open outside</button></div><iframe id="ocProtoFrame" title="Prototype"></iframe>`;
+    document.body.append(protoView);
+    protoView.querySelector('#ocProtoBack').addEventListener('click', hidePrototype);
+    protoView.querySelector('#ocProtoOut').addEventListener('click', () => openOutside(protoView.dataset.href));
+  }
+  protoView.dataset.href = href;
+  const frame = protoView.querySelector('#ocProtoFrame');
+  frame.onload = () => { if (key) frame.contentWindow?.postMessage({ weshcraft: 'show', key }, '*'); };
+  window.__wc.frame(frame, href.replace(/#.*$/, ''));
+  protoView.hidden = false;
+  document.body.classList.add('oc-proto-open');
+  protoView.querySelector('#ocProtoBack').focus({ preventScroll: true });
+}
+function hidePrototype() {
+  if (!protoView || protoView.hidden) return;
+  protoView.hidden = true;
+  document.body.classList.remove('oc-proto-open');
+  protoView.querySelector('#ocProtoFrame').srcdoc = '';
+}
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && protoView && !protoView.hidden) { e.preventDefault(); e.stopPropagation(); hidePrototype(); } }, true);
+
 window.__wc = {
   /** The prototype iframe: same HTML, delivered as srcdoc (the page cannot load URLs). */
   frame: async (frame, src) => {
@@ -213,7 +243,8 @@ window.__wc = {
       frame.srcdoc = r.status < 400 ? r.body : `<p style="font:13px system-ui;padding:16px">Prototype not built yet.</p>`;
     } catch (err) { frame.srcdoc = `<p style="font:13px system-ui;padding:16px">${String(explain(err)).replace(/[<&]/g, '')}</p>`; }
   },
-  open: href => openOutside(href),
+  open: href => (isProto(href) ? showPrototype(href) : openOutside(href)),
+  showPrototype, hidePrototype,
   host,
 };
 
@@ -223,6 +254,7 @@ document.addEventListener('click', e => {
   if (!a) return;
   const href = a.getAttribute('href');
   if (!href || href.startsWith('#') || a.dataset.href) return;
+  if (a.target === '_blank' && isProto(href)) { e.preventDefault(); showPrototype(href); return; }
   if (a.hasAttribute('download') || a.target === '_blank' || /^https?:/.test(href)) { e.preventDefault(); openOutside(href); }
 }, true);
 

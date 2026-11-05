@@ -1,0 +1,25 @@
+diff --git a/skills/wesh-plan-view-mode/FORMAT.md b/skills/wesh-plan-view-mode/FORMAT.md
+index 33634aa..0d072cf 100644
+--- a/skills/wesh-plan-view-mode/FORMAT.md
++++ b/skills/wesh-plan-view-mode/FORMAT.md
+@@ -108,6 +108,6 @@ Four overview specs complete `FUNCTIONS.md`, each with a contract (kinds `logic`
+ - `LOGIC.md`: rules `{name, kind: validation|permission|calculation|policy|event, text, applies}` and lifecycles `{entity, field, states, initial, transitions: [{from (state or *), to, via}]}`. Declared in the design (`pluginData.weshcraft.logic`, edited with `weshcraft_edit` or the Logic view) or in `weshcraft.surface.json` (`"logic"`); otherwise inferred and marked so: a validation rule per operation with required request fields (or submitted inputs), a permission rule for the public API's auth, a lifecycle per `status`/`state`/`stage` enum, with the create operation and the operations whose last path segment matches a state (`/void` → `void`); an operation that changes the entity without a matching state is an open transition (warning `logic-open-transition`).
+ - `DATA.md`: per entity its fields, relations (a field typed as another entity, or named `<entity>Id`), the functions that write and read it, the screens that show it, its operations and lifecycle; an `erDiagram`.
+ - `API.md`: operations by function with where they are called from and what they return, the MCP tools with their behaviour and operation, the API's auth.
+-- `ARCHITECTURE.md`: components `{name, kind: client|frontend|interface|service|queue|store|external, tech, description, implements, code}` and links `{from, to, label}`. Declared (`pluginData.weshcraft.architecture`, `weshcraft_edit`, the Architecture view, or `"architecture"` in the surface file) or suggested from the design and the surface (people → front end → back end → database; agents → MCP server; integrations → API).
++- `ARCHITECTURE.md`: components `{name, kind: client|frontend|interface|service|queue|store|external, tech, description, implements, code}` and links `{from, to, label}`. Declared (`pluginData.weshcraft.architecture`, `weshcraft_edit`, the Architecture view, or `"architecture"` in the surface file) or suggested from the design and the surface (people → front end → back end → database; agents → MCP server; integrations → API). Known technologies in `tech` (a catalog of about 440: languages, frameworks, databases, queues, the AWS / Azure / Google Cloud services, SaaS) add a **Technologies** table: who uses each, what it is, its alternatives. Free text that names nothing known is kept as written.
+ 
+ Parity: `<kind>-differs` (error) when a spec no longer matches; `logic-unknown-ref`, `architecture-unknown-ref` (a reference to nothing) and `logic-open-transition` (warnings).
+diff --git a/skills/wesh-plan-view-mode/SKILL.md b/skills/wesh-plan-view-mode/SKILL.md
+index afeeaa2..fc2d43e 100644
+--- a/skills/wesh-plan-view-mode/SKILL.md
++++ b/skills/wesh-plan-view-mode/SKILL.md
+@@ -33,7 +33,7 @@ After the functions, settle what the design cannot show, one round each, only wh
+ - Logic: `weshcraft_read {what:"logic"}` lists inferred rules and lifecycles. Declare the real ones with `weshcraft_edit`: `{op:"keepLogic"}`, rules with their kind and what they apply to (`{op:"rule", name, kind, text, applies}`), lifecycles of data that changes state (`{op:"lifecycle", entity, states, transitions:[{from, to, via}]}`); resolve every open transition. `specs/LOGIC.md`.
+ - Data: bind layers to data in the design (`bind`), API schemas for services; check `specs/DATA.md` relations and who writes what.
+ - API & MCP: operations come from the design (`api` ops) or the surface; `specs/API.md` shows each by function, where it is called from and what it returns.
+-- Architecture: `weshcraft_read {what:"architecture"}` shows the suggestion; declare the real components with technologies and links (`{op:"keepArchitecture"}`, then `{op:"component", name, kind, tech, code}` / `{op:"connect", from, to, label}`), and the code folders they live in. `specs/ARCHITECTURE.md`.
++- Architecture: `weshcraft_read {what:"architecture"}` shows the suggestion; declare the real components with technologies and links (`{op:"keepArchitecture"}`, then `{op:"component", name, kind, tech, code}` / `{op:"connect", from, to, label}`), and the code folders they live in. `specs/ARCHITECTURE.md`. Name the technologies the way the catalog knows them (`weshcraft_read {what:"technologies", query:"queue"}` lists candidates with their alternatives): settle each choice with the user, citing one or two alternatives and why not.
+ 
+ ## 2. Frontier rounds, answered in the design
+ Same rounds as `/wesh-plan` (numbered, recommended answer, "yes" accepts). Route each settled answer:
