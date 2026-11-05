@@ -748,12 +748,14 @@ async function run(force) {
 }
 
 // ---- wiring ----------------------------------------------------------------------------------
-$('#groups').addEventListener('click', e => { const b = e.target.closest('button.job'); if (b) { openJob(b.dataset.id); if (!panelState().right) setPanel('right', true); } });
+$('#groups').addEventListener('click', e => { const b = e.target.closest('button.job'); if (b) { openJob(b.dataset.id); pickedInList(); } });
+// A spec picked in the list: the list drawer (if it is one) gives way to the spec.
+function pickedInList() { if (phone.matches) return; if (overlay('left')) drawer.left = false; if (!panelState().right) setPanel('right', true); else applyPanels(); }
 $('#issues').addEventListener('click', e => {
   const li = e.target.closest('li[data-file]');
   if (!li) return;
   openFile(li.dataset.file);
-  if (/^specs\//.test(li.dataset.file) && !phone.matches && !panelState().right) setPanel('right', true);
+  if (/^specs\//.test(li.dataset.file)) pickedInList();
   if (li.dataset.node) protoPost({ weshcraft: 'highlight', node: li.dataset.node });
 });
 $('#doc').addEventListener('click', e => {
@@ -779,24 +781,84 @@ const PANEL_KEY = 'weshcraft.panels.v3';
 let panelPrefs = {};
 try { panelPrefs = JSON.parse(localStorage.getItem(PANEL_KEY) || '{}'); } catch { /* storage blocked */ }
 const section = () => document.body.dataset.section || 'proto';
-const panelState = () => ({ left: true, right: true, edl: true, edr: true, ...panelPrefs });
+const chosen = () => ({ left: true, right: true, edl: true, edr: true, ...panelPrefs });
 const PANEL_LABEL = { left: 'the spec list', right: 'the spec', edl: 'screens and layers', edr: 'the inspector' };
+// When the room runs out, side panels stop squeezing the view: they slide over it as drawers,
+// opened by the same « » and closed again by a click beside them or Escape (not remembered).
+//   wide:   spec list · view · spec, as chosen
+//   mid:    the spec list becomes a drawer
+//   narrow: the spec too (one at a time)
+// The editor does the same inside the view: screens/layers and the inspector become drawers when
+// the canvas would get too small. Phones keep their own one-view layout (standalone browser only).
+const drawer = { left: false, right: false, edl: false, edr: false };
+let lay = 'wide', edTight = false;
+const overlay = k => (k === 'left' ? lay !== 'wide' : k === 'right' ? lay === 'narrow' : edTight);
+const panelState = () => { const c = chosen(); return Object.fromEntries(Object.keys(drawer).map(k => [k, overlay(k) ? drawer[k] : c[k]])); };
+function measureLayout() {
+  const w = $('.layout')?.clientWidth ?? innerWidth;
+  const ed = document.body.classList.contains('editing');
+  const next = w >= (ed ? 1360 : 1080) ? 'wide' : w >= (ed ? 900 : 760) ? 'mid' : 'narrow'; // designing: the canvas and its panes first
+  if (next !== lay) { lay = next; drawer.left = drawer.right = false; }
+}
+function measureEditor() {
+  const st = $('.stage');
+  const next = !!st && document.body.classList.contains('editing') && st.clientWidth > 0 && st.clientWidth < 640;
+  // editor drawers open under its toolbar, which stays usable (its « » close them again)
+  const ed = $('.tabpanel.ed'), tools = ed?.querySelector('.ed-tools');
+  if (tools && tools.offsetHeight) ed.style.setProperty('--ed-top', `${tools.offsetTop + tools.offsetHeight}px`);
+  if (next !== edTight) { edTight = next; drawer.edl = drawer.edr = false; return true; }
+  return false;
+}
 function applyPanels() {
-  const st = panelState();
-  for (const k of ['left', 'right', 'edl', 'edr']) {
-    if (document.body.classList.contains(`no-${k}`) !== !st[k]) document.body.classList.toggle(`no-${k}`, !st[k]);
-    document.querySelectorAll(`.pane-toggle[data-panel="${k}"]`).forEach(b => {
-      b.setAttribute('aria-expanded', String(st[k]));
-      const label = `${st[k] ? 'Hide' : 'Show'} ${PANEL_LABEL[k]}`;
-      b.setAttribute('aria-label', label); b.title = label;
-    });
-  }
+  if (phone.matches) { lay = 'wide'; edTight = false; } else measureLayout();
+  const body = document.body.classList;
+  const set = (c, on) => { if (body.contains(c) !== on) body.toggle(c, on); };
+  const paint = () => {
+    const st = panelState();
+    for (const k of Object.keys(drawer)) {
+      set(`no-${k}`, !st[k]);
+      set(`dr-${k}`, overlay(k) && st[k]);
+      document.querySelectorAll(`.pane-toggle[data-panel="${k}"]`).forEach(b => {
+        b.setAttribute('aria-expanded', String(st[k]));
+        const label = `${st[k] ? 'Hide' : 'Show'} ${PANEL_LABEL[k]}`;
+        b.setAttribute('aria-label', label); b.title = label;
+      });
+    }
+    // which side panels take a column (the others are hidden or drawers)
+    set('gl', st.left && !overlay('left')); set('gr', st.right && !overlay('right'));
+    set('gel', st.edl && !overlay('edl')); set('ger', st.edr && !overlay('edr'));
+    for (const l of ['wide', 'mid', 'narrow']) set(`lay-${l}`, lay === l);
+    set('ed-tight', edTight);
+  };
+  paint();
+  if (measureEditor()) paint(); // the view's width is known once its neighbours are placed
 }
 function setPanel(k, open) {
-  panelPrefs = { ...panelPrefs, [k]: open };
-  try { localStorage.setItem(PANEL_KEY, JSON.stringify(panelPrefs)); } catch { /* storage blocked */ }
+  if (overlay(k)) {
+    drawer[k] = open;
+    // one drawer per side pair at a time
+    if (open) { const pair = { left: 'right', right: 'left', edl: 'edr', edr: 'edl' }[k]; if (overlay(pair)) drawer[pair] = false; }
+  } else {
+    panelPrefs = { ...panelPrefs, [k]: open };
+    try { localStorage.setItem(PANEL_KEY, JSON.stringify(panelPrefs)); } catch { /* storage blocked */ }
+  }
   applyPanels();
   requestAnimationFrame(() => window.dispatchEvent(new Event('resize')));
+}
+const closeDrawers = (keys = Object.keys(drawer)) => { let any = false; for (const k of keys) if (overlay(k) && drawer[k]) { drawer[k] = false; any = true; } if (any) applyPanels(); return any; };
+// A click beside an open drawer (on the dimmed view) closes it; Escape closes the top one.
+document.addEventListener('pointerdown', e => {
+  if (e.target.closest('.pane-toggle, dialog, .t-menu, .ed-menu')) return;
+  if ((drawer.left || drawer.right) && !e.target.closest('body.dr-left .builder, body.dr-right .reader') && e.target.closest('.layout')) closeDrawers(['left', 'right']);
+}, true);
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && !e.defaultPrevented && !document.querySelector('dialog[open]') && closeDrawers()) e.preventDefault(); });
+document.addEventListener('click', e => { const c = e.target.closest('[data-close-drawer]'); if (c) setPanel(c.dataset.closeDrawer, false); });
+{
+  let raf = 0;
+  const later = () => { cancelAnimationFrame(raf); raf = requestAnimationFrame(applyPanels); };
+  const ro = new ResizeObserver(later);
+  ro.observe(document.querySelector('.layout'));
+  ro.observe(document.querySelector('.stage'));
 }
 document.addEventListener('click', e => { const b = e.target.closest('.pane-toggle'); if (b) setPanel(b.dataset.panel, !panelState()[b.dataset.panel]); });
 window.__wcPanels = { set: setPanel, get: panelState };
@@ -814,13 +876,14 @@ function selectTab(t) {
   document.body.dataset.section = t;
   const sb = document.querySelector(`.tab[data-tab="${t}"] span`);
   if (sb) $('#sectionTitle').textContent = sb.textContent;
+  document.body.classList.toggle('editing', t === 'design');
+  closeDrawers(['left', 'right']);
   applyPanels();
   document.querySelectorAll('.tabpanel').forEach(p => {
     const show = p.dataset.panel === t;
     if (show && p.hidden) { p.hidden = false; fadeIn(p); } else p.hidden = !show;
   });
   if (t === 'figcraft' && $('#design').src === 'about:blank') $('#design').src = $('#design').dataset.src;
-  document.body.classList.toggle('editing', t === 'design');
   if (t === 'design') editor?.shown();
   if (t === 'links') requestAnimationFrame(drawWires);
   if (t === 'functions') requestAnimationFrame(fnView.draw);

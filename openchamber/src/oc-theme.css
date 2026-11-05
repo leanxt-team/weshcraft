@@ -92,32 +92,7 @@ html.oc .doc pre, html.oc .doc code { background: var(--oc-muted-surface); }
 
 /* A narrow rail panel shows one view at a time (WeshCraft's compact mode), in OpenChamber's look:
    a flat tab bar along the bottom, square panes, desktop text sizes. Wide or expanded: desktop. */
-@media (max-width: 720px) {
-  html.oc:root { --tabbar: 50px; --safe-b: 0px; --safe-t: 0px; }
-  html.oc body { padding: 0 0 var(--tabbar); font-size: 13px; }
-  html.oc .top { position: sticky; top: 0; border-radius: 0; margin: 0; min-height: 44px; padding: 4px 6px 4px 12px; border-bottom: 1px solid var(--oc-border); }
-  html.oc .brand { font-size: 14px; }
-  html.oc .parity { font-size: 11.5px; }
-  html.oc .more { width: 30px; height: 30px; background: transparent; border-radius: calc(var(--oc-radius, 8px) - 2px); }
-  html.oc .more:hover { background: var(--oc-hover); }
-  html.oc .builder, html.oc .stage, html.oc .reader { height: calc(100vh - 45px - var(--tabbar)); min-height: 0; border-radius: 0; }
-  html.oc .phonebar { left: 0; right: 0; bottom: 0; height: var(--tabbar); padding: 4px 6px; border-radius: 0; border: 0; border-top: 1px solid var(--oc-border); background: var(--oc-bg); box-shadow: none; }
-  html.oc .phonebar button { border-radius: calc(var(--oc-radius, 8px) - 2px); font-size: 10.5px; color: var(--oc-muted); }
-  html.oc .phonebar button svg { width: 20px; height: 20px; }
-  html.oc .phonebar button[aria-current="true"] { color: var(--oc-primary-text, var(--oc-primary)); }
-  html.oc .phonebar .thumb { background: var(--oc-selection) !important; box-shadow: none !important; }
-  html.oc .job { height: 32px; font-size: 13px; }
-  html.oc .group h3 { font-size: 11.5px; }
-  html.oc .pane-head { min-height: 40px; padding: 8px 10px 4px 14px; }
-  html.oc .pane-head h2 { font-size: 10.5px; }
-  html.oc .doc { font-size: 13px; }
-  html.oc .fab { height: 34px; font-size: 13px; border-radius: var(--oc-radius, 8px); background: var(--oc-primary); color: var(--oc-primary-fg); box-shadow: none; bottom: calc(var(--tabbar) + 10px); }
-  html.oc .sheet { border-radius: calc(var(--oc-radius, 8px) + 4px) calc(var(--oc-radius, 8px) + 4px) 0 0; }
-  html.oc .ed-canvas { border-radius: var(--oc-radius, 8px); }
-  html.oc .ed-sec { background: var(--oc-bg); border: 1px solid var(--oc-border); border-radius: var(--oc-radius, 8px); }
-  html.oc .f input, html.oc .f select, html.oc .ed-sec textarea, html.oc .ed-notes input { height: 30px; font-size: 13px; }
-  html.oc .f { font-size: 12.5px; }
-}
+
 
 /* what the page says when OpenChamber or the service is not there */
 .oc-problem { position: fixed; z-index: 100; left: 50%; top: 56px; transform: translateX(-50%); max-width: min(560px, calc(100vw - 32px)); padding: 12px 14px; border: 1px solid var(--oc-border, #ccc); border-radius: var(--oc-radius, 8px); background: var(--oc-elevated, Canvas); color: var(--oc-fg, CanvasText); font: 12.5px/1.45 var(--oc-font, system-ui, sans-serif); box-shadow: 0 12px 32px rgba(0, 0, 0, .2); white-space: pre-wrap; overflow-wrap: anywhere; }
@@ -130,42 +105,11 @@ html.oc .brand .oc-project { font-weight: 500; color: var(--oc-muted); margin-le
 html.oc .brand .oc-project::before { content: '·'; margin: 0 6px 0 2px; }
 .oc-switching { position: fixed; inset: 0; z-index: 90; display: grid; place-items: center; background: color-mix(in srgb, var(--oc-bg) 80%, transparent); font: 13px var(--oc-font, system-ui); color: var(--oc-muted); }
 
-/* the design editor in a narrow rail panel: chips, tools, canvas filling the space, inspector below */
-@media (max-width: 720px) {
-  html.oc body[data-view="design"] .stage { display: flex; flex-direction: column; height: calc(100vh - 45px - var(--tabbar)); overflow: hidden; }
-  html.oc .tabpanel.ed { flex: 1; min-height: 0; display: flex; flex-direction: column; margin: 0; }
-  html.oc .ed-left { flex: none; }
-  html.oc .ed-screens { padding: 6px 8px 4px; gap: 4px; }
-  html.oc .ed-screens li { height: 26px; padding: 0 10px; font-size: 12.5px; border-radius: calc(var(--oc-radius, 8px) - 2px); background: var(--oc-muted-surface); border: 1px solid var(--oc-border); }
-  html.oc .ed-screens li[aria-selected="true"] { background: var(--oc-selection); border-color: transparent; }
-  html.oc .ed-screens::after { width: 26px; height: 26px; border-radius: calc(var(--oc-radius, 8px) - 2px); background: var(--oc-muted-surface); border: 1px solid var(--oc-border); font-size: 15px; }
-  html.oc .ed-center { flex: 1 1 auto; min-height: 160px; display: flex; flex-direction: column; }
-  html.oc .ed-tools { flex: none; padding: 2px 8px 6px; gap: 4px; }
-  html.oc .ed-seg button { min-width: 30px; height: 28px; }
-  html.oc .ed-icon { width: 28px; height: 28px; }
-  html.oc .ed-canvas { flex: 1 1 auto; height: auto; min-height: 0; margin: 0 8px; border: 1px solid var(--oc-border); border-radius: var(--oc-radius, 8px); }
-  html.oc .ed-right { flex: 0 0 auto; max-height: 46%; overflow: auto; margin-top: 6px; border-top: 1px solid var(--oc-border); padding-bottom: 8px; }
-  html.oc .ed-right[data-sel="0"] { max-height: 30%; }
-  html.oc .ed-itabs { position: sticky; top: 0; z-index: 2; padding: 6px 8px 4px; background: var(--oc-bg); }
-  html.oc .ed-itabs button { height: 26px; font-size: 12px; }
-  html.oc .ed-sec { margin: 6px 8px 0; padding: 8px 10px; }
-  html.oc .ed-presets.small { grid-template-columns: repeat(5, minmax(0, 1fr)); }
-  html.oc .ed-presets.small .ed-preset { padding: 6px 2px; font-size: 11px; }
-  html.oc .ed-empty { padding: 12px; }
-  html.oc .ed-card { padding: 14px; max-width: 100%; }
-  html.oc .ed-card h3 { font-size: 14px; }
-}
-@media (max-width: 720px) {
-  html.oc .hd { width: 8px; height: 8px; margin: -4px 0 0 -4px; border-radius: 2px; } /* a mouse panel, not a phone */
-}
 html.oc .ed-canvas:focus-visible { outline: none; }
 
 /* ---- no header: parity and ⋯ at the end of each section's head line ---- */
-@media (min-width: 721px) { html.oc .top { display: none !important; } }
-html.oc .top .brand, html.oc .top .source, html.oc .top .hash, html.oc .top .syncpill, html.oc .top .actions, html.oc .top > .spacer { display: none; }
-html.oc .top .parity { margin-left: auto; }
-html.oc .top .more { display: grid; place-items: center; flex: none; width: 30px; height: 30px; border: 0; border-radius: calc(var(--oc-radius, 8px) - 2px); background: transparent; color: var(--oc-fg); cursor: pointer; }
-html.oc .top .more svg { width: 18px; height: 18px; fill: currentColor; }
+/* One desktop layout at every width (no phone layout in OpenChamber): narrow panels get drawers. */
+html.oc .top, html.oc .phonebar, html.oc .fab, html.oc .back { display: none !important; }
 html.oc .stage .tabpanel { margin-top: 0; }
 html.oc .stage-head { margin: 0; padding: 0 6px 0 4px; min-height: 40px; border-bottom: 1px solid var(--oc-border); }
 html.oc .stage-head h2 { font-size: 13px; font-weight: 600; }
@@ -179,7 +123,6 @@ html.oc .pane-toggle:hover { background: var(--oc-hover); }
 html.oc .pane-toggle[aria-expanded="false"] { background: var(--oc-selection); color: var(--oc-primary-text, var(--oc-primary)); }
 
 /* ---- the section rail, OpenChamber's look ---- */
-@media (min-width: 721px) {
   html.oc:root { scrollbar-gutter: auto; } /* the page itself never scrolls: no blank gutter by the rail */
   html.oc body { padding-right: 60px; }
   html.oc .rail { right: 0; top: 0; bottom: 0; width: 60px; padding: 6px 0; gap: 2px; border-radius: 0; background: var(--oc-bg); box-shadow: none; border-left: 1px solid var(--oc-border); }
@@ -192,7 +135,6 @@ html.oc .pane-toggle[aria-expanded="false"] { background: var(--oc-selection); c
   html.oc .rail-btn[aria-selected="true"]::before { left: -4px; background: var(--oc-primary); }
   html.oc .rail-btn .badge { background: var(--oc-primary); color: var(--oc-primary-fg); }
   html.oc .rail-sep { background: var(--oc-border); }
-}
 
 /* ---- the actions menu (the app's sheet, as a dropdown) ---- */
 html.oc #moreDlg { display: none; }
@@ -207,35 +149,41 @@ html.oc #moreDlg .sheet-group { display: grid; gap: 0; padding: 4px 0; border-to
 html.oc #moreDlg .sheet-group button { display: block; width: 100%; height: 30px; padding: 0 8px; border: 0; border-radius: calc(var(--oc-radius, 8px) - 2px); background: none; color: var(--oc-fg) !important; font: 13px/30px var(--oc-font, system-ui); text-align: left; cursor: pointer; }
 html.oc #moreDlg .sheet-group button:hover, html.oc #moreDlg .sheet-group button:focus-visible { background: var(--oc-hover); outline: none; }
 
-@media (min-width: 721px) {
-  /* one row of columns at every width: the spec list, the view, the spec. « and » fold each side
-     per section; the dividers set the widths (--oc-list, --oc-spec, --oc-edl, --oc-edr: set while
-     dragging, not saved). */
-  html.oc body { display: grid; grid-template-rows: minmax(0, 1fr) auto; height: 100vh; --L: minmax(200px, 250px); --S: minmax(320px, .9fr); } /* no header row: the blocks fill the height, the log line at the bottom */
-  html.oc body.editing { --L: minmax(170px, 220px); --S: minmax(300px, .62fr); }
-  html.oc body > * + * { margin-top: 0; }
-  html.oc .layout { position: relative; grid-template-rows: minmax(0, 1fr); grid-template-columns: var(--oc-list, var(--L)) minmax(0, 1fr) var(--oc-spec, var(--S)) !important; }
-  html.oc .builder, html.oc body.editing .builder { display: flex; }
-  html.oc .reader, html.oc body.editing .reader { display: flex; grid-column: auto; height: auto; }
-  html.oc body.no-left .builder { display: none; }
-  html.oc body.no-right .reader { display: none; }
-  html.oc body.no-left .layout { grid-template-columns: minmax(0, 1fr) var(--oc-spec, var(--S)) !important; }
-  html.oc body.no-right .layout { grid-template-columns: var(--oc-list, var(--L)) minmax(0, 1fr) !important; }
-  html.oc body.no-left.no-right .layout { grid-template-columns: minmax(0, 1fr) !important; }
-  html.oc .tabpanel.ed { position: relative; grid-template-columns: var(--oc-edl, 200px) minmax(0, 1fr) var(--oc-edr, 264px); }
-  html.oc body.editing:not(.no-right) .tabpanel.ed, html.oc body.editing:not(.no-left) .tabpanel.ed { grid-template-columns: var(--oc-edl, 176px) minmax(0, 1fr) var(--oc-edr, 244px); }
-  html.oc body.no-edl .tabpanel.ed { grid-template-columns: minmax(0, 1fr) var(--oc-edr, 244px) !important; }
-  html.oc body.no-edr .tabpanel.ed { grid-template-columns: var(--oc-edl, 176px) minmax(0, 1fr) !important; }
-  html.oc body.no-edl.no-edr .tabpanel.ed { grid-template-columns: minmax(0, 1fr) !important; }
+/* One row of columns: the spec list, the view, the spec. « and » fold each side; when the panel is
+   too narrow for a side, it becomes a drawer over the view (app.css: lay-mid, lay-narrow, dr-*).
+   The dividers set the widths (--oc-list, --oc-spec, --oc-edl, --oc-edr: set while dragging). */
+html.oc body { display: grid; grid-template-rows: minmax(0, 1fr) auto; height: 100vh; --L: minmax(200px, 250px); --S: minmax(320px, .9fr); } /* no header row: the blocks fill the height, the log line at the bottom */
+html.oc body.editing { --L: minmax(170px, 220px); --S: minmax(300px, .62fr); }
+html.oc body.lay-mid { --S: minmax(280px, .8fr); }
+html.oc body.lay-mid.editing { --S: minmax(260px, .55fr); }
+html.oc body > * + * { margin-top: 0; }
+html.oc .layout { position: relative; grid-template-rows: minmax(0, 1fr); grid-template-columns: var(--oc-list, var(--L)) minmax(0, 1fr) var(--oc-spec, var(--S)) !important; }
+html.oc .builder, html.oc .reader { display: flex; grid-column: auto; height: auto; }
+html.oc body.no-left .builder, html.oc body.no-right .reader { display: none; }
+html.oc body:not(.gl).gr .layout { grid-template-columns: minmax(0, 1fr) var(--oc-spec, var(--S)) !important; }
+html.oc body.gl:not(.gr) .layout { grid-template-columns: var(--oc-list, var(--L)) minmax(0, 1fr) !important; }
+html.oc body:not(.gl):not(.gr) .layout { grid-template-columns: minmax(0, 1fr) !important; }
+html.oc body.gel.ger .tabpanel.ed { grid-template-columns: var(--oc-edl, 176px) minmax(0, 1fr) var(--oc-edr, 244px); }
+html.oc body:not(.gel).ger .tabpanel.ed { grid-template-columns: minmax(0, 1fr) var(--oc-edr, 244px); }
+html.oc body.gel:not(.ger) .tabpanel.ed { grid-template-columns: var(--oc-edl, 176px) minmax(0, 1fr); }
+html.oc body:not(.gel):not(.ger) .tabpanel.ed { grid-template-columns: minmax(0, 1fr); }
+/* drawers, flat: a border and a shadow */
+html.oc body.dr-left .builder, html.oc body.dr-right .reader, html.oc body.dr-edl .tabpanel.ed > .ed-left, html.oc body.dr-edr .tabpanel.ed > .ed-right { background: var(--oc-bg); border: 1px solid var(--oc-border); box-shadow: 0 12px 32px rgba(0, 0, 0, .22); }
+html.oc body.dr-left .layout::after, html.oc body.dr-right .layout::after { border-radius: 0; background: rgba(0, 0, 0, .14); }
+html.oc .drawer-close { border-radius: calc(var(--oc-radius, 8px) - 2px); }
+html.oc .drawer-close:hover { background: var(--oc-hover); }
+/* small panels: the rail gets slimmer */
+@media (max-width: 520px) {
+  html.oc body { padding-right: 48px; }
+  html.oc .rail { width: 48px; }
+  html.oc .rail-btn { width: 42px; min-height: 40px; font-size: 0; gap: 0; }
+  html.oc .rail-btn span:not(.badge) { display: none; }
+  html.oc .rail-btn svg { width: 18px; height: 18px; padding: 6px; }
+  html.oc .rail-btn .badge { top: 0; right: -2px; max-width: 30px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 9px; padding: 0 3px; }
 }
-@media (min-width: 721px) and (max-width: 1100px) {
-  html.oc body { --L: minmax(170px, 200px); --S: minmax(280px, .8fr); }
-  html.oc body.editing { --L: 170px; --S: 260px; }
-  html.oc body.editing:not(.no-right) .tabpanel.ed, html.oc body.editing:not(.no-left) .tabpanel.ed { grid-template-columns: var(--oc-edl, 132px) minmax(0, 1fr) var(--oc-edr, 220px); }
-  html.oc body.editing .ed-right { min-width: 0; overflow-x: hidden; }
-  /* everything at once in a narrower panel: each side gives a little */
-  html.oc body.editing:not(.no-left):not(.no-right) { --L: 150px; --S: 250px; }
-  html.oc body.editing:not(.no-left):not(.no-right) .tabpanel.ed { grid-template-columns: var(--oc-edl, 120px) minmax(0, 1fr) var(--oc-edr, 210px); }
+@media (max-height: 640px) {
+  html.oc .rail-btn { min-height: 40px; font-size: 0; gap: 0; }
+  html.oc .rail-btn span:not(.badge) { display: none; }
 }
 /* dividers: drag to resize the blocks beside them; double-click to reset */
 html.oc .oc-split { position: absolute; top: 0; bottom: 0; z-index: 30; width: 9px; margin-left: -4px; cursor: col-resize; touch-action: none; }
@@ -244,9 +192,7 @@ html.oc .oc-split:hover::after, html.oc .oc-split.dragging::after { left: 3px; w
 html.oc .oc-split[hidden] { display: none; }
 html.oc body.oc-resizing, html.oc body.oc-resizing * { cursor: col-resize !important; user-select: none !important; }
 html.oc body.oc-resizing iframe { pointer-events: none; }
-@media (max-width: 720px) {
-  html.oc .oc-split { display: none !important; }
-}
+
 html.oc .reader .pane-head h2 { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 /* the spec has its own panel: the inspector is the design inspector only */
 html.oc .ed-itabs { display: none; }

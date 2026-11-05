@@ -75,12 +75,12 @@ try {
   await p.close();
   // narrow, dark
   ({ p, f } = await open(460, 860, 'dark'));
-  await f.locator('.phonebar [data-view="functions"]').click(); await sleep(800);
-  ok('narrow: Functions in the bottom bar', await f.locator('.fn-card').count() === 2);
-  const geo = await p.frames().find(x => x.url().includes('guest-files')).evaluate(() => { const r = s => document.querySelector(s).getBoundingClientRect(); return { cards: r('.fn-fns'), bar: r('.phonebar'), wires: getComputedStyle(document.querySelector('.fn-wires')).display, w: innerWidth, sw: document.documentElement.scrollWidth }; });
+  await f.locator('.rail .tab[data-tab="functions"]').click(); await sleep(800);
+  ok('narrow: Functions from the rail (no phone bar)', await f.locator('.fn-card').count() === 2 && await f.locator('.phonebar').isHidden());
+  const geo = await p.frames().find(x => x.url().includes('guest-files')).evaluate(() => { const r = s => document.querySelector(s).getBoundingClientRect(); return { cards: r('.fn-fns'), wires: getComputedStyle(document.querySelector('.fn-wires')).display, w: innerWidth, sw: document.documentElement.scrollWidth }; });
   ok('narrow: stacked, no wires, no sideways scroll', geo.wires === 'none' && geo.sw <= geo.w + 1, JSON.stringify(geo));
   ok('narrow: cards carry the data', await f.locator('.fn-card .fn-ent').count() >= 2);
-  ok('narrow: cards use the width', geo.cards.width > geo.w - 60, String(geo.cards.width));
+  ok('narrow: cards use the width (beside the rail)', geo.cards.width > geo.w - 100, String(geo.cards.width));
   await p.screenshot({ path: `${OUT}/f-narrow-dark.png` });
   await f.locator('.fn-card[data-f="fn-join"] .fn-edit').click(); await sleep(300);
   const dlg = await p.frames().find(x => x.url().includes('guest-files')).evaluate(() => { const r = document.querySelector('.fn-dialog').getBoundingClientRect(); return { l: r.left, r: r.right, w: innerWidth }; });

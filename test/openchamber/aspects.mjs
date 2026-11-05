@@ -128,17 +128,15 @@ try {
   await p.keyboard.press('Escape');
   await p.close();
 
-  // ---- narrow, dark: one view at a time, the Product strip switches
+  // ---- narrow, dark: the same desktop interface, sections from the rail
   ({ p, f, fr } = await open(460, 860, 'dark'));
-  await f.locator('.phonebar [data-view="functions"]').click(); await sleep(500);
-  ok('narrow: the bottom bar says Product', /Product/.test(await f.locator('.phonebar [data-view="functions"]').innerText()));
-  await f.locator('#fnview [data-pnav="architecture"]').click(); await sleep(700);
-  ok('narrow: the strip switches view', await f.locator('#archview .ar-card').first().isVisible());
-  const geo = await fr().evaluate(() => ({ w: innerWidth, sw: document.documentElement.scrollWidth, cur: document.querySelector('.phonebar [data-view="functions"]').getAttribute('aria-current'), layers: getComputedStyle(document.querySelector('.ar-cols')).flexDirection }));
-  ok('narrow: layers top to bottom, no sideways scroll, Product stays current', geo.sw <= geo.w + 1 && geo.cur === 'true' && geo.layers === 'column', JSON.stringify(geo));
+  await f.locator('.rail .tab[data-tab="architecture"]').click(); await sleep(700);
+  ok('narrow: the rail switches section (no phone bar)', await f.locator('#archview .ar-card').first().isVisible() && await f.locator('.phonebar').isHidden());
+  const geo = await fr().evaluate(() => ({ w: innerWidth, sw: document.documentElement.scrollWidth, layers: getComputedStyle(document.querySelector('.ar-cols')).flexDirection }));
+  ok('narrow: layers top to bottom, no sideways scroll', geo.sw <= geo.w + 1 && geo.layers === 'column', JSON.stringify(geo));
   ok('narrow: wires drawn between layers', await f.locator('#archview .ar-wires path.w').count() >= 3);
   await p.screenshot({ path: `${OUT}/x-narrow-architecture.png` });
-  await f.locator('#archview [data-pnav="logic"]').click(); await sleep(500);
+  await f.locator('.rail .tab[data-tab="logic"]').click(); await sleep(500);
   await p.screenshot({ path: `${OUT}/x-narrow-logic.png` });
   await p.close();
 } catch (e) { R.push(`CRASH ${e.stack}`); }

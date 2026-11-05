@@ -17,7 +17,7 @@ const R = []; const ok = (n, c, i = '') => R.push(`${c ? 'PASS' : 'FAIL'} ${n}${
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const cfg = () => { try { return JSON.parse(fs.readFileSync(path.join(WORK, '.weshcraft.json'), 'utf8')).specTree ?? null; } catch { return null; } };
 try {
-  for (const [w, theme] of [[1280, 'light'], [960, 'dark']]) {
+  for (const [w, theme] of [[1500, 'light']]) {
     const p = await b.newPage({ viewport: { width: w + 20, height: 820 } });
     p.on('pageerror', e => errs.push(e.message));
     await p.goto(`${host.url}/host?entry=openchamber/page/index.html&dir=${encodeURIComponent(WORK)}&w=${w}&h=800&surface=panel&theme=${theme}`);
@@ -102,7 +102,7 @@ try {
     g = await geo();
     ok(`${w}: picking a spec shows the spec panel`, g.reader && /\w/.test(await f.locator('#doc').innerText()));
     // spec folders
-    if (w === 1280) {
+    if (w === 1500) {
       ok(`${w}: specs in default folders`, (await f.locator('#groups > .tfolder > .trow.head .t-name').allInnerTexts()).join('|').startsWith('Product|Front end'));
       await f.locator('#addFolder').click(); await sleep(400);
       await f.locator('#groups .t-rename').fill('Onboarding'); await p.keyboard.press('Enter'); await sleep(800);
@@ -131,6 +131,43 @@ try {
     await p.reload(); await f.locator('#edScreen [data-node]').first().waitFor({ timeout: 30000 }); await sleep(800); fr = p.frames().find(x => x.url().includes('guest-files'));
     g = await geo();
     ok(`${w}: folded list remembered, in the next section too`, g.section === 'design' && !g.builder && g.reader, JSON.stringify(g));
+    await p.close();
+  }
+  // ---- a smaller panel: the same interface, side panels become drawers when there is no room
+  {
+    const w = 960;
+    const p = await b.newPage({ viewport: { width: w + 20, height: 820 } });
+    p.on('pageerror', e => errs.push(e.message));
+    await p.goto(`${host.url}/host?entry=openchamber/page/index.html&dir=${encodeURIComponent(WORK)}&w=${w}&h=800&surface=panel&theme=dark`);
+    const f = p.frameLocator('#f');
+    await f.locator('#edScreen [data-node]').first().waitFor({ timeout: 30000 }); await sleep(800);
+    const fr = p.frames().find(x => x.url().includes('guest-files'));
+    await fr.evaluate(() => { localStorage.clear(); window.dispatchEvent(new StorageEvent('storage', { key: null })); }); await sleep(400);
+    const cls = () => fr.evaluate(() => document.body.className);
+    const vis = sel => fr.evaluate(s => { const e = document.querySelector(s); return !!e && getComputedStyle(e).display !== 'none' && e.getBoundingClientRect().width > 0; }, sel);
+    let c = await cls();
+    ok(`${w}: design: the spec in a column, the list a drawer, the editor's panes drawers`, /lay-mid/.test(c) && /\bgr\b/.test(c) && !(await vis('.builder')) && /ed-tight/.test(c) && !(await vis('.tabpanel.ed > .ed-right')), c);
+    const cw = await fr.evaluate(() => document.querySelector('#edCanvas').getBoundingClientRect().width);
+    ok(`${w}: the canvas keeps the view`, cw > 450, String(cw));
+    await f.locator('.ed-tools .pane-toggle[data-panel="edr"]').click(); await sleep(400);
+    ok(`${w}: » opens the inspector over the canvas`, await vis('.tabpanel.ed > .ed-right') && await fr.evaluate(() => getComputedStyle(document.querySelector('.tabpanel.ed > .ed-right')).position === 'absolute'));
+    await p.screenshot({ path: `${OUT}/h-${w}-design-inspector.png` });
+    await p.keyboard.press('Escape'); await sleep(300);
+    await f.locator('.rail .tab[data-tab="proto"]').click(); await sleep(600);
+    c = await cls();
+    ok(`${w}: prototype: spec beside the view, list folded into a drawer`, /lay-mid/.test(c) && await vis('.reader') && !(await vis('.builder')), c);
+    await f.locator('.stage-head .pane-toggle[data-panel="left"]').click(); await sleep(400);
+    ok(`${w}: « slides the list over the view`, await vis('.builder') && /dr-left/.test(await cls()));
+    ok(`${w}: no divider beside a drawer`, !(await f.locator('.oc-split[data-split="list"]').isVisible()));
+    await p.screenshot({ path: `${OUT}/h-${w}-list-drawer.png` });
+    await p.mouse.click(w - 200, 400); await sleep(400);
+    ok(`${w}: a click beside the drawer closes it`, !/dr-left/.test(await cls()));
+    await f.locator('.stage-head .pane-toggle[data-panel="right"]').click(); await sleep(400);
+    ok(`${w}: » folds the spec column (remembered)`, !(await vis('.reader')));
+    await f.locator('.stage-head .pane-toggle[data-panel="right"]').click(); await sleep(400);
+    await f.locator('#more').click(); await sleep(400);
+    ok(`${w}: actions menu`, await f.locator('#moreDlg').isVisible());
+    await p.keyboard.press('Escape');
     await p.close();
   }
 } catch (e) { R.push(`CRASH ${e.stack}`); }

@@ -292,14 +292,7 @@ setTimeout(() => {
   const top = document.querySelector('.top');
   const box = document.createElement('div'); box.className = 'oc-headtools';
   if (head) right ? right.before(box) : head.append(box);
-  // A narrow panel shows one view at a time: parity and ⋯ stay in a slim top line there.
-  const narrow = matchMedia('(max-width: 720px)');
-  const place = () => {
-    if (narrow.matches || !head) top?.append(...[parity, more].filter(Boolean));
-    else box.append(...[parity, more].filter(Boolean));
-  };
-  narrow.addEventListener('change', place);
-  place();
+  box.append(...[parity, more].filter(Boolean));
   if (more) more.title = 'Actions';
   // The menu opens under its button, not as a phone sheet.
   more?.addEventListener('click', () => requestAnimationFrame(() => {
@@ -357,7 +350,8 @@ setTimeout(() => {
   }
   function place() {
     for (const d of defs) {
-      const show = visible(d.box) && visible(d.el) && visible(d.mid);
+      // no divider beside a drawer: it floats over the view, its width is its own
+      const show = visible(d.box) && visible(d.el) && visible(d.mid) && getComputedStyle(d.el).position !== 'absolute';
       d.h.hidden = !show;
       if (!show) continue;
       const r = d.el.getBoundingClientRect(), b = d.box.getBoundingClientRect();

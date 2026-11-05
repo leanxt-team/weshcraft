@@ -9,7 +9,9 @@ import { build } from 'esbuild';
 const here = path.dirname(fileURLToPath(import.meta.url));
 const app = path.join(here, '..', 'src', 'web', 'public');
 const banner = { js: '/* WeshCraft for OpenChamber, built by openchamber/build.mjs. Edit openchamber/src or src/web/public, then rebuild. */' };
-const DESKTOP = s => s; // narrow rail panel: one view at a time (restyled for OpenChamber in oc-theme.css); wide or expanded: desktop
+// No phone layout inside OpenChamber: whatever the panel's width, the desktop interface (rail, panels,
+// drawers when narrow). The browser app's phone breakpoint is switched off; its desktop rules always apply.
+const DESKTOP = s => s.replace(/\(max-width:\s*720px\)/g, '(max-width: 0px)').replace(/\(min-width:\s*721px\)/g, '(min-width: 0px)');
 
 const common = { bundle: true, format: 'iife', platform: 'browser', target: 'es2021', minify: true, legalComments: 'none', banner };
 
@@ -27,7 +29,7 @@ const desktopPlugin = {
 };
 await build({ ...common, entryPoints: [path.join(here, 'src/page-entry.js')], outfile: path.join(here, 'page', 'main.js'), plugins: [desktopPlugin] });
 fs.writeFileSync(path.join(here, 'page', 'app.css'), `/* generated from src/web/public/app.css */\n${DESKTOP(fs.readFileSync(path.join(app, 'app.css'), 'utf8'))}`);
-fs.copyFileSync(path.join(here, 'src', 'oc-theme.css'), path.join(here, 'page', 'oc-theme.css'));
+fs.writeFileSync(path.join(here, 'page', 'oc-theme.css'), DESKTOP(fs.readFileSync(path.join(here, 'src', 'oc-theme.css'), 'utf8')));
 const index = fs.readFileSync(path.join(app, 'index.html'), 'utf8');
 const body = index.slice(index.indexOf('<body'), index.indexOf('</body>'))
   .replace(/<body[^>]*>/, '')

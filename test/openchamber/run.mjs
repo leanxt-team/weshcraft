@@ -87,20 +87,26 @@ try {
 
   // ===== R. rail panel = the full interface, narrow and wide =====
   o = await open('openchamber/page/index.html', P1, { w: 480, h: 860, surface: 'panel' });
-  ok('rail (narrow): full interface, one view at a time', !!await waitFor(async () => (await o.f.locator('.phonebar').isVisible()) && /In sync/.test(await text(o)), 30000));
+  ok('rail (narrow): the desktop interface, no phone layout', !!await waitFor(async () => (await o.f.locator('.rail').isVisible()) && (await o.f.locator('.phonebar').isHidden()) && /In sync/.test(await text(o)), 30000));
   ok('rail (narrow): Design view with the canvas', !!await waitFor(async () => (await o.f.locator('#edScreen [data-node]').count()) > 10, 15000));
   await o.p.screenshot({ path: `${SHOTS}/r-rail-narrow-design.png` });
-  for (const v of ['specs', 'proto', 'links', 'read', 'design']) {
-    await o.f.locator(`.phonebar [data-view="${v}"]`).click(); await sleep(500);
-    ok(`rail (narrow): ${v} view`, (await o.frame().evaluate(() => document.body.dataset.view)) === v);
-    if (v === 'specs' || v === 'proto') await o.p.screenshot({ path: `${SHOTS}/r-rail-narrow-${v}.png` });
+  for (const v of ['proto', 'functions', 'links', 'architecture', 'design']) {
+    await o.f.locator(`.rail .tab[data-tab="${v}"]`).click(); await sleep(500);
+    const g = await o.frame().evaluate(() => ({ sec: document.body.dataset.section, sw: document.documentElement.scrollWidth, vw: document.documentElement.clientWidth }));
+    ok(`rail (narrow): ${v} section fits`, g.sec === v && g.sw <= g.vw + 1, JSON.stringify(g));
+    if (v === 'proto') await o.p.screenshot({ path: `${SHOTS}/r-rail-narrow-${v}.png` });
   }
-  await o.f.locator('.more').click(); await sleep(300);
-  ok('rail (narrow): actions sheet', await o.f.locator('#moreDlg').isVisible());
+  await o.f.locator('.stage-head .pane-toggle[data-panel="left"]').click(); await sleep(400);
+  ok('rail (narrow): « opens the spec list as a drawer', await o.f.locator('.builder').isVisible() && await o.frame().evaluate(() => document.body.classList.contains('dr-left')));
+  await o.p.screenshot({ path: `${SHOTS}/r-rail-narrow-specs.png` });
+  await o.p.keyboard.press('Escape'); await sleep(300);
+  ok('rail (narrow): Escape closes it', !(await o.f.locator('.builder').isVisible()));
+  await o.f.locator('#more').click(); await sleep(300);
+  ok('rail (narrow): actions menu', await o.f.locator('#moreDlg').isVisible());
   await o.p.keyboard.press('Escape');
   await o.p.close();
   o = await open('openchamber/page/index.html', P1, { w: 1240, h: 820, surface: 'panel', theme: 'dark' });
-  ok('rail (expanded): desktop layout', !!await waitFor(async () => (await o.f.locator('.phonebar').isHidden()) && (await o.f.locator('#edScreen [data-node]').count()) > 10, 30000));
+  ok('rail (expanded): desktop layout, side panels in columns', !!await waitFor(async () => (await o.f.locator('.phonebar').isHidden()) && (await o.f.locator('#edScreen [data-node]').count()) > 10 && await o.frame().evaluate(() => document.body.classList.contains('gr')), 30000));
   await o.p.screenshot({ path: `${SHOTS}/r-rail-wide-dark.png` });
   await o.p.close();
 
