@@ -65,11 +65,12 @@ for (const [w, h] of [[340, 700], [460, 860], [620, 800], [820, 800], [1024, 768
 o = await open(P1, 460, 860);
 await o.f.locator('#edScreen [data-node]').first().waitFor({ timeout: 30000 }); await o.p.waitForTimeout(600);
 await o.f.locator('.rail .tab[data-tab="proto"]').click(); await o.p.waitForTimeout(500);
-await o.f.locator('.stage-head .pane-toggle[data-panel="left"]').click(); await o.p.waitForTimeout(400);
-ok('narrow: « opens the spec list over the view', await fr().evaluate(() => document.body.classList.contains('dr-left') && getComputedStyle(document.querySelector('.builder')).position === 'absolute'));
+await o.f.locator('.stage-head .pane-toggle[data-panel="right"]').click(); await o.p.waitForTimeout(400);
+if (await o.f.locator('#specsBack').isVisible()) { await o.f.locator('#specsBack').click(); await o.p.waitForTimeout(300); }
+ok('narrow: » opens the Specs panel over the view, the list in it', await fr().evaluate(() => document.body.classList.contains('dr-right') && getComputedStyle(document.querySelector('.specs')).position === 'absolute' && document.querySelector('#specsPanel').dataset.mode === 'list'));
 await o.p.screenshot({ path: `${OUT}/n-specs.png` });
 await o.f.locator('#groups button.job').nth(5).click(); await o.p.waitForTimeout(800);
-ok('narrow: picking a spec swaps the list for the spec', await fr().evaluate(() => !document.body.classList.contains('dr-left') && document.body.classList.contains('dr-right') && /\w/.test(document.querySelector('#doc').innerText)));
+ok('narrow: picking a spec opens it in the same drawer', await fr().evaluate(() => document.body.classList.contains('dr-right') && document.querySelector('#specsPanel').dataset.mode === 'read' && /\w/.test(document.querySelector('#doc').innerText)));
 await o.p.screenshot({ path: `${OUT}/n-read.png` });
 await o.f.locator('.reader .drawer-close').click(); await o.p.waitForTimeout(300);
 ok('narrow: × closes the spec', await fr().evaluate(() => !document.body.classList.contains('dr-right')));

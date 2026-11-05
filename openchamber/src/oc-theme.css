@@ -34,8 +34,8 @@ html.oc .top, html.oc .builder, html.oc .stage, html.oc .reader, html.oc .log, h
 html.oc .top::before, html.oc .builder::before, html.oc .stage::before, html.oc .reader::before, html.oc dialog::before { display: none; }
 html.oc .top { border-bottom: 1px solid var(--oc-border); min-height: 44px; padding: 6px 10px 6px 14px; }
 html.oc .layout { gap: 0; }
-html.oc .builder { border-right: 1px solid var(--oc-border); }
-html.oc .reader { border-left: 1px solid var(--oc-border); }
+html.oc .specs { border-left: 1px solid var(--oc-border); }
+html.oc .specs > .builder, html.oc .specs > .reader { border: 0; }
 html.oc .log { justify-self: stretch; width: auto; display: block; border-top: 1px solid var(--oc-border); border-radius: 0; margin: 0; padding: 5px 14px; background: var(--oc-muted-surface); color: var(--oc-muted); font-size: 11.5px; }
 html.oc .tabs { border-bottom: 1px solid var(--oc-border); border-radius: 0; margin: 0; padding: 6px 8px; }
 html.oc dialog { border: 1px solid var(--oc-border); border-radius: calc(var(--oc-radius, 8px) + 4px); background: var(--oc-elevated, var(--oc-bg)); color: var(--oc-fg); box-shadow: 0 16px 48px rgba(0, 0, 0, .28); }
@@ -149,27 +149,26 @@ html.oc #moreDlg .sheet-group { display: grid; gap: 0; padding: 4px 0; border-to
 html.oc #moreDlg .sheet-group button { display: block; width: 100%; height: 30px; padding: 0 8px; border: 0; border-radius: calc(var(--oc-radius, 8px) - 2px); background: none; color: var(--oc-fg) !important; font: 13px/30px var(--oc-font, system-ui); text-align: left; cursor: pointer; }
 html.oc #moreDlg .sheet-group button:hover, html.oc #moreDlg .sheet-group button:focus-visible { background: var(--oc-hover); outline: none; }
 
-/* One row of columns: the spec list, the view, the spec. « and » fold each side; when the panel is
-   too narrow for a side, it becomes a drawer over the view (app.css: lay-mid, lay-narrow, dr-*).
-   The dividers set the widths (--oc-list, --oc-spec, --oc-edl, --oc-edr: set while dragging). */
-html.oc body { display: grid; grid-template-rows: minmax(0, 1fr) auto; height: 100vh; --L: minmax(200px, 250px); --S: minmax(320px, .9fr); } /* no header row: the blocks fill the height, the log line at the bottom */
-html.oc body.editing { --L: minmax(170px, 220px); --S: minmax(300px, .62fr); }
-html.oc body.lay-mid { --S: minmax(280px, .8fr); }
-html.oc body.lay-mid.editing { --S: minmax(260px, .55fr); }
+/* Two columns: the view and the Specs panel (the list, or one spec). » folds the panel; when the
+   panel is too narrow for it, it becomes a drawer over the view (app.css: lay-narrow, dr-right).
+   The dividers set the widths (--oc-spec, --oc-edl, --oc-edr: set while dragging). */
+html.oc body { display: grid; grid-template-rows: minmax(0, 1fr) auto; height: 100vh; --S: minmax(360px, .8fr); } /* no header row: the blocks fill the height, the log line at the bottom */
+html.oc body.editing { --S: minmax(320px, .48fr); }
 html.oc body > * + * { margin-top: 0; }
-html.oc .layout { position: relative; grid-template-rows: minmax(0, 1fr); grid-template-columns: var(--oc-list, var(--L)) minmax(0, 1fr) var(--oc-spec, var(--S)) !important; }
+html.oc .layout { position: relative; grid-template-rows: minmax(0, 1fr); grid-template-columns: minmax(0, 1fr) var(--oc-spec, var(--S)) !important; }
 html.oc .builder, html.oc .reader { display: flex; grid-column: auto; height: auto; }
-html.oc body.no-left .builder, html.oc body.no-right .reader { display: none; }
-html.oc body:not(.gl).gr .layout { grid-template-columns: minmax(0, 1fr) var(--oc-spec, var(--S)) !important; }
-html.oc body.gl:not(.gr) .layout { grid-template-columns: var(--oc-list, var(--L)) minmax(0, 1fr) !important; }
-html.oc body:not(.gl):not(.gr) .layout { grid-template-columns: minmax(0, 1fr) !important; }
+html.oc .specs[data-mode="list"] > .reader, html.oc .specs[data-mode="read"] > .builder { display: none; }
+html.oc body.no-right .specs { display: none; }
+html.oc body:not(.gr) .layout { grid-template-columns: minmax(0, 1fr) !important; }
 html.oc body.gel.ger .tabpanel.ed { grid-template-columns: var(--oc-edl, 176px) minmax(0, 1fr) var(--oc-edr, 244px); }
 html.oc body:not(.gel).ger .tabpanel.ed { grid-template-columns: minmax(0, 1fr) var(--oc-edr, 244px); }
 html.oc body.gel:not(.ger) .tabpanel.ed { grid-template-columns: var(--oc-edl, 176px) minmax(0, 1fr); }
 html.oc body:not(.gel):not(.ger) .tabpanel.ed { grid-template-columns: minmax(0, 1fr); }
 /* drawers, flat: a border and a shadow */
-html.oc body.dr-left .builder, html.oc body.dr-right .reader, html.oc body.dr-edl .tabpanel.ed > .ed-left, html.oc body.dr-edr .tabpanel.ed > .ed-right { background: var(--oc-bg); border: 1px solid var(--oc-border); box-shadow: 0 12px 32px rgba(0, 0, 0, .22); }
-html.oc body.dr-left .layout::after, html.oc body.dr-right .layout::after { border-radius: 0; background: rgba(0, 0, 0, .14); }
+html.oc body.dr-right .specs, html.oc body.dr-edl .tabpanel.ed > .ed-left, html.oc body.dr-edr .tabpanel.ed > .ed-right { background: var(--oc-bg); border: 0; border-left: 1px solid var(--oc-border); border-radius: 0; box-shadow: -12px 0 32px rgba(0, 0, 0, .18); }
+html.oc body.dr-edl .tabpanel.ed > .ed-left { border-left: 0; border-right: 1px solid var(--oc-border); box-shadow: 12px 0 32px rgba(0, 0, 0, .18); }
+html.oc body.dr-right .specs > * { background: var(--oc-bg); }
+html.oc body.dr-right .layout::after { border-radius: 0; background: rgba(0, 0, 0, .14); }
 html.oc .drawer-close { border-radius: calc(var(--oc-radius, 8px) - 2px); }
 html.oc .drawer-close:hover { background: var(--oc-hover); }
 /* small panels: the rail gets slimmer */

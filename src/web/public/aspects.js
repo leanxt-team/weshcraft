@@ -2,6 +2,7 @@
 // Each one is drawn natively from the manifest (no library), clicks through to its spec, and —
 // when the design is editable here — edits what it holds (logic, architecture) in one undo step.
 import { matchTech, techIcon, techFacts, searchTech, CATEGORIES, BY_ID, KIND_GENERIC } from '/app/techcatalog.js';
+import { spreadEnds, separateLabels, labelWidth } from '/app/wires.js';
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const opLabel = o => `${o.method} ${o.path}`;
 const plural = (n, w, p = `${w}s`) => `${n} ${n === 1 ? w : p}`;
@@ -186,19 +187,30 @@ export function createLogicView({ root, getManifest, isEditable, openFile, log }
       const first = pos('__start'), init = pos(x.initial);
       if (first && init) out.push(`<path class="arc start" d="M${first.r} ${(first.t + first.b) / 2} L${init.l} ${(init.t + init.b) / 2}" marker-end="url(#lgA-${x.key})"/>`);
       const labels = [];
-      x.transitions.forEach((t, i) => {
+      const arcs = [];
+      x.transitions.forEach(t => {
         const froms = t.from === '*' ? x.states.filter(s => s !== t.to) : [t.from];
         for (const f of froms) {
           const a = pos(f), b = pos(t.to);
           if (!a || !b) continue;
           const fwd = b.x > a.x;
-          const y = fwd ? a.t : a.b;
-          const h = Math.min(46, 16 + Math.abs(b.x - a.x) / 5) * (fwd ? -1 : 1);
-          out.push(`<path class="arc${t.from === '*' ? ' any' : ''}${t.op ? '' : ' manual'}" d="M${a.x} ${y} C${a.x} ${y + h} ${b.x} ${y + h} ${b.x} ${y}" marker-end="url(#lgA-${x.key})"/>`);
-          if (froms.length === 1 || f === froms[0]) labels.push({ x: (a.x + b.x) / 2, y: y + h * 0.78, text: t.via || (t.from === '*' ? 'from any' : '') });
+          // forward above the states, backward below; each arc its own points on the pills
+          const side = fwd ? 't' : 'b';
+          arcs.push({ t, f, first: froms.length === 1 || f === froms[0], fwd, a, b, A: { side: `${f}:${side}`, lo: a.l, hi: a.r, toward: b.x }, B: { side: `${t.to}:${side}`, lo: b.l, hi: b.r, toward: a.x } });
         }
       });
-      g.innerHTML = out.join('') + labels.filter(l => l.text).map(l => `<text x="${l.x}" y="${l.y}" text-anchor="middle">${esc(l.text.length > 28 ? `${l.text.slice(0, 27)}…` : l.text)}</text>`).join('');
+      spreadEnds(arcs.flatMap(k => [k.A, k.B]), { gap: 8, pad: 6 });
+      // longer jumps arc higher, so arcs nest instead of crossing
+      const lens = [...new Set(arcs.map(k => Math.round(Math.abs(k.b.x - k.a.x))))].sort((p, q) => p - q);
+      for (const k of arcs) {
+        const y = k.fwd ? k.a.t : k.a.b;
+        const h = (24 + lens.indexOf(Math.round(Math.abs(k.b.x - k.a.x))) * 16) * (k.fwd ? -1 : 1);
+        out.push(`<path class="arc${k.t.from === '*' ? ' any' : ''}${k.t.op ? '' : ' manual'}" d="M${k.A.at} ${y} C${k.A.at} ${y + h} ${k.B.at} ${y + h} ${k.B.at} ${y}" marker-end="url(#lgA-${x.key})"/>`);
+        const text = k.t.via || (k.t.from === '*' ? 'from any' : '');
+        if (k.first && text) { const short = text.length > 28 ? `${text.slice(0, 27)}…` : text; labels.push({ x: (k.A.at + k.B.at) / 2, y: y + h * 0.75 + (k.fwd ? -7 : 9), w: labelWidth(short, 10), h: 12, text: short }); }
+      }
+      separateLabels(labels, { margin: 2 });
+      g.innerHTML = out.join('') + labels.map(l => `<text x="${l.x}" y="${l.y + 3}" text-anchor="middle">${esc(l.text)}</text>`).join('');
       const svg = box.querySelector('.lg-arcs');
       svg.setAttribute('width', box.scrollWidth); svg.setAttribute('height', box.scrollHeight);
     }
@@ -306,15 +318,22 @@ export function createDataView({ root, getManifest, openFile, log }) {
     const base = wrap.getBoundingClientRect();
     svg.setAttribute('width', wrap.scrollWidth); svg.setAttribute('height', wrap.scrollHeight);
     const out = [];
+    const rels = [];
     for (const e of m.data.entities) for (const r of e.relations) {
       const from = wrap.querySelector(`.dt-card[data-e="${CSS.escape(e.name)}"] [data-f="${CSS.escape(r.field)}"]`);
       const to = wrap.querySelector(`.dt-card[data-e="${CSS.escape(r.to)}"] header`);
       if (!from || !to) continue;
       const a = from.getBoundingClientRect(), b = to.getBoundingClientRect();
-      const ax = (b.left > a.right ? a.right : a.left) - base.left, ay = (a.top + a.bottom) / 2 - base.top;
-      const bx = (b.left > a.right ? b.left : b.right) - base.left, by = (b.top + b.bottom) / 2 - base.top;
+      const right = b.left > a.right;
+      const ax = (right ? a.right : a.left) - base.left, ay = (a.top + a.bottom) / 2 - base.top;
+      const bx = (right ? b.left : b.right) - base.left;
+      // several relations into one card: each arrives at its own point of the header
+      rels.push({ on: !sel || sel === e.name || sel === r.to, ax, ay, bx, end: { side: `${r.to}:${right ? 'l' : 'r'}`, lo: b.top - base.top, hi: b.bottom - base.top, toward: ay } });
+    }
+    spreadEnds(rels.map(x => x.end), { gap: 6, pad: 4 });
+    for (const { on, ax, ay, bx, end } of rels) {
+      const by = end.at;
       const dx = Math.max(30, Math.abs(bx - ax) / 2) * (bx > ax ? 1 : -1);
-      const on = !sel || sel === e.name || sel === r.to;
       out.push(`<path class="w${on ? '' : ' off'}" d="M${ax} ${ay} C${ax + dx} ${ay} ${bx - dx} ${by} ${bx} ${by}" marker-end="url(#dtA)"/><circle class="w-dot${on ? '' : ' off'}" cx="${ax}" cy="${ay}" r="3"/>`);
     }
     svg.querySelector('g').innerHTML = out.join('');
@@ -429,23 +448,60 @@ export function createArchitectureView({ root, getManifest, getTrace = () => nul
     const stacked = getComputedStyle(wrap).display !== 'grid';
     const base = wrap.getBoundingClientRect();
     svg.setAttribute('width', wrap.scrollWidth); svg.setAttribute('height', wrap.scrollHeight);
+    const lsvg = wrap.querySelector('.ar-labels');
+    lsvg?.setAttribute('width', wrap.scrollWidth); lsvg?.setAttribute('height', wrap.scrollHeight);
+    const colsEl = [...wrap.querySelectorAll('.ar-col')];
+    const colBottom = i => Math.max(0, ...[...colsEl[i].querySelectorAll('.ar-card')].map(c => c.getBoundingClientRect().bottom - base.top));
     const box = k => { const el = wrap.querySelector(`.ar-card[data-c="${CSS.escape(k)}"]`); if (!el) return null; const r = el.getBoundingClientRect(); return { l: r.left - base.left, r: r.right - base.left, y: (r.top + r.bottom) / 2 - base.top, t: r.top - base.top, b: r.bottom - base.top, col: el.closest('.ar-col') }; };
     const out = [];
+    // each link gets its own point on the sides it meets, ordered toward the other card (fewer crossings)
+    const links = [];
     for (const l of m.architecture.links) {
       const a = box(l.from), b = box(l.to);
       if (!a || !b) continue;
       const on = !sel || sel === l.from || sel === l.to;
-      let d, lx, ly;
       if (stacked && a.col !== b.col) {
-        // layers top to bottom: from the bottom of one card to the top of the next
         const down = b.t > a.b;
-        const x1 = (a.l + a.r) / 2, x2 = (b.l + b.r) / 2, y1 = down ? a.b : a.t, y2 = down ? b.t : b.b, my = (y2 - y1) / 2;
-        d = `M${x1} ${y1} C${x1} ${y1 + my} ${x2} ${y2 - my} ${x2} ${y2}`; lx = x1 + (x2 - x1) * 0.62; ly = y1 + (y2 - y1) * 0.5; // toward the target: links leaving one card keep their labels apart
-      } else if (a.col === b.col) { const x = a.r, bend = 26; d = `M${x} ${a.y} C${x + bend} ${a.y} ${x + bend} ${b.y} ${x} ${b.y}`; lx = x + bend; ly = (a.y + b.y) / 2; }
-      else { const fwd = b.l > a.r; const x1 = fwd ? a.r : a.l, x2 = fwd ? b.l : b.r, mx = (x2 - x1) / 2; d = `M${x1} ${a.y} C${x1 + mx} ${a.y} ${x2 - mx} ${b.y} ${x2} ${b.y}`; lx = (x1 + x2) / 2; ly = (a.y + b.y) / 2; }
-      out.push(`<path class="w${on ? '' : ' off'}" d="${d}" marker-end="url(#arA)"/>`);
-      if (l.label && on) out.push(`<g class="lbl"><rect x="${lx - l.label.length * 3.2 - 6}" y="${ly - 9}" width="${l.label.length * 6.4 + 12}" height="18" rx="9"/><text x="${lx}" y="${ly + 4}" text-anchor="middle">${esc(l.label)}</text></g>`);
+        links.push({ l, on, mode: 'v', down, a: { side: `${l.from}:${down ? 'b' : 't'}`, lo: a.l, hi: a.r, toward: (b.l + b.r) / 2 }, b: { side: `${l.to}:${down ? 't' : 'b'}`, lo: b.l, hi: b.r, toward: (a.l + a.r) / 2 }, A: a, B: b });
+      } else if (a.col === b.col) {
+        links.push({ l, on, mode: 'same', a: { side: `${l.from}:r`, lo: a.t, hi: a.b, toward: b.y }, b: { side: `${l.to}:r`, lo: b.t, hi: b.b, toward: a.y }, A: a, B: b });
+      } else {
+        const fwd = b.l > a.r;
+        const ia = colsEl.indexOf(a.col), ib = colsEl.indexOf(b.col);
+        // a link that jumps over a column goes round its cards, through a lane below them
+        const skip = Math.abs(ib - ia) > 1 ? Math.max(...Array.from({ length: Math.abs(ib - ia) - 1 }, (_, j) => colBottom(Math.min(ia, ib) + 1 + j))) : null;
+        links.push({ l, on, mode: 'h', fwd, skip, a: { side: `${l.from}:${fwd ? 'r' : 'l'}`, lo: a.t, hi: a.b, toward: b.y }, b: { side: `${l.to}:${fwd ? 'l' : 'r'}`, lo: b.t, hi: b.b, toward: a.y }, A: a, B: b });
+      }
     }
+    spreadEnds(links.flatMap(k => [k.a, k.b]), { gap: 12 });
+    const labels = [];
+    let lanes = 0;
+    links.forEach((k, i) => {
+      const { A: a, B: b } = k;
+      let d, lx, ly;
+      if (k.mode === 'v') {
+        const x1 = k.a.at, x2 = k.b.at, y1 = k.down ? a.b : a.t, y2 = k.down ? b.t : b.b, my = (y2 - y1) / 2;
+        d = `M${x1} ${y1} C${x1} ${y1 + my} ${x2} ${y2 - my} ${x2} ${y2}`; lx = x1 + (x2 - x1) * 0.6; ly = y1 + (y2 - y1) * 0.5;
+      } else if (k.mode === 'same') {
+        const x = a.r, bend = 22 + (i % 3) * 10; d = `M${x} ${k.a.at} C${x + bend} ${k.a.at} ${x + bend} ${k.b.at} ${x} ${k.b.at}`; lx = x + bend * 0.75; ly = (k.a.at + k.b.at) / 2;
+      } else if (k.skip != null) {
+        const x1 = k.fwd ? a.r : a.l, x2 = k.fwd ? b.l : b.r, s = k.fwd ? 1 : -1;
+        const lane = k.skip + 18 + (lanes++) * 12;
+        d = `M${x1} ${k.a.at} C${x1 + 26 * s} ${k.a.at} ${x1 + 6 * s} ${lane} ${x1 + 32 * s} ${lane} L${x2 - 32 * s} ${lane} C${x2 - 6 * s} ${lane} ${x2 - 26 * s} ${k.b.at} ${x2} ${k.b.at}`;
+        lx = (x1 + x2) / 2; ly = lane;
+      } else {
+        const x1 = k.fwd ? a.r : a.l, x2 = k.fwd ? b.l : b.r, mx = (x2 - x1) / 2;
+        d = `M${x1} ${k.a.at} C${x1 + mx} ${k.a.at} ${x2 - mx} ${k.b.at} ${x2} ${k.b.at}`; lx = x1 + (x2 - x1) * 0.5; ly = (k.a.at + k.b.at) / 2;
+      }
+      out.push(`<path class="w${k.on ? '' : ' off'}" d="${d}" marker-end="url(#arA)"/>`);
+      if (k.l.label && k.on) labels.push({ x: lx, y: ly, w: labelWidth(k.l.label), h: 18, text: k.l.label });
+    });
+    separateLabels(labels);
+    // labels above the cards, so none hides behind one
+    const lout = labels.map(t => `<g class="lbl"><rect x="${t.x - t.w / 2}" y="${t.y - 9}" width="${t.w}" height="18" rx="9"/><text x="${t.x}" y="${t.y + 4}" text-anchor="middle">${esc(t.text)}</text></g>`).join('');
+    if (lsvg) lsvg.querySelector('g').innerHTML = lout; else out.push(lout);
+    // room for the lanes under the cards
+    wrap.style.paddingBottom = lanes ? `${18 + lanes * 12}px` : '';
     svg.querySelector('g').innerHTML = out.join('');
   }
   function render() {
@@ -468,8 +524,12 @@ export function createArchitectureView({ root, getManifest, getTrace = () => nul
     root.innerHTML = `${productNav('architecture')}
       ${head('Architecture', `${plural(a.components.length, 'component')}, ${plural(a.links.length, 'link')}.`, `${editable ? '<button type="button" class="btn small" id="arAdd">+ Component</button><button type="button" class="btn small" id="arLink">+ Link</button>' : ''}<button type="button" class="btn ghost small" data-open="specs/ARCHITECTURE.md">Spec</button>`)}
       ${!a.declared ? banner('<strong>Suggested.</strong> From the design, the API and the MCP surface. Keep it, then name the real technologies, services, stores and external systems.', editable, 'arKeep') : ''}
-      <div class="ar-cols">${cols.map(([label, list]) => `<div class="ar-col"><h4>${esc(label)}</h4>${list.map(card).join('') || '<p class="av-empty small">—</p>'}</div>`).join('')}<svg class="ar-wires" aria-hidden="true"><defs><marker id="arA" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z"/></marker></defs><g></g></svg></div>
+      <div class="ar-cols">${cols.map(([label, list]) => `<div class="ar-col"><h4>${esc(label)}</h4>${list.map(card).join('') || '<p class="av-empty small">—</p>'}</div>`).join('')}<svg class="ar-wires" aria-hidden="true"><defs><marker id="arA" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z"/></marker></defs><g></g></svg><svg class="ar-wires ar-labels" aria-hidden="true"><g></g></svg></div>
       <div class="fn-detail" id="arDetail">${detailHtml(m, a)}</div>`;
+    // the gap between layers fits the longest link label, so labels sit between the cards, not on them
+    const longest = Math.max(0, ...a.links.map(l => (l.label ? labelWidth(l.label) : 0)));
+    const colsBox = root.querySelector('.ar-cols');
+    if (colsBox) colsBox.style.columnGap = `${Math.round(Math.min(120, Math.max(44, longest + 12)))}px`;
     requestAnimationFrame(draw);
   }
   function detailHtml(m, a) {

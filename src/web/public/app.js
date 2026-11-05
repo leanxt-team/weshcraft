@@ -3,6 +3,7 @@
 import { createEditor } from '/app/editor.js';
 import { createFunctionsView } from '/app/functions.js';
 import { createLogicView, createDataView, createApiView, createArchitectureView } from '/app/aspects.js';
+import { spreadEnds } from '/app/wires.js';
 import { buildTree, folderAt, countItems, allFolders, addFolder, renameFolder, removeFolder, moveItem, moveFolder } from '/app/spectree.js';
 
 const $ = s => document.querySelector(s);
@@ -108,6 +109,13 @@ const ICON = {
 let stored = null; // the saved folders, before current specs are placed
 let renaming = null; // path string of the folder being renamed
 let rendering = false;
+/** The folders a spec sits in, for the spec's head ("Front end › Screens"). */
+function crumbFor(id) {
+  if (!state.jobs.size) return '';
+  const t = currentTree();
+  const hit = allFolders(t).find(([p]) => folderAt(t, p).items.includes(id));
+  return hit ? hit[1].join(' › ') : '';
+}
 function currentTree() { return buildTree(stored, [...state.jobs.keys()]); }
 async function loadSpecTree() {
   try { const r = await fetch('/api/spec-tree'); if (r.ok) { stored = (await r.json()).tree; renderTree(); } } catch { /* offline: defaults */ }
@@ -302,6 +310,7 @@ async function openJob(id, anchor) {
   state.current = id;
   renderJobs();
   $('#specTitle').textContent = j.title;
+  $('#specCrumb').textContent = crumbFor(id);
   $('#editNotes').disabled = ['queued', 'writing', 'agent'].includes(j.status);
   $('#notesForm').hidden = true;
   let md = j.preview;
@@ -449,10 +458,11 @@ function setView(v) {
   $('#raw').hidden = v !== 'raw';
 }
 function openFile(target) {
+  specsMode('read');
   const [file, anchor] = target.split('#');
   const j = [...state.jobs.values()].find(x => x.file === file);
   if (j) return openJob(j.id, anchor);
-  fetch(`/out/${file}`).then(r => (r.ok ? r.text() : null)).then(md => { state.current = null; renderJobs(); $('#specTitle').textContent = file; showDoc(md, file); scrollToAnchor(anchor); });
+  fetch(`/out/${file}`).then(r => (r.ok ? r.text() : null)).then(md => { state.current = null; renderJobs(); $('#specTitle').textContent = file; $('#specCrumb').textContent = ''; showDoc(md, file); scrollToAnchor(anchor); });
 }
 
 // While designing, a spec reader beside the editor (OpenChamber panel) follows the screen being edited.
@@ -464,7 +474,7 @@ document.addEventListener('weshcraft:screen', e => {
 
 // ---- product functions -----------------------------------------------------------------------
 // Logic, Data, API & MCP, Architecture: the product's other aspects.
-const showSpec = () => { if (!phone.matches && !panelState().right) setPanel('right', true); };
+const showSpec = () => { if (phone.matches) return; specsMode('read'); if (!panelState().right) setPanel('right', true); };
 const aspectOpts = { getManifest: () => state.manifest, getTrace: () => state.trace, isEditable: () => !!state.editable, openFile: f => { openFile(f); if (phone.matches) setPhoneView('read'); else showSpec(); }, log };
 const aspects = {
   logic: createLogicView({ ...aspectOpts, root: $('#logicview') }),
@@ -546,16 +556,23 @@ function drawWires() {
   const base = wrap.getBoundingClientRect();
   svg.setAttribute('width', wrap.scrollWidth);
   svg.setAttribute('height', wrap.scrollHeight);
-  const pos = k => { const el = wrap.querySelector(`[data-k="${CSS.escape(k)}"]`); if (!el) return null; const r = el.getBoundingClientRect(); return { l: r.left - base.left, r: r.right - base.left, y: r.top - base.top + r.height / 2 }; };
+  const pos = k => { const el = wrap.querySelector(`[data-k="${CSS.escape(k)}"]`); if (!el) return null; const r = el.getBoundingClientRect(); return { l: r.left - base.left, r: r.right - base.left, y: r.top - base.top + r.height / 2, h: r.height }; };
   const sel = state.linkSel;
-  svg.innerHTML = state.graph.edges.map(x => {
+  // each wire its own point on the rows it joins, ordered toward the other end (fewer crossings)
+  const ws = [];
+  for (const x of state.graph.edges) {
     const a = pos(x.a), b = pos(x.b);
-    if (!a || !b) return '';
-    const [p, q] = a.l < b.l ? [a, b] : [b, a];
+    if (!a || !b) continue;
+    const [p, q, pk, qk] = a.l < b.l ? [a, b, x.a, x.b] : [b, a, x.b, x.a];
+    const half = s => Math.max(2, (s.h ?? 20) / 2 - 3);
+    ws.push({ x, p, q, P: { side: `${pk}:r`, lo: p.y - half(p), hi: p.y + half(p), toward: q.y }, Q: { side: `${qk}:l`, lo: q.y - half(q), hi: q.y + half(q), toward: p.y } });
+  }
+  spreadEnds(ws.flatMap(w => [w.P, w.Q]), { gap: 4, pad: 0 });
+  svg.innerHTML = ws.map(({ x, p, q, P, Q }) => {
     const x1 = p.r, x2 = q.l, mid = (x2 - x1) / 2;
     const cls = x.rel === 'returns' ? 'ret' : x.rel === 'displays' ? 'field' : 'op';
     const on = sel && sel.has(x.a) && sel.has(x.b);
-    return `<path class="w ${cls}${sel ? (on ? ' on' : ' off') : ''}" d="M${x1} ${p.y} C${x1 + mid} ${p.y} ${x2 - mid} ${q.y} ${x2} ${q.y}"/>`;
+    return `<path class="w ${cls}${sel ? (on ? ' on' : ' off') : ''}" d="M${x1} ${P.at} C${x1 + mid} ${P.at} ${x2 - mid} ${Q.at} ${x2} ${Q.at}"/>`;
   }).join('');
 }
 function selectLink(k, { open = true } = {}) {
@@ -649,7 +666,7 @@ window.addEventListener('message', e => {
   if (m.weshcraft === 'screen') state.protoScreen = m.key;
   if (m.weshcraft === 'screen' && $('#follow').checked) {
     const j = state.jobs.get(m.key === 'surface-mcp' ? 'front:mcp' : m.key === 'surface-api' ? 'front:api' : `front:screen:${m.key}`);
-    if (j && state.current !== j.id) openJob(j.id);
+    if (j && state.current !== j.id) { openJob(j.id); specsMode('read'); }
   }
 });
 
@@ -750,7 +767,17 @@ async function run(force) {
 // ---- wiring ----------------------------------------------------------------------------------
 $('#groups').addEventListener('click', e => { const b = e.target.closest('button.job'); if (b) { openJob(b.dataset.id); pickedInList(); } });
 // A spec picked in the list: the list drawer (if it is one) gives way to the spec.
-function pickedInList() { if (phone.matches) return; if (overlay('left')) drawer.left = false; if (!panelState().right) setPanel('right', true); else applyPanels(); }
+function pickedInList() { if (phone.matches) return; specsMode('read'); if (!panelState().right) setPanel('right', true); }
+// The Specs panel shows the list or one spec; ‹ Specs goes back to the list, where you were.
+let listScroll = 0;
+function specsMode(m) {
+  const p = $('#specsPanel');
+  if (!p || p.dataset.mode === m) return;
+  if (m === 'read') listScroll = $('.specs .builder').scrollTop;
+  p.dataset.mode = m;
+  if (m === 'list') requestAnimationFrame(() => { const b = $('.specs .builder'); b.scrollTop = listScroll; $('#groups .job[aria-current="true"]')?.scrollIntoView({ block: 'nearest' }); });
+}
+$('#specsBack').addEventListener('click', () => { specsMode('list'); $('#groups .job[aria-current="true"]')?.focus({ preventScroll: true }); });
 $('#issues').addEventListener('click', e => {
   const li = e.target.closest('li[data-file]');
   if (!li) return;
@@ -781,24 +808,21 @@ const PANEL_KEY = 'weshcraft.panels.v3';
 let panelPrefs = {};
 try { panelPrefs = JSON.parse(localStorage.getItem(PANEL_KEY) || '{}'); } catch { /* storage blocked */ }
 const section = () => document.body.dataset.section || 'proto';
-const chosen = () => ({ left: true, right: true, edl: true, edr: true, ...panelPrefs });
-const PANEL_LABEL = { left: 'the spec list', right: 'the spec', edl: 'screens and layers', edr: 'the inspector' };
-// When the room runs out, side panels stop squeezing the view: they slide over it as drawers,
-// opened by the same « » and closed again by a click beside them or Escape (not remembered).
-//   wide:   spec list · view · spec, as chosen
-//   mid:    the spec list becomes a drawer
-//   narrow: the spec too (one at a time)
-// The editor does the same inside the view: screens/layers and the inspector become drawers when
-// the canvas would get too small. Phones keep their own one-view layout (standalone browser only).
-const drawer = { left: false, right: false, edl: false, edr: false };
+const chosen = () => ({ right: true, edl: true, edr: true, ...panelPrefs });
+const PANEL_LABEL = { right: 'the specs', edl: 'screens and layers', edr: 'the inspector' };
+// One Specs panel beside the view: the list of specs, and the spec you open in it (back to the list
+// with ‹ Specs). When the room runs out it stops squeezing the view and slides over it as a drawer,
+// opened by the same » and closed again by a click beside it, × or Escape (not remembered). The
+// editor does the same inside the view: screens/layers and the inspector become drawers when the
+// canvas would get too small. Phones keep their own one-view layout (standalone browser only).
+const drawer = { right: false, edl: false, edr: false };
 let lay = 'wide', edTight = false;
-const overlay = k => (k === 'left' ? lay !== 'wide' : k === 'right' ? lay === 'narrow' : edTight);
+const overlay = k => (k === 'right' ? lay === 'narrow' : edTight);
 const panelState = () => { const c = chosen(); return Object.fromEntries(Object.keys(drawer).map(k => [k, overlay(k) ? drawer[k] : c[k]])); };
 function measureLayout() {
   const w = $('.layout')?.clientWidth ?? innerWidth;
-  const ed = document.body.classList.contains('editing');
-  const next = w >= (ed ? 1360 : 1080) ? 'wide' : w >= (ed ? 900 : 760) ? 'mid' : 'narrow'; // designing: the canvas and its panes first
-  if (next !== lay) { lay = next; drawer.left = drawer.right = false; }
+  const next = w >= (document.body.classList.contains('editing') ? 980 : 780) ? 'wide' : 'narrow';
+  if (next !== lay) { lay = next; drawer.right = false; }
 }
 function measureEditor() {
   const st = $('.stage');
@@ -825,9 +849,9 @@ function applyPanels() {
       });
     }
     // which side panels take a column (the others are hidden or drawers)
-    set('gl', st.left && !overlay('left')); set('gr', st.right && !overlay('right'));
+    set('gr', st.right && !overlay('right'));
     set('gel', st.edl && !overlay('edl')); set('ger', st.edr && !overlay('edr'));
-    for (const l of ['wide', 'mid', 'narrow']) set(`lay-${l}`, lay === l);
+    for (const l of ['wide', 'narrow']) set(`lay-${l}`, lay === l);
     set('ed-tight', edTight);
   };
   paint();
@@ -837,7 +861,7 @@ function setPanel(k, open) {
   if (overlay(k)) {
     drawer[k] = open;
     // one drawer per side pair at a time
-    if (open) { const pair = { left: 'right', right: 'left', edl: 'edr', edr: 'edl' }[k]; if (overlay(pair)) drawer[pair] = false; }
+    if (open && k !== 'right') { const pair = k === 'edl' ? 'edr' : 'edl'; if (overlay(pair)) drawer[pair] = false; }
   } else {
     panelPrefs = { ...panelPrefs, [k]: open };
     try { localStorage.setItem(PANEL_KEY, JSON.stringify(panelPrefs)); } catch { /* storage blocked */ }
@@ -849,7 +873,7 @@ const closeDrawers = (keys = Object.keys(drawer)) => { let any = false; for (con
 // A click beside an open drawer (on the dimmed view) closes it; Escape closes the top one.
 document.addEventListener('pointerdown', e => {
   if (e.target.closest('.pane-toggle, dialog, .t-menu, .ed-menu')) return;
-  if ((drawer.left || drawer.right) && !e.target.closest('body.dr-left .builder, body.dr-right .reader') && e.target.closest('.layout')) closeDrawers(['left', 'right']);
+  if (drawer.right && !e.target.closest('body.dr-right .specs') && e.target.closest('.layout')) closeDrawers(['right']);
 }, true);
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && !e.defaultPrevented && !document.querySelector('dialog[open]') && closeDrawers()) e.preventDefault(); });
 document.addEventListener('click', e => { const c = e.target.closest('[data-close-drawer]'); if (c) setPanel(c.dataset.closeDrawer, false); });
@@ -877,7 +901,7 @@ function selectTab(t) {
   const sb = document.querySelector(`.tab[data-tab="${t}"] span`);
   if (sb) $('#sectionTitle').textContent = sb.textContent;
   document.body.classList.toggle('editing', t === 'design');
-  closeDrawers(['left', 'right']);
+  closeDrawers(['right']);
   applyPanels();
   document.querySelectorAll('.tabpanel').forEach(p => {
     const show = p.dataset.panel === t;

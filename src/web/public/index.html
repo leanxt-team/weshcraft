@@ -28,22 +28,9 @@
 </header>
 
 <main class="layout">
-  <aside class="builder" aria-label="Spec builder">
-    <div class="pane-head">
-      <h2>Specs</h2>
-      <span class="count" id="count"></span>
-      <button type="button" class="drawer-close" data-close-drawer="left" aria-label="Close the spec list" title="Close">×</button>
-      <button type="button" class="t-addroot" id="addFolder" title="New folder" aria-label="New folder"><svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M1.75 4.25c0-.83.67-1.5 1.5-1.5h3l1.5 1.5h5c.83 0 1.5.67 1.5 1.5v6c0 .83-.67 1.5-1.5 1.5h-9.5c-.83 0-1.5-.67-1.5-1.5z" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/><path d="M8 7v4M6 9h4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg></button>
-    </div>
-    <div class="progress" aria-hidden="true"><div class="bar" id="bar"></div></div>
-    <div class="groups" id="groups"><p class="empty">Waiting for the first run…</p></div>
-    <div class="pane-head small"><h2>Parity</h2><span class="count" id="issuesCount"></span></div>
-    <ul class="issues" id="issues"></ul>
-  </aside>
 
   <section class="stage" aria-label="Prototype">
     <div class="stage-head">
-      <button type="button" class="pane-toggle" data-panel="left" aria-label="Hide the spec list" title="Hide the spec list"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 6l-6 6 6 6M19 6l-6 6 6 6"/></svg></button>
       <h2 id="sectionTitle">Prototype</h2>
       <div class="spacer"></div>
       <div class="stage-tools">
@@ -101,27 +88,42 @@
     <div class="tabpanel scroll" data-panel="manifest" hidden><pre id="manifest" class="mono"></pre></div>
   </section>
 
-  <section class="reader" aria-label="Spec">
-    <div class="pane-head">
-      <button type="button" class="back" id="backToList" aria-label="Back to specs"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></button>
-      <button type="button" class="drawer-close" data-close-drawer="right" aria-label="Close the spec" title="Close">×</button>
-      <h2 id="specTitle">Spec</h2>
-      <div class="spacer"></div>
-      <div class="seg" role="tablist">
-        <button type="button" class="segbtn" aria-pressed="true" data-view="read">Read</button>
-        <button type="button" class="segbtn" aria-pressed="false" data-view="raw">Markdown</button>
+  <aside class="specs" id="specsPanel" data-mode="list" aria-label="Specs">
+    <aside class="builder" aria-label="Spec list">
+      <div class="pane-head">
+        <h2>Specs</h2>
+        <span class="count" id="count"></span>
+        <button type="button" class="drawer-close" data-close-drawer="right" aria-label="Close the specs" title="Close">×</button>
+        <button type="button" class="t-addroot" id="addFolder" title="New folder" aria-label="New folder"><svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M1.75 4.25c0-.83.67-1.5 1.5-1.5h3l1.5 1.5h5c.83 0 1.5.67 1.5 1.5v6c0 .83-.67 1.5-1.5 1.5h-9.5c-.83 0-1.5-.67-1.5-1.5z" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/><path d="M8 7v4M6 9h4" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg></button>
       </div>
-      <button type="button" class="btn ghost small" id="editNotes" disabled>Edit notes</button>
-    </div>
-    <div class="stream" id="stream" hidden><div class="stream-head"><span class="pulse"></span>Agent writing notes…</div><pre id="streamText"></pre></div>
-    <article class="doc" id="doc"><p class="empty">Pick a spec on the left, or click a screen in the prototype.</p></article>
-    <pre class="doc raw mono" id="raw" hidden></pre>
-    <form class="notes" id="notesForm" hidden>
-      <label for="notesText">Notes (states, edge cases, a11y, analytics, questions). Cite layers as <code>`#id`</code>.</label>
-      <textarea id="notesText" rows="12"></textarea>
-      <div class="row"><button class="btn primary" type="submit">Save notes</button><button class="btn ghost" type="button" id="cancelNotes">Cancel</button></div>
-    </form>
-  </section>
+      <div class="progress" aria-hidden="true"><div class="bar" id="bar"></div></div>
+      <div class="groups" id="groups"><p class="empty">Waiting for the first run…</p></div>
+      <div class="pane-head small"><h2>Parity</h2><span class="count" id="issuesCount"></span></div>
+      <ul class="issues" id="issues"></ul>
+    </aside>
+    <section class="reader" aria-label="Spec">
+      <div class="pane-head">
+        <button type="button" class="back" id="backToList" aria-label="Back to specs"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></button>
+        <button type="button" class="specs-back" id="specsBack" aria-label="All specs" title="All specs"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg><span>Specs</span></button>
+        <div class="spec-name"><span class="spec-crumb" id="specCrumb"></span><h2 id="specTitle">Spec</h2></div>
+        <div class="spacer"></div>
+        <div class="seg" role="tablist">
+          <button type="button" class="segbtn" aria-pressed="true" data-view="read">Read</button>
+          <button type="button" class="segbtn" aria-pressed="false" data-view="raw" title="The Markdown source">MD</button>
+        </div>
+        <button type="button" class="icon-btn" id="editNotes" disabled title="Edit notes" aria-label="Edit notes"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20l4-1 11-11-3-3L5 16z"/><path d="M14 7l3 3"/></svg></button>
+        <button type="button" class="drawer-close" data-close-drawer="right" aria-label="Close the specs" title="Close">×</button>
+      </div>
+      <div class="stream" id="stream" hidden><div class="stream-head"><span class="pulse"></span>Agent writing notes…</div><pre id="streamText"></pre></div>
+      <article class="doc" id="doc"><p class="empty">Pick a spec in the list, or click a screen in the prototype.</p></article>
+      <pre class="doc raw mono" id="raw" hidden></pre>
+      <form class="notes" id="notesForm" hidden>
+        <label for="notesText">Notes (states, edge cases, a11y, analytics, questions). Cite layers as <code>`#id`</code>.</label>
+        <textarea id="notesText" rows="12"></textarea>
+        <div class="row"><button class="btn primary" type="submit">Save notes</button><button class="btn ghost" type="button" id="cancelNotes">Cancel</button></div>
+      </form>
+    </section>
+  </aside>
 </main>
 
 <nav class="rail" id="rail" role="tablist" aria-label="Sections" aria-orientation="vertical">

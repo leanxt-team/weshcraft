@@ -315,8 +315,7 @@ setTimeout(() => {
   const visible = el => !!el && el.getClientRects().length > 0 && getComputedStyle(el).display !== 'none';
   // name, container, the block it resizes, which edge, the block that gives room, minimum width
   const defs = [
-    { v: '--oc-list', box: layout, el: q('.builder'), edge: 'right', mid: q('.stage'), min: 160 },
-    { v: '--oc-spec', box: layout, el: q('.reader'), edge: 'left', mid: q('.stage'), min: 240 },
+    { v: '--oc-spec', box: layout, el: q('.specs'), edge: 'left', mid: q('.stage'), min: 280 },
     { v: '--oc-edl', box: ed, el: q('.ed-left'), edge: 'right', mid: q('.ed-center'), min: 120 },
     { v: '--oc-edr', box: ed, el: q('.ed-right'), edge: 'left', mid: q('.ed-center'), min: 200 },
   ].filter(d => d.box && d.el && d.mid);

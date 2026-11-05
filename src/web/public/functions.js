@@ -1,3 +1,4 @@
+import { spreadEnds } from '/app/wires.js';
 import { productNav } from '/app/aspects.js';
 // The Functions view: how the product works at a glance. Who uses it → its functions (in journey
 // order, with where each leads) → the data they read and write. Click a function to see what makes
@@ -159,6 +160,9 @@ export function createFunctionsView({ root, getManifest, getTrace = () => null, 
     const L = lit(m);
     const cls = (on, c) => `${c}${L ? (on ? ' on' : ' off') : ''}`;
     const fnOn = k => !!L?.fns.has(k);
+    // Gather the wires first, then give each one its own point on the sides it meets.
+    const wires = [];
+    const end = (side, b, toward, vertical = false) => ({ side, lo: vertical ? b.l : b.t, hi: vertical ? b.r : b.b, toward });
     for (const f of m.functions.items) {
       const c = card(f.key);
       if (!c) continue;
@@ -167,23 +171,35 @@ export function createFunctionsView({ root, getManifest, getTrace = () => null, 
         const el = wrap.querySelector(`.fn-actor[data-a="${a}"]`);
         if (!el) continue;
         const ab = box(el);
-        const x1 = ab.r, x2 = cb.l - 18, mid = (x2 - x1) / 2;
-        out.push(`<path class="${cls(sel ? sel === f.key : fnOn(f.key) && (!pick.a || pick.a === a), 'w who')}" d="M${x1} ${ab.y} C${x1 + mid} ${ab.y} ${x2 - mid} ${cb.y} ${x2} ${cb.y} L${cb.l} ${cb.y}"/>`);
+        wires.push({ kind: 'who', on: sel ? sel === f.key : fnOn(f.key) && (!pick.a || pick.a === a), a: end(`a:${a}:r`, ab, cb.y), b: end(`f:${f.key}:l`, cb, ab.y), x1: ab.r, x2: cb.l });
       }
       for (const e of f.entities) {
         const el = wrap.querySelector(`.fn-entity[data-e="${CSS.escape(e.name)}"]`);
         if (!el) continue;
         const eb = box(el);
-        const x1 = cb.r, x2 = eb.l, mid = (x2 - x1) / 2;
-        out.push(`<path class="${cls(sel ? sel === f.key : fnOn(f.key) && (!pick.e || pick.e === e.name), `w data ${e.access === 'reads' ? 'reads' : 'writes'}`)}" d="M${x1} ${cb.y} C${x1 + mid} ${cb.y} ${x2 - mid} ${eb.y} ${x2} ${eb.y}" marker-end="url(#fnArrow)"/>`);
+        wires.push({ kind: 'data', access: e.access, on: sel ? sel === f.key : fnOn(f.key) && (!pick.e || pick.e === e.name), a: end(`f:${f.key}:r`, cb, eb.y), b: end(`e:${e.name}:l`, eb, cb.y), x1: cb.r, x2: eb.l });
       }
-      // Where it leads: an arc in the gutter left of the cards.
       for (const n of f.next) {
         const d = card(n.to);
         if (!d) continue;
         const db = box(d);
-        const x = cb.l - 4, y1 = cb.y + 8, y2 = db.y - 8, bend = Math.min(40, 14 + Math.abs(y2 - y1) / 10);
-        out.push(`<path class="${cls(sel ? sel === f.key || sel === n.to : fnOn(f.key) && fnOn(n.to), 'w next')}" d="M${x} ${y1} C${x - bend} ${y1} ${x - bend} ${y2} ${x} ${y2}" marker-end="url(#fnArrow)"/>`);
+        // arcs leave a card's left side downward-ordered and arrive below the who wires
+        wires.push({ kind: 'next', on: sel ? sel === f.key || sel === n.to : fnOn(f.key) && fnOn(n.to), a: { ...end(`f:${f.key}:l`, cb, db.y), order: 1 }, b: { ...end(`f:${n.to}:l`, db, cb.y), order: 1 }, x: cb.l, span: Math.abs(db.y - cb.y) });
+      }
+    }
+    spreadEnds(wires.flatMap(w => [w.a, w.b]));
+    // Nested arcs: the longer the jump, the wider the arc, so they do not run over each other.
+    const spans = [...new Set(wires.filter(w => w.kind === 'next').map(w => Math.round(w.span)))].sort((x, y) => x - y);
+    for (const w of wires) {
+      if (w.kind === 'who') {
+        const x2 = w.x2 - 18, mid = (x2 - w.x1) / 2;
+        out.push(`<path class="${cls(w.on, 'w who')}" d="M${w.x1} ${w.a.at} C${w.x1 + mid} ${w.a.at} ${x2 - mid} ${w.b.at} ${x2} ${w.b.at} L${w.x2} ${w.b.at}"/>`);
+      } else if (w.kind === 'data') {
+        const mid = (w.x2 - w.x1) / 2;
+        out.push(`<path class="${cls(w.on, `w data ${w.access === 'reads' ? 'reads' : 'writes'}`)}" d="M${w.x1} ${w.a.at} C${w.x1 + mid} ${w.a.at} ${w.x2 - mid} ${w.b.at} ${w.x2} ${w.b.at}" marker-end="url(#fnArrow)"/>`);
+      } else {
+        const x = w.x - 4, bend = 14 + spans.indexOf(Math.round(w.span)) * 9;
+        out.push(`<path class="${cls(w.on, 'w next')}" d="M${x} ${w.a.at} C${x - bend} ${w.a.at} ${x - bend} ${w.b.at} ${x} ${w.b.at}" marker-end="url(#fnArrow)"/>`);
       }
     }
     g.innerHTML = out.join('');

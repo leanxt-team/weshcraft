@@ -96,11 +96,11 @@ try {
     ok(`rail (narrow): ${v} section fits`, g.sec === v && g.sw <= g.vw + 1, JSON.stringify(g));
     if (v === 'proto') await o.p.screenshot({ path: `${SHOTS}/r-rail-narrow-${v}.png` });
   }
-  await o.f.locator('.stage-head .pane-toggle[data-panel="left"]').click(); await sleep(400);
-  ok('rail (narrow): « opens the spec list as a drawer', await o.f.locator('.builder').isVisible() && await o.frame().evaluate(() => document.body.classList.contains('dr-left')));
+  await o.f.locator('.stage-head .pane-toggle[data-panel="right"]').click(); await sleep(400);
+  ok('rail (narrow): » opens the Specs panel as a drawer', await o.f.locator('.specs').isVisible() && await o.frame().evaluate(() => document.body.classList.contains('dr-right')));
   await o.p.screenshot({ path: `${SHOTS}/r-rail-narrow-specs.png` });
   await o.p.keyboard.press('Escape'); await sleep(300);
-  ok('rail (narrow): Escape closes it', !(await o.f.locator('.builder').isVisible()));
+  ok('rail (narrow): Escape closes it', !(await o.f.locator('.specs').isVisible()));
   await o.f.locator('#more').click(); await sleep(300);
   ok('rail (narrow): actions menu', await o.f.locator('#moreDlg').isVisible());
   await o.p.keyboard.press('Escape');
@@ -151,6 +151,7 @@ try {
     await fr().locator('nav.sc-nav button').nth(1).click();
     ok('page: prototype navigation', !!await waitFor(async () => (await fr()?.locator('.sc-screen:not([hidden])').getAttribute('data-screen').catch(() => null)) !== 'scr-home-light', 3000));
   }
+  if (await o.f.locator('#specsBack').isVisible()) { await o.f.locator('#specsBack').click(); await sleep(300); }
   await o.f.locator('.job >> nth=0').click(); await sleep(800);
   ok('page: spec reader opens a spec', (await o.f.locator('#doc').innerText()).length > 200);
   await o.p.screenshot({ path: `${SHOTS}/e-page-proto-light.png` });

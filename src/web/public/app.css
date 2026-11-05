@@ -131,11 +131,6 @@ code, .mono { font-family: var(--mono); font-size: 12px; }
 :focus-visible { outline: 3px solid color-mix(in srgb, var(--accent) 55%, transparent); outline-offset: 2px; }
 
 /* ---- layout: three floating panes ---- */
-.reader { container-type: inline-size; }
-@container (max-width: 400px) {
-  .reader > .pane-head { flex-wrap: wrap; row-gap: 2px; }
-  .reader > .pane-head > h2 { flex: 1 1 calc(100% - 40px); order: 0; }
-  .reader > .pane-head > .spacer { display: none; }
 }
 @keyframes drawer-in { from { transform: translateX(var(--from, -16px)); opacity: .4; } to { transform: none; opacity: 1; } }
 .layout { display: grid; grid-template-columns: minmax(220px, 252px) minmax(380px, 1fr) minmax(380px, 1.05fr); gap: 8px; min-height: 0; }
@@ -157,6 +152,24 @@ code, .mono { font-family: var(--mono); font-size: 12px; }
 .job[aria-current="true"] { background: var(--accent-soft); color: var(--accent); font-weight: 500; }
 .job .title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .job .meta { font-size: 10.5px; color: var(--muted); font-variant-numeric: tabular-nums; }
+/* ---- the spec's head in the Specs panel: ‹ Specs, where it sits, its name ---- */
+.specs-back { display: inline-flex; align-items: center; gap: 2px; flex: none; height: 28px; padding: 0 8px 0 2px; border: 0; border-radius: 8px; background: none; color: var(--accent); font: inherit; font-size: 12.5px; font-weight: 600; cursor: pointer; }
+.specs-back:hover { background: var(--accent-soft); }
+.specs-back svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.spec-name { display: flex; align-items: baseline; gap: 4px; min-width: 0; flex: 1 1 auto; overflow: hidden; white-space: nowrap; }
+.spec-name .spec-crumb { flex: 0 100 auto; min-width: 0; font-size: 11.5px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; }
+.spec-name .spec-crumb:not(:empty)::after { content: " ›"; }
+.spec-name .spec-crumb:empty { display: none; }
+.specs .reader .spec-name h2 { flex: 0 1 auto; min-width: 2em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; text-transform: none; letter-spacing: 0; color: var(--text); font-weight: 600; }
+.icon-btn { display: grid; place-items: center; flex: none; width: 28px; height: 28px; border: 0; border-radius: 8px; background: none; color: var(--text-2); cursor: pointer; }
+.icon-btn:hover:not(:disabled) { background: var(--fill); color: var(--text); }
+.icon-btn:disabled { opacity: .35; cursor: default; }
+.icon-btn svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.specs .reader > .pane-head { gap: 4px; padding-left: 6px; }
+.specs .reader > .pane-head > .spacer { display: none; }
+.specs .reader .seg .segbtn { padding: 0 9px; }
+/* the section's title, now first on its line */
+.stage-head > h2:first-child { margin-left: 8px; }
 /* ---- spec folders (tree) ---- */
 .groups.tree { padding: 2px 0 6px; }
 .t-addroot { margin-left: 4px; width: 26px; height: 26px; display: grid; place-items: center; border: 0; border-radius: 8px; background: none; color: var(--muted); cursor: pointer; }
@@ -371,6 +384,7 @@ fieldset.seg label:has(input:focus-visible) { outline: 3px solid color-mix(in sr
 
 /* ---- responsive ---- */
 /* ---- phone: one full-height view, floating tab bar (desktop untouched) ---- */
+@media (max-width: 720px) { .specs { display: contents; } .specs-back { display: none !important; } }
 .more, .back, .phonebar, .fab, .sheet { display: none; }
 @media (max-width: 720px) {
   :root { --tabbar: 64px; --safe-b: env(safe-area-inset-bottom, 0px); --safe-t: env(safe-area-inset-top, 0px); }
@@ -959,8 +973,8 @@ button.av-chip:hover { box-shadow: inset 0 0 0 1px var(--accent); }
 
 /* Logic */
 .lg-card { margin-bottom: 10px; }
-.lg-machine { position: relative; overflow-x: auto; padding: 46px 6px 40px; scrollbar-width: thin; }
-.lg-states { position: relative; z-index: 1; display: flex; align-items: center; gap: 44px; width: max-content; }
+.lg-machine { position: relative; overflow-x: auto; padding: 64px 6px 56px; scrollbar-width: thin; }
+.lg-states { position: relative; z-index: 1; display: flex; align-items: center; gap: 72px; width: max-content; }
 .lg-start { width: 12px; height: 12px; border-radius: 50%; background: var(--text); flex: none; margin-right: -22px; }
 .lg-state { padding: 6px 14px; border-radius: 99px; background: var(--glass); box-shadow: inset 0 0 0 1.5px var(--hairline); font-size: 12.5px; font-weight: 600; white-space: nowrap; }
 .lg-state.initial { box-shadow: inset 0 0 0 1.5px var(--accent); }
@@ -1057,6 +1071,7 @@ svg.ti { flex: none; display: inline-block; vertical-align: -2px; --ti-badge-bg:
 .ar-code { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
 .ar-code code { font-size: 10.5px; color: var(--text-2); }
 .ar-wires { position: absolute; inset: 0; z-index: 0; pointer-events: none; overflow: visible; }
+.ar-wires.ar-labels { z-index: 3; }
 .ar-wires .w { fill: none; stroke: var(--muted); stroke-width: 1.6; opacity: .6; }
 .ar-wires .w.off { opacity: .08; }
 .ar-wires marker path { fill: var(--muted); }
@@ -1120,17 +1135,15 @@ body:not([data-section="proto"]) .stage-tools { display: none; } /* only the pro
   .rail-btn[aria-selected="true"]::before { content: ""; position: absolute; left: -6px; top: 12px; width: 3px; height: 30px; border-radius: 0 3px 3px 0; background: var(--accent); }
   .rail-btn .badge { position: absolute; top: 2px; right: 4px; min-width: 15px; height: 15px; padding: 0 4px; border-radius: 99px; background: var(--accent); color: #fff; font-size: 9.5px; line-height: 15px; }
   .rail-btn .badge:empty { display: none; }
-  /* the side panels: in a column (gl / gr), folded (no-*), or a drawer over the view (dr-*) */
-  .layout { position: relative; grid-template-columns: minmax(200px, 252px) minmax(0, 1fr) minmax(340px, 1fr); }
-  body.no-left .builder, body.no-right .reader { display: none; }
-  body:not(.gl).gr .layout { grid-template-columns: minmax(0, 1fr) minmax(340px, .8fr); }
-  body.gl:not(.gr) .layout { grid-template-columns: minmax(200px, 252px) minmax(0, 1fr); }
-  body:not(.gl):not(.gr) .layout { grid-template-columns: minmax(0, 1fr); }
-  /* designing: the canvas gets the room, the spec stays readable */
-  body.editing.gl.gr .layout { grid-template-columns: minmax(190px, 230px) minmax(0, 1fr) minmax(300px, .5fr); }
-  body.editing:not(.gl).gr .layout { grid-template-columns: minmax(0, 1fr) minmax(320px, .55fr); }
-  body.lay-mid.gr .layout { grid-template-columns: minmax(0, 1fr) minmax(300px, .75fr); }
-  body.lay-mid.editing.gr .layout { grid-template-columns: minmax(0, 1fr) minmax(280px, .5fr); }
+  /* the view and one Specs panel: in a column (gr), folded (no-right) or a drawer over the view (dr-right) */
+  .layout { position: relative; grid-template-columns: minmax(0, 1fr) minmax(360px, .85fr); }
+  body.no-right .specs { display: none; }
+  body:not(.gr) .layout { grid-template-columns: minmax(0, 1fr); }
+  body.editing.gr .layout { grid-template-columns: minmax(0, 1fr) minmax(340px, .5fr); }
+  /* the Specs panel: the list, or one spec (‹ Specs goes back) */
+  .specs { display: flex; flex-direction: column; min-height: 0; min-width: 0; }
+  .specs > .builder, .specs > .reader { flex: 1; min-height: 0; }
+  .specs[data-mode="list"] > .reader, .specs[data-mode="read"] > .builder { display: none; }
   .ed-itabs { display: none; } /* the spec has its own panel */
   .tabpanel.ed { position: relative; }
   .tabpanel.ed .ed-center { min-width: 0; }
@@ -1141,15 +1154,14 @@ body:not([data-section="proto"]) .stage-tools { display: none; } /* only the pro
   body.gel:not(.ger) .tabpanel.ed { grid-template-columns: 216px minmax(0, 1fr); }
   body:not(.gel):not(.ger) .tabpanel.ed { grid-template-columns: minmax(0, 1fr); }
   /* drawers: over the view, a shadow and a dimmed view behind; × in their head */
-  body.dr-left .builder, body.dr-right .reader { position: absolute; z-index: 40; top: 0; bottom: 0; box-shadow: 0 12px 40px rgba(0, 0, 0, .22), inset 0 0 0 1px var(--glass-edge); background: var(--glass-strong); animation: drawer-in .18s ease-out; }
-  body.dr-left .builder { left: 0; width: min(300px, calc(100% - 48px)); }
-  body.dr-right .reader { right: 0; width: min(620px, calc(100% - 48px)); --from: 16px; }
-  body.dr-left .layout::after, body.dr-right .layout::after { content: ""; position: absolute; inset: 0; z-index: 35; border-radius: 20px; background: rgba(0, 0, 0, .18); }
+  body.dr-right .specs { position: absolute; z-index: 40; top: 0; bottom: 0; right: 0; width: min(560px, calc(100% - 44px)); border-radius: 20px; box-shadow: 0 12px 40px rgba(0, 0, 0, .22); animation: drawer-in .18s ease-out; --from: 16px; }
+  body.dr-right .specs > * { background: var(--glass-strong); }
+  body.dr-right .layout::after { content: ""; position: absolute; inset: 0; z-index: 35; border-radius: 20px; background: rgba(0, 0, 0, .18); }
   body.dr-edl .tabpanel.ed > .ed-left, body.dr-edr .tabpanel.ed > .ed-right { position: absolute; z-index: 30; top: var(--ed-top, 0); bottom: 0; overflow: auto; background: var(--glass-strong); box-shadow: 0 10px 30px rgba(0, 0, 0, .2), inset 0 0 0 1px var(--hairline); animation: drawer-in .18s ease-out; }
   body.dr-edl .tabpanel.ed > .ed-left { left: 0; width: min(240px, calc(100% - 40px)); }
   body.dr-edr .tabpanel.ed > .ed-right { right: 0; width: min(290px, calc(100% - 40px)); --from: 16px; }
   .drawer-close { display: none; }
-  body.dr-left .builder .drawer-close, body.dr-right .reader .drawer-close { display: grid; }
+  body.dr-right .specs .drawer-close { display: grid; }
   .drawer-close { place-items: center; flex: none; width: 26px; height: 26px; border: 0; border-radius: 8px; background: none; color: var(--muted); font-size: 18px; line-height: 1; cursor: pointer; }
   .drawer-close:hover { background: var(--fill); color: var(--text); }
   /* narrow: the head line keeps to the essentials */
