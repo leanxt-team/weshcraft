@@ -139,7 +139,7 @@ function specOf(m, id) {
   if (id.startsWith('cmp-')) return `wcraft/specs/front/components/${id}.md`;
   return null;
 }
-const chip = (m, id, cls = '') => `<button type="button" class="av-chip ${cls}" data-open="${esc(specOf(m, id) ?? '')}">${esc(refLabel(m, id))}</button>`;
+const chip = (m, id, cls = '') => `<button type="button" class="av-chip ${cls}" data-open="${esc(specOf(m, id) ?? '')}" data-wc="${esc(id)}">${esc(refLabel(m, id))}</button>`;
 const banner = (text, editable, keepId) => `<div class="fn-banner av-banner"><div>${text}</div>${editable && keepId ? `<button type="button" class="btn primary small" id="${keepId}">Keep as declared</button>` : ''}</div>`;
 const head = (title, sub, actions = '') => `<div class="av-head"><div><h2>${esc(title)}</h2><p>${sub}</p></div><div class="av-actions">${actions}</div></div>`;
 const PRODUCT_TABS = [['execsum', 'Summary'], ['functions', 'Functions'], ['logic', 'Logic'], ['data', 'Data'], ['api', 'API & MCP'], ['architecture', 'Architecture']];
@@ -170,7 +170,7 @@ export function createLogicView({ root, getManifest, isEditable, openFile, log }
 
   function machineSvg(x) {
     // states in a row; transitions as arcs above (forward) or below (backward); "any" from a dashed origin
-    return `<div class="lg-machine" data-machine="${esc(x.key)}"><div class="lg-states">
+    return `<div class="lg-machine" data-machine="${esc(x.key)}" data-wc="machine:${esc(x.key)}" data-wc-spec="wcraft/specs/LOGIC.md#${esc(x.key)}"><div class="lg-states">
       <span class="lg-start" title="start" data-s="__start"></span>
       ${x.states.map(s => `<span class="lg-state${s === x.initial ? ' initial' : ''}" data-s="${esc(s)}">${esc(s)}</span>`).join('')}
     </div><svg class="lg-arcs" aria-hidden="true"><defs><marker id="lgA-${esc(x.key)}" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z"/></marker></defs><g></g></svg></div>`;
@@ -234,7 +234,7 @@ export function createLogicView({ root, getManifest, isEditable, openFile, log }
       <section class="av-sec"><h3>Rules</h3>${l.rules.length ? `<div class="lg-rules">${['validation', 'permission', 'calculation', 'policy', 'event'].map(k => l.rules.filter(r => r.kind === k)).filter(x => x.length).map(list => list.map(r => `
         <article class="av-card lg-rule c-${KIND_COLORS[r.kind]}">
           <header><span class="lg-kind">${esc(r.kind)}</span>${r.source === 'inferred' ? '<span class="av-badge">inferred</span>' : ''}<span class="spacer"></span>${editable ? `<button type="button" class="fn-edit av-edit" data-edit-rule="${esc(r.key)}" title="Edit rule" aria-label="Edit rule">${ICON.edit}</button>` : ''}</header>
-          <div class="av-title" data-open="wcraft/specs/LOGIC.md#${esc(r.key)}">${esc(r.name)}</div>
+          <div class="av-title" data-open="wcraft/specs/LOGIC.md#${esc(r.key)}" data-wc="rule:${esc(r.key)}" data-wc-spec="wcraft/specs/LOGIC.md#${esc(r.key)}">${esc(r.name)}</div>
           ${r.text ? `<p>${esc(r.text)}</p>` : ''}
           ${r.applies.length ? `<div class="av-chips">${r.applies.map(id => chip(m, id)).join('')}</div>` : ''}
         </article>`).join('')).join('')}</div>` : `<p class="av-empty">No rule yet.</p>`}</section>`;
@@ -347,11 +347,11 @@ export function createDataView({ root, getManifest, openFile, log }) {
     const fn = new Map((m.functions?.items ?? []).map(f => [f.key, f]));
     const row = (label, html) => (html ? `<div class="fn-drow"><span>${label}</span><div>${html}</div></div>` : '');
     const lc = m.logic?.machines.find(x => x.entity === e.name);
-    box.innerHTML = `<div class="fn-dhead"><h3>${esc(e.name)}</h3><button type="button" class="btn ghost small" data-open="wcraft/specs/DATA.md#data-${esc(e.name.toLowerCase())}">Open in the spec</button></div>
+    box.innerHTML = `<div class="fn-dhead"><h3>${esc(e.name)}</h3><button type="button" class="btn ghost small" data-open="wcraft/specs/DATA.md#data-${esc(e.name.toLowerCase())}" data-wc="entity:${esc(e.name)}">Open in the spec</button></div>
       ${row('Written by', e.writtenBy.map(k => chip(m, k)).join(''))}${row('Read by', e.readBy.map(k => chip(m, k)).join(''))}
       ${row('Shown on', e.shownOn.map(k => chip(m, k)).join(''))}${row('Operations', e.operations.map(k => chip(m, k)).join(''))}
       ${row('Relations', e.relations.map(r => `<span class="av-chip">${esc(r.field)} → ${esc(r.to)}${r.many ? ' (many)' : ''}</span>`).join(''))}
-      ${lc ? row('Lifecycle', `<button type="button" class="av-chip" data-open="wcraft/specs/LOGIC.md#${esc(lc.key)}">${lc.states.map(esc).join(' → ')}</button>`) : ''}`;
+      ${lc ? row('Lifecycle', `<button type="button" class="av-chip" data-open="wcraft/specs/LOGIC.md#${esc(lc.key)}" data-wc="machine:${esc(lc.key)}">${lc.states.map(esc).join(' → ')}</button>`) : ''}`;
   }
   function render() {
     const m = getManifest();
@@ -364,7 +364,7 @@ export function createDataView({ root, getManifest, openFile, log }) {
       ${d.entities.length ? `<div class="dt-grid">${d.entities.map(e => {
         const lc = m.logic?.machines.find(x => x.entity === e.name);
         const rel = new Map(e.relations.map(r => [r.field, r]));
-        return `<article class="av-card dt-card${sel === e.name ? ' sel' : ''}${sel && sel !== e.name && !e.relations.some(r => r.to === sel) && !d.entities.find(x => x.name === sel)?.relations.some(r => r.to === e.name) ? ' dim' : ''}" data-e="${esc(e.name)}" tabindex="0" role="button">
+        return `<article class="av-card dt-card${sel === e.name ? ' sel' : ''}${sel && sel !== e.name && !e.relations.some(r => r.to === sel) && !d.entities.find(x => x.name === sel)?.relations.some(r => r.to === e.name) ? ' dim' : ''}" data-e="${esc(e.name)}" data-wc="entity:${esc(e.name)}" tabindex="0" role="button">
           <header>${ICON.entity}<span class="av-title">${esc(e.name)}</span><span class="spacer"></span><span class="dt-rw" title="written by · read by">${e.writtenBy.length ? `<b>W</b>${e.writtenBy.length}` : ''}${e.readBy.length ? `<b>R</b>${e.readBy.length}` : ''}</span></header>
           <ul>${e.fields.map(f => `<li data-f="${esc(f.name)}"${rel.has(f.name) ? ' class="rel"' : ''}><span class="dt-n">${esc(f.name)}${f.required ? '' : '<i>?</i>'}</span><span class="dt-t">${rel.has(f.name) ? `→ ${esc(rel.get(f.name).to)}` : esc(f.enum ? f.enum.join(' | ') : f.type)}</span></li>`).join('') || '<li class="muted">no field yet</li>'}</ul>
           ${lc ? `<footer>${lc.states.map(esc).join(' → ')}</footer>` : ''}
@@ -401,12 +401,12 @@ export function createApiView({ root, getManifest, openFile, log }) {
     const row = o => {
       const from = [...m.screens.filter(s => s.key === o.screen).map(s => chip(m, s.key, 'scr')), ...tools.filter(t => t.op === o.key).map(t => chip(m, `tool:${t.name}`, 'tool')), ...(o.endpoint ? ['<span class="av-chip pub">public</span>'] : [])];
       const ent = entityOf(o);
-      return `<div class="api-row" data-open="wcraft/specs/back/api.md#${esc(o.key)}" role="button" tabindex="0"><span class="verb v-${esc(o.method.toLowerCase())}">${esc(o.method)}</span><code class="api-path">${esc(o.path).replace(/\{([^}]+)\}/g, '<i>{$1}</i>')}</code><span class="api-name">${esc(o.name)}</span><span class="api-from">${from.join('')}</span><span class="api-ret">${ent ? `<button type="button" class="av-chip ent" data-open="wcraft/specs/DATA.md#data-${esc(ent.toLowerCase())}">${esc(ent)}${o.kind === 'list' ? '[]' : ''}</button>` : ''}</span>${o.confidence !== 'explicit' ? '<span class="av-badge">inferred</span>' : ''}</div>`;
+      return `<div class="api-row" data-open="wcraft/specs/back/api.md#${esc(o.key)}" data-wc="${esc(o.key)}" role="button" tabindex="0"><span class="verb v-${esc(o.method.toLowerCase())}">${esc(o.method)}</span><code class="api-path">${esc(o.path).replace(/\{([^}]+)\}/g, '<i>{$1}</i>')}</code><span class="api-name">${esc(o.name)}</span><span class="api-from">${from.join('')}</span><span class="api-ret">${ent ? `<button type="button" class="av-chip ent" data-open="wcraft/specs/DATA.md#data-${esc(ent.toLowerCase())}">${esc(ent)}${o.kind === 'list' ? '[]' : ''}</button>` : ''}</span>${o.confidence !== 'explicit' ? '<span class="av-badge">inferred</span>' : ''}</div>`;
     };
     root.innerHTML = `${productNav('api')}
       ${head('API & MCP', `${plural(ops.length, 'operation')}${eps.length ? ` · ${plural(eps.length, 'public endpoint')}` : ''}${tools.length ? ` · ${plural(tools.length, 'MCP tool')}` : ''}${(m.surface?.api?.auth ?? []).length ? ` · auth: ${m.surface.api.auth.map(a => esc(a.scheme ?? a.type)).join(', ')}` : ''}`, `<input type="search" class="av-search" id="apiFilter" placeholder="Filter" value="${esc(filter)}" aria-label="Filter operations"><button type="button" class="btn ghost small" data-open="wcraft/specs/API.md">Spec</button><button type="button" class="btn ghost small" data-open="wcraft/specs/back/api.md">Details</button>`)}
-      ${groups.map(([fn, list]) => `<section class="av-sec api-g"><h3>${fn ? `<button type="button" class="av-h" data-open="wcraft/specs/FUNCTIONS.md#${esc(fn.key)}">${esc(fn.name)}</button>${fn.summary ? `<small>${esc(fn.summary)}</small>` : ''}` : 'Not in a function'}</h3><div class="api-list">${list.map(row).join('')}</div></section>`).join('') || `<p class="av-empty">${ops.length ? 'Nothing matches.' : 'No operation yet: annotate a button or a screen with POST /path in the design, or add an OpenAPI / MCP surface.'}</p>`}
-      ${tools.length ? `<section class="av-sec"><h3>MCP tools</h3><div class="api-tools">${tools.filter(t => !f || t.name.toLowerCase().includes(f)).map(t => `<article class="av-card api-tool" data-open="wcraft/specs/front/mcp/${esc(t.key)}.md" role="button" tabindex="0"><header><span class="av-title">${esc(t.name)}</span><span class="spacer"></span>${t.hints?.readOnlyHint ? '<span class="av-badge ok">read-only</span>' : ''}${t.hints?.destructiveHint ? '<span class="av-badge bad">destructive</span>' : ''}</header><p>${esc((t.description || '').slice(0, 140))}</p><div class="av-chips">${t.op ? chip(m, t.op, 'op') : '<span class="av-chip warn">no operation</span>'}${t.input.length ? `<span class="av-chip">${plural(t.input.length, 'argument')}</span>` : ''}</div></article>`).join('')}</div></section>` : ''}`;
+      ${groups.map(([fn, list]) => `<section class="av-sec api-g"><h3>${fn ? `<button type="button" class="av-h" data-open="wcraft/specs/FUNCTIONS.md#${esc(fn.key)}" data-wc="${esc(fn.key)}">${esc(fn.name)}</button>${fn.summary ? `<small>${esc(fn.summary)}</small>` : ''}` : 'Not in a function'}</h3><div class="api-list">${list.map(row).join('')}</div></section>`).join('') || `<p class="av-empty">${ops.length ? 'Nothing matches.' : 'No operation yet: annotate a button or a screen with POST /path in the design, or add an OpenAPI / MCP surface.'}</p>`}
+      ${tools.length ? `<section class="av-sec"><h3>MCP tools</h3><div class="api-tools">${tools.filter(t => !f || t.name.toLowerCase().includes(f)).map(t => `<article class="av-card api-tool" data-open="wcraft/specs/front/mcp/${esc(t.key)}.md" data-wc="tool:${esc(t.name)}" role="button" tabindex="0"><header><span class="av-title">${esc(t.name)}</span><span class="spacer"></span>${t.hints?.readOnlyHint ? '<span class="av-badge ok">read-only</span>' : ''}${t.hints?.destructiveHint ? '<span class="av-badge bad">destructive</span>' : ''}</header><p>${esc((t.description || '').slice(0, 140))}</p><div class="av-chips">${t.op ? chip(m, t.op, 'op') : '<span class="av-chip warn">no operation</span>'}${t.input.length ? `<span class="av-chip">${plural(t.input.length, 'argument')}</span>` : ''}</div></article>`).join('')}</div></section>` : ''}`;
     const inp = root.querySelector('#apiFilter');
     inp?.addEventListener('input', () => { filter = inp.value; const pos = inp.selectionStart; render(); const again = root.querySelector('#apiFilter'); again.focus(); again.setSelectionRange(pos, pos); });
   }
@@ -513,7 +513,7 @@ export function createArchitectureView({ root, getManifest, getTrace = () => nul
     const cols = ARCH_COLUMNS.map(([, label], i) => [label, a.components.filter(c => ARCH_COLUMN_OF[c.kind] === i)]);
     const card = c => {
       const dirs = codeDirs(c);
-      return `<article class="av-card ar-card k-${esc(c.kind)}${sel === c.key ? ' sel' : ''}" data-c="${esc(c.key)}" tabindex="0" role="button">
+      return `<article class="av-card ar-card k-${esc(c.kind)}${sel === c.key ? ' sel' : ''}" data-c="${esc(c.key)}" data-wc="arch:${esc(c.key)}" data-wc-spec="wcraft/specs/ARCHITECTURE.md#${esc(c.key)}" tabindex="0" role="button">
         <header><span class="ar-ic${matchTech(c.tech).length ? ' has-tech' : ''}">${techIcon(techLead(c), { size: 18 })}</span><span class="av-title">${esc(c.name)}</span><span class="spacer"></span>${editable ? `<button type="button" class="fn-edit av-edit" data-edit-c="${esc(c.key)}" title="Edit ${esc(c.name)}" aria-label="Edit ${esc(c.name)}">${ICON.edit}</button>` : ''}</header>
         ${c.tech ? `<div class="ar-tech">${c.tech.split(/\s*[,+·]\s*/).filter(Boolean).map(t => { const e = matchTech(t)[0]; return `<span${e ? ` title="${esc(e.desc)}"` : ''}>${e ? techIcon(e, { size: 12, title: false }) : ''}${esc(t)}</span>`; }).join('')}</div>` : ''}
         ${c.description ? `<p>${esc(c.description)}</p>` : ''}
@@ -537,7 +537,7 @@ export function createArchitectureView({ root, getManifest, getTrace = () => nul
     if (!c) return '<p class="muted">Click a component to see what it implements and who it talks to.</p>';
     const name = new Map(a.components.map(x => [x.key, x.name]));
     const row = (label, html) => (html ? `<div class="fn-drow"><span>${label}</span><div>${html}</div></div>` : '');
-    return `<div class="fn-dhead"><h3>${esc(c.name)}</h3><button type="button" class="btn ghost small" data-open="wcraft/specs/ARCHITECTURE.md#${esc(c.key)}">Open in the spec</button></div>
+    return `<div class="fn-dhead"><h3>${esc(c.name)}</h3><button type="button" class="btn ghost small" data-open="wcraft/specs/ARCHITECTURE.md#${esc(c.key)}" data-wc="arch:${esc(c.key)}">Open in the spec</button></div>
       ${row('Kind', esc(c.kind))}${row('Technology', esc(c.tech))}${row('Stack', techDetail(c.tech))}${row('Implements', c.implements.map(id => chip(m, id)).join(''))}
       ${row('Talks to', a.links.filter(l => l.from === c.key).map(l => `<span class="av-chip">${esc(name.get(l.to))}${l.label ? ` <small>${esc(l.label)}</small>` : ''}</span>`).join(''))}
       ${row('Called by', a.links.filter(l => l.to === c.key).map(l => `<span class="av-chip">${esc(name.get(l.from))}${l.label ? ` <small>${esc(l.label)}</small>` : ''}</span>`).join(''))}

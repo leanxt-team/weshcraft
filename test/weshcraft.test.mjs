@@ -1396,8 +1396,9 @@ test('a spec written by another version of WeshCraft is a warning, not a broken 
 });
 
 // ---- what a layer affects, and where a spec comes from ------------------------------------------
-import { chainFor, referenceBlock, chainText, provenanceFor, provenanceHtml } from '../src/web/public/impact-core.js';
+import { chainFor, elementChain, referenceBlock, chainText, provenanceFor, provenanceHtml } from '../src/web/public/impact-core.js';
 import { impactChain } from '../src/spec/impact.mjs';
+import { createImpactView } from '../src/web/public/impact.js';
 
 const EMAIL = 6; // the "Email field" layer of the account design
 const withCode = async () => {
@@ -1536,4 +1537,71 @@ test('the code graph route answers, and a hostile symbol or path is refused', as
     // what the route does not know: refused
     assert.equal((await get('?what=rm-rf')).status, 400);
   } finally { server.close(); }
+});
+
+test('a product element answers the same way: a screen, an operation, an entity', async () => {
+  const { dir, ws } = await withCode();
+  const screen = elementChain({ trace: ws.trace, id: 'scr-sign-up' });
+  assert.equal(screen.kind, 'screen');
+  assert.equal(referenceBlock(screen), [
+    'WeshCraft · screen "Sign up" (scr-sign-up)',
+    '',
+    '  spec    wcraft/specs/front/screens/scr-sign-up.md',
+    '  read    weshcraft_read {what:"manifest", screen:"scr-sign-up"}',
+    '  code    src/pages/SignUp.tsx:1  SignUpPage   (@weshcraft scr-sign-up)',
+    '  explore codegraph explore "how does Sign up work" --path .',
+    '  impact  codegraph impact SignUpPage --depth 4 --path .',
+  ].join('\n'));
+  // an operation reads the API, an entity the data
+  const op = elementChain({ trace: ws.trace, id: ws.manifest.domain.operations[0].key });
+  assert.equal(op.read, 'weshcraft_read {what:"api"}');
+  assert.match(op.spec, /^wcraft\/specs\/back\/api\.md#op-/);
+  const ent = elementChain({ trace: ws.trace, id: 'entity:User' });
+  assert.equal(ent.read, 'weshcraft_read {what:"data"}');
+  assert.equal(ent.spec, 'wcraft/specs/back/domain.md#entity-user');
+  // the chain of an element: the same code graph, the same nearby elements
+  const graph = {
+    callers: async () => ({ ok: true, symbol: 'SignUpPage', callers: [{ name: 'screenSignUp', kind: 'function', file: 'wcraft/graph.mjs', line: 12 }] }),
+    impact: async () => ({ ok: true, symbol: 'SignUpPage', affected: [{ name: 'screenProfile', kind: 'function', file: 'wcraft/graph.mjs', line: 20 }] }),
+  };
+  const chain = await impactChain({ manifest: ws.manifest, trace: ws.trace, element: { id: 'scr-sign-up', name: 'Sign up', kind: 'screen' }, dir, graph });
+  assert.equal(chain.symbol, 'SignUpPage');
+  assert.deepEqual(chain.nearby.map(n => n.id), ['scr-profile']);
+  assert.match(chainText(chain), /^screen "Sign up" \(scr-sign-up\)/);
+});
+
+test('the impact panel: three groups, for a layer and for an element', async () => {
+  const { dir, ws } = await withCode();
+  const body = { innerHTML: '', addEventListener() {} };
+  const root = { querySelector: sel => (sel === '.impact-body' ? body : null) };
+  const view = createImpactView({
+    root,
+    getManifest: () => ws.manifest,
+    getTrace: () => ws.trace,
+    openSpec() {}, openLayer() {}, showFile() {}, log() {},
+  });
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = async url => {
+    const u = String(url);
+    if (u.startsWith('/out/')) {
+      const md = fs.readFileSync(path.join(dir, u.slice(5)), 'utf8');
+      return { ok: true, status: 200, text: async () => md, json: async () => JSON.parse(md) };
+    }
+    return { ok: true, status: 200, json: async () => ({ ok: false, reason: 'not installed' }) };
+  };
+  try {
+    await view.open(EMAIL);
+    assert.match(body.innerHTML, /<h4>In the spec<\/h4>/);
+    assert.match(body.innerHTML, /§Inputs/);
+    assert.match(body.innerHTML, /<h4>In the code<\/h4>/);
+    assert.match(body.innerHTML, /src\/pages\/SignUp\.tsx:1/);
+    assert.match(body.innerHTML, /codegraph is not installed/);
+    assert.match(body.innerHTML, /<h4>Nearby<\/h4>/);
+    await view.openElement({ id: 'scr-sign-up', name: 'Sign up', kind: 'screen' });
+    assert.match(body.innerHTML, /screen “Sign up”/);
+    assert.match(body.innerHTML, /wcraft\/specs\/front\/screens\/scr-sign-up\.md/);
+    // the reference of an element, and its spec link
+    assert.match(view.elementReference({ id: 'scr-sign-up', name: 'Sign up', kind: 'screen' }), /WeshCraft · screen "Sign up" \(scr-sign-up\)/);
+    assert.equal(view.elementSpecLink({ id: 'scr-sign-up', name: 'Sign up', kind: 'screen' }), 'wcraft/specs/front/screens/scr-sign-up.md');
+  } finally { globalThis.fetch = realFetch; }
 });

@@ -163,11 +163,18 @@ export async function callPublic(mcp, name, args = {}) {
       // What a layer affects, and where a spec comes from: answered here, on the server, so an
       // agent gets the whole chain even when the code graph is not installed.
       if (w === 'impact') {
-        const id = Number(args.node ?? args.id);
-        if (!Number.isFinite(id)) return text('node: the id of a layer (weshcraft_read {what:"tree"} lists them)', true);
+        const raw = args.node ?? args.id;
+        const id = Number(raw);
+        const trace = ws.trace ?? ws.writeTrace();
+        if (!Number.isFinite(id)) {
+          // An element of the product (a screen, an operation, an entity, a tool).
+          const el = (trace.elements ?? []).find(e => e.id === String(raw ?? ''));
+          if (!el) return text('node: the id of a layer (weshcraft_read {what:"tree"} lists them), or the key of an element (a screen, an operation, an entity)', true);
+          const chain = await impactChain({ manifest: ws.manifest, trace, element: { id: el.id, name: el.name, kind: el.kind }, dir: ws.outDir });
+          return text(chainText(chain));
+        }
         const owner = ownerOf(ws.manifest, id);
         if (!owner) return text(`no layer #${id} in this design`, true);
-        const trace = ws.trace ?? ws.writeTrace();
         let contract = null;
         try { contract = readContract(fs.readFileSync(ws.file(owner.spec), 'utf8')); } catch { /* the spec is not written yet */ }
         const chain = await impactChain({ manifest: ws.manifest, trace, contract, node: id, dir: ws.outDir });

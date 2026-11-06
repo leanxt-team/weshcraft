@@ -6,7 +6,7 @@
 // comes from the trace alone and says so in one line. The wrapper is injectable, so the chain can
 // be answered with a fake graph (the tests do that).
 import { codegraphImpact, codegraphCallers } from '../codegraph.mjs';
-import { chainFor, referenceBlock, chainText, nearbyFor, provenanceFor, provenanceText } from '../web/public/impact-core.js';
+import { chainFor, elementChain, referenceBlock, chainText, nearbyFor, provenanceFor, provenanceText } from '../web/public/impact-core.js';
 
 /** The real code graph, behind one import: the tests pass their own. */
 export const GRAPH = { impact: codegraphImpact, callers: codegraphCallers };
@@ -14,13 +14,15 @@ export const GRAPH = { impact: codegraphImpact, callers: codegraphCallers };
 const failed = r => ({ ok: false, reason: r?.reason ?? 'the code graph did not answer' });
 
 /**
- * What a layer affects.
- * @param {{manifest: object, trace: object, contract: object|null, node: number, name?: string,
- *          dir?: string, depth?: number, graph?: object}} o
+ * What a layer (or a product element) affects.
+ * @param {{manifest: object, trace: object, contract: object|null, node?: number, element?: object,
+ *          name?: string, dir?: string, depth?: number, graph?: object}} o
  * @returns {Promise<object|null>} the chain, or null when the layer belongs to no screen
  */
-export async function impactChain({ manifest, trace, contract, node, name, dir, depth = 4, graph = GRAPH }) {
-  const chain = chainFor({ manifest, trace, contract, node, name });
+export async function impactChain({ manifest, trace, contract, node, element, name, dir, depth = 4, graph = GRAPH }) {
+  const chain = element
+    ? elementChain({ trace, id: element.id, name: element.name, kind: element.kind, spec: element.spec })
+    : chainFor({ manifest, trace, contract, node, name });
   if (!chain) return null;
   const out = { ...chain, callers: [], affected: [], nearby: [], graph: null };
   if (!chain.symbol || !dir) return out;

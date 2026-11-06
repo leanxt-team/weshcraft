@@ -81,27 +81,69 @@ export function chainFor({ manifest, trace, contract, node, name }) {
   if (!owner) return null;
   const el = (trace?.elements ?? []).find(e => e.id === owner.key) ?? null;
   const code = el?.code ?? [];
+  const label = name ?? layerName(manifest, node) ?? owner.name;
   return {
+    type: 'layer',
     node: Number(node),
-    name: name ?? layerName(manifest, node) ?? owner.name,
+    name: label,
     owner,
     spec: owner.spec,
     sections: sectionsFor(contract, node, owner.kind),
     element: el ? { id: el.id, kind: el.kind, name: el.name, tag: el.tag, graph: el.graph ?? null } : null,
     code,
     symbol: code.find(c => c.symbol)?.symbol ?? null,
+    tag: el?.tag ? `@weshcraft ${el.tag}` : null,
+    header: `WeshCraft · layer #${Number(node)} "${label}" — ${owner.kind} "${owner.name}" (${owner.key})`,
+    textTitle: `Layer #${Number(node)} "${label}" — ${owner.kind} "${owner.name}" (${owner.key})`,
+    read: `weshcraft_read {what:"layer", id:${Number(node)}}`,
+    exploreName: owner.name,
+  };
+}
+
+/** How an agent reads an element of the product. */
+export function readHint(kind, id) {
+  if (kind === 'screen') return `weshcraft_read {what:"manifest", screen:"${id}"}`;
+  const what = { operation: 'api', endpoint: 'api', tool: 'api', entity: 'data', function: 'functions', component: 'manifest', rule: 'logic', lifecycle: 'logic', arch: 'architecture' }[kind] ?? 'manifest';
+  return `weshcraft_read {what:"${what}"}`;
+}
+
+/**
+ * The chain of a product element (a screen, an operation, an entity, a tool, a rule…): the spec
+ * that describes it, the code that implements it, and what the code graph reaches from it.
+ */
+export function elementChain({ trace, id, name, kind, spec }) {
+  const el = (trace?.elements ?? []).find(e => e.id === id) ?? null;
+  const code = el?.code ?? [];
+  const label = name ?? el?.name ?? id;
+  const what = kind ?? el?.kind ?? 'element';
+  const file = spec ?? el?.spec ?? '';
+  return {
+    type: 'element',
+    id,
+    name: label,
+    kind: what,
+    spec: file,
+    sections: [],
+    element: el ? { id: el.id, kind: el.kind, name: el.name, tag: el.tag, graph: el.graph ?? null } : null,
+    code,
+    symbol: code.find(c => c.symbol)?.symbol ?? null,
+    tag: el?.tag ? `@weshcraft ${el.tag}` : null,
+    header: `WeshCraft · ${what} "${label}" (${id})`,
+    textTitle: `${what} "${label}" (${id})`,
+    read: readHint(what, id),
+    exploreName: label,
   };
 }
 
 /** The block a person or an agent can read: where this layer lives, in one piece of text. */
 export function referenceBlock(chain) {
   if (!chain) return '';
-  const L = [`WeshCraft · layer #${chain.node} "${chain.name}" — ${chain.owner.kind} "${chain.owner.name}" (${chain.owner.key})`, ''];
-  L.push(`  spec    ${chain.spec}${chain.sections.length ? `  (${chain.sections.map(s => s.title).join(', ')})` : ''}`);
-  L.push(`  read    weshcraft_read {what:"layer", id:${chain.node}}`);
-  for (const c of chain.code) L.push(`  code    ${c.file}:${c.line}${c.symbol ? `  ${c.symbol}` : ''}${chain.element?.tag ? `   (@weshcraft ${chain.element.tag})` : ''}`);
+  const L = [chain.header, ''];
+  L.push(`  spec    ${chain.spec}${chain.sections?.length ? `  (${chain.sections.map(s => s.title).join(', ')})` : ''}`);
+  L.push(`  read    ${chain.read}`);
+  for (const c of chain.code) L.push(`  code    ${c.file}:${c.line}${c.symbol ? `  ${c.symbol}` : ''}${chain.tag ? `   (${chain.tag})` : ''}`);
   if (chain.symbol) {
-    L.push(`  explore codegraph explore "how does ${chain.owner.name} work" --path .`);
+    L.push(`  explore codegraph explore "how does ${chain.exploreName} work" --path .`);
     L.push(`  impact  codegraph impact ${chain.symbol} --depth 4 --path .`);
   }
   return L.join('\n');
@@ -122,16 +164,16 @@ const where = c => `${c.file}:${c.line}${c.symbol ? `  ${c.symbol}` : ''}`;
 
 /** The chain as text: what an agent reads. */
 export function chainText(chain) {
-  if (!chain) return 'No layer found.';
+  if (!chain) return 'Nothing found.';
   const callers = chain.callers ?? [];
   const affected = chain.affected ?? [];
   const nearby = chain.nearby ?? [];
-  const L = [`Layer #${chain.node} "${chain.name}" — ${chain.owner.kind} "${chain.owner.name}" (${chain.owner.key})`, ''];
+  const L = [chain.textTitle, ''];
   L.push(`In the spec — ${chain.spec}`);
-  for (const s of chain.sections) L.push(`  ${s.title}`);
+  for (const s of chain.sections ?? []) L.push(`  ${s.title}`);
   L.push('');
   L.push('In the code');
-  if (chain.code.length) for (const c of chain.code) L.push(`  ${where(c)}${chain.element?.tag ? `  (@weshcraft ${chain.element.tag})` : ''}`);
+  if (chain.code.length) for (const c of chain.code) L.push(`  ${where(c)}${chain.tag ? `  (${chain.tag})` : ''}`);
   else L.push('  (no code tagged for this element yet)');
   if (callers.length) L.push(`  callers: ${callers.map(c => `${c.name} (${c.file}:${c.line})`).join(', ')}`);
   if (affected.length) L.push(`  affected: ${affected.map(a => `${a.name} (${a.file ?? '?'}:${a.line ?? '?'})`).join(', ')}`);

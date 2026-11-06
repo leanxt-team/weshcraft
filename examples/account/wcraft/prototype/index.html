@@ -117,6 +117,13 @@ nav.sc-nav .sc-toggle[aria-pressed="true"]{color:#00a88a!important}
     show(key);
   });
   document.addEventListener('keydown', e => { if ((e.key === 'Enter' || e.key === ' ') && e.target.matches('[data-go]')) { e.preventDefault(); e.target.click(); } });
+  // Right click a layer: the host shows what it affects (the menu of that layer).
+  document.addEventListener('contextmenu', e => {
+    const el = e.target.closest('[data-node]');
+    if (!el) return;
+    e.preventDefault();
+    if (parent !== window) parent.postMessage({ weshcraft: 'context', node: Number(el.dataset.node), name: el.dataset.name || null, x: e.clientX, y: e.clientY }, '*');
+  });
   window.addEventListener('message', e => {
     const m = e.data || {};
     if (m.weshcraft === 'show') { if (PAGE_OF[m.key]) return go(PAGE_OF[m.key], m.key); show(m.key); }

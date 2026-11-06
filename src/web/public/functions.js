@@ -66,11 +66,11 @@ export function createFunctionsView({ root, getManifest, getTrace = () => null, 
     const name = new Map(F.items.map(f => [f.key, f.name]));
     const plural = (n, w) => `${n} ${w}${n === 1 ? '' : 's'}`;
     const card = f => `
-      <div class="fn-card" role="button" tabindex="0" data-f="${esc(f.key)}" aria-pressed="${sel === f.key}">
+      <div class="fn-card" role="button" tabindex="0" data-f="${esc(f.key)}" data-wc="${esc(f.key)}" aria-pressed="${sel === f.key}">
         <div class="fn-top"><span class="fn-name">${esc(f.name)}</span>${editable ? `<button type="button" class="fn-edit" data-edit="${esc(f.key)}" title="Edit ${esc(f.name)}" aria-label="Edit ${esc(f.name)}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20l4-1 11-11-3-3L5 16z"/></svg></button>` : ''}</div>
         <div class="fn-sum${f.summary ? '' : ' none'}">${esc(f.summary || (editable ? 'Add a purpose' : 'No purpose yet'))}</div>
         <div class="fn-meta">${[f.screens.length && plural(f.screens.length, 'screen'), f.operations.length && plural(f.operations.length, 'operation'), f.tools.length && plural(f.tools.length, 'tool'), coverage(f)].filter(Boolean).map(t => `<span>${t}</span>`).join('') || '<span>empty</span>'}</div>
-        ${f.next.length ? `<div class="fn-next">${f.next.map(n => `<span data-goto="${esc(n.to)}">→ ${esc(name.get(n.to))}</span>`).join('')}</div>` : ''}
+        ${f.next.length ? `<div class="fn-next">${f.next.map(n => `<span data-goto="${esc(n.to)}" data-wc="${esc(n.to)}">→ ${esc(name.get(n.to))}</span>`).join('')}</div>` : ''}
         <div class="fn-chips">${f.entities.map(e => `<span class="fn-ent ${e.access === 'reads' ? 'r' : 'w'}" title="${esc(e.access)}">${esc(e.name)}</span>`).join('')}</div>
       </div>`;
     const u = F.unassigned;
@@ -80,10 +80,10 @@ export function createFunctionsView({ root, getManifest, getTrace = () => null, 
       <div class="fn-cols">
         <div class="fn-col fn-who"><h4>Who</h4>${actors.map(a => `<div class="fn-actor" role="button" tabindex="0" data-a="${a}" aria-pressed="${pick?.a === a}" title="What ${esc(ACTORS[a])} use">${ACTOR_ICON[a]}<span>${ACTORS[a]}</span></div>`).join('') || '<p class="empty">—</p>'}</div>
         <div class="fn-col fn-fns"><h4>Functions <span>${F.items.length}</span></h4>${F.items.map(card).join('')}${editable ? '<button type="button" class="fn-add" id="fnAdd">+ Function</button>' : ''}</div>
-        <div class="fn-col fn-data"><h4>Data</h4>${entities.map(e => `<div class="fn-entity" role="button" tabindex="0" data-e="${esc(e)}" aria-pressed="${pick?.e === e}" title="Which functions read or write ${esc(e)}"><svg viewBox="0 0 24 24" aria-hidden="true"><ellipse cx="12" cy="6" rx="7" ry="2.5"/><path d="M5 6v12c0 1.4 3.1 2.5 7 2.5s7-1.1 7-2.5V6"/></svg><span>${esc(e)}</span></div>`).join('') || '<p class="empty">—</p>'}</div>
+        <div class="fn-col fn-data"><h4>Data</h4>${entities.map(e => `<div class="fn-entity" role="button" tabindex="0" data-e="${esc(e)}" data-wc="entity:${esc(e)}" aria-pressed="${pick?.e === e}" title="Which functions read or write ${esc(e)}"><svg viewBox="0 0 24 24" aria-hidden="true"><ellipse cx="12" cy="6" rx="7" ry="2.5"/><path d="M5 6v12c0 1.4 3.1 2.5 7 2.5s7-1.1 7-2.5V6"/></svg><span>${esc(e)}</span></div>`).join('') || '<p class="empty">—</p>'}</div>
         <svg class="fn-wires" aria-hidden="true"><defs><marker id="fnArrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z"/></marker></defs><g class="g"></g></svg>
       </div>
-      ${loose ? `<div class="fn-loose"><strong>Not in a function yet:</strong> ${[...u.screens.map(k => `<button type="button" data-screen="${esc(k)}">${esc(scr.get(k)?.name)}</button>`), ...u.operations.map(k => { const o = m.domain.operations.find(x => x.key === k); return `<button type="button" data-op="${esc(k)}">${esc(`${o.method} ${o.path}`)}</button>`; }), ...u.tools.map(t => `<span>${esc(t)}</span>`)].join(' ')}</div>` : ''}
+      ${loose ? `<div class="fn-loose"><strong>Not in a function yet:</strong> ${[...u.screens.map(k => `<button type="button" data-screen="${esc(k)}" data-wc="${esc(k)}">${esc(scr.get(k)?.name)}</button>`), ...u.operations.map(k => { const o = m.domain.operations.find(x => x.key === k); return `<button type="button" data-op="${esc(k)}" data-wc="${esc(k)}">${esc(`${o.method} ${o.path}`)}</button>`; }), ...u.tools.map(t => `<span>${esc(t)}</span>`)].join(' ')}</div>` : ''}
       <div class="fn-detail" id="fnDetail"></div>`;
     detail();
     requestAnimationFrame(draw);
@@ -104,24 +104,24 @@ export function createFunctionsView({ root, getManifest, getTrace = () => null, 
       <div class="fn-dhead"><h3>${esc(f.name)}</h3><button type="button" class="btn ghost small" data-spec="${esc(f.key)}">Open in the spec</button></div>
       ${f.summary ? `<p>${esc(f.summary)}</p>` : ''}
       ${row('Who', f.actors.map(a => esc(ACTORS[a])).join(', '))}
-      ${row('Screens', f.screens.map(k => `<button type="button" data-screen="${esc(k)}">${esc(scr.get(k)?.name)}</button>`).join('<i>→</i>'))}
-      ${row('Operations', f.operations.map(k => `<button type="button" data-op="${esc(k)}"><b class="v-${esc(ops.get(k).method.toLowerCase())}">${esc(ops.get(k).method)}</b> ${esc(ops.get(k).path)}</button>`).join(''))}
+      ${row('Screens', f.screens.map(k => `<button type="button" data-screen="${esc(k)}" data-wc="${esc(k)}">${esc(scr.get(k)?.name)}</button>`).join('<i>→</i>'))}
+      ${row('Operations', f.operations.map(k => `<button type="button" data-op="${esc(k)}" data-wc="${esc(k)}"><b class="v-${esc(ops.get(k).method.toLowerCase())}">${esc(ops.get(k).method)}</b> ${esc(ops.get(k).path)}</button>`).join(''))}
       ${row('MCP tools', f.tools.map(t => `<code>${esc(t)}</code>`).join(' '))}
-      ${row('Data', f.entities.map(e => `<button type="button" data-entity="${esc(e.name)}">${esc(e.name)} <small>${esc(e.access)}</small></button>`).join(''))}
-      ${row('Leads to', f.next.map(n => `<button type="button" data-goto="${esc(n.to)}">${esc(name.get(n.to))}</button>`).join(''))}
+      ${row('Data', f.entities.map(e => `<button type="button" data-entity="${esc(e.name)}" data-wc="entity:${esc(e.name)}">${esc(e.name)} <small>${esc(e.access)}</small></button>`).join(''))}
+      ${row('Leads to', f.next.map(n => `<button type="button" data-goto="${esc(n.to)}" data-wc="${esc(n.to)}">${esc(name.get(n.to))}</button>`).join(''))}
       ${codeRows(f)}`;
   }
 
   function pickDetail(m) {
     const F = m.functions.items;
     const row = (label, html) => (html ? `<div class="fn-drow"><span>${label}</span><div>${html}</div></div>` : '');
-    const fnBtn = f => `<button type="button" data-goto="${esc(f.key)}">${esc(f.name)}</button>`;
+    const fnBtn = f => `<button type="button" data-goto="${esc(f.key)}" data-wc="${esc(f.key)}">${esc(f.name)}</button>`;
     if (pick.a) {
       const fns = F.filter(f => f.actors.includes(pick.a));
       const ents = [...new Set(fns.flatMap(f => f.entities.map(e => e.name)))];
       return `<div class="fn-dhead"><h3>${esc(ACTORS[pick.a])}</h3></div>
         ${row('Functions', fns.map(fnBtn).join(''))}
-        ${row('Data', ents.map(e => `<button type="button" data-entity="${esc(e)}">${esc(e)}</button>`).join(''))}`;
+        ${row('Data', ents.map(e => `<button type="button" data-entity="${esc(e)}" data-wc="entity:${esc(e)}">${esc(e)}</button>`).join(''))}`;
     }
     const uses = F.map(f => [f, f.entities.find(e => e.name === pick.e)]).filter(([, e]) => e);
     const by = acc => uses.filter(([, e]) => (acc === 'reads' ? e.access === 'reads' : e.access !== 'reads')).map(([f]) => fnBtn(f)).join('');

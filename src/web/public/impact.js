@@ -1,8 +1,11 @@
 // The layer menu, the impact panel and the provenance block: what a layer touches, and where a
 // spec comes from. The browser's half of src/spec/impact.mjs (the same pure helpers, the same
 // answers: the agent reads the chain as text, the person reads it as a panel).
-import { readContract } from '/app/contract.js';
-import { chainFor, referenceBlock, ownerOf, nearbyFor, codeRow, provenanceHtml } from '/app/impact-core.js';
+// The imports are relative: the browser loads this file as /app/impact.js (so ./contract.js is
+// /app/contract.js) and the server loads it from the same folder (so the pure helpers can be
+// tested without a browser).
+import { readContract } from './contract.js';
+import { chainFor, elementChain, referenceBlock, ownerOf, nearbyFor, codeRow, provenanceHtml } from './impact-core.js';
 
 export { provenanceHtml };
 
@@ -27,17 +30,18 @@ export async function copyText(text) {
 }
 
 /**
- * The menu of a layer: a smart reference to copy, the link of its spec, and what it affects.
+ * The menu of a layer or of a product element: a smart reference to copy, the link of its spec,
+ * and what it affects.
  * @param {{x: number, y: number}} at where the pointer was
- * @param {{id: number, name: string}} layer
+ * @param {string} head what the menu is about ("Layer #6", "screen "Sign up"")
  * @param {{reference: Function, spec: Function, impact: Function}} actions
  */
-export function layerMenu(at, layer, actions) {
+export function contextMenu(at, head, actions) {
   document.querySelectorAll('.t-menu').forEach(x => x.remove());
   const m = document.createElement('div');
   m.className = 'menu t-menu';
   m.setAttribute('role', 'menu');
-  m.innerHTML = `<div class="t-menu-h">Layer #${layer.id}</div>`
+  m.innerHTML = `<div class="t-menu-h">${esc(head)}</div>`
     + '<button type="button" role="menuitem" data-act="reference">Copy a smart reference</button>'
     + '<button type="button" role="menuitem" data-act="spec">Copy the spec link</button>'
     + '<hr>'
@@ -54,9 +58,18 @@ export function layerMenu(at, layer, actions) {
     const b = ev.target.closest('[data-act]');
     if (!b) return;
     close();
-    actions[b.dataset.act]?.(layer);
+    actions[b.dataset.act]?.();
   });
   m.querySelector('button')?.focus();
+}
+
+/** The menu of a layer (the editor's layer rows and canvas). */
+export function layerMenu(at, layer, actions) {
+  contextMenu(at, `Layer #${layer.id}`, {
+    reference: () => actions.reference?.(layer),
+    spec: () => actions.spec?.(layer),
+    impact: () => actions.impact?.(layer),
+  });
 }
 
 /** The chain of a layer, read in the browser: the spec is fetched to know its sections. */
@@ -100,11 +113,13 @@ export function createImpactView({ root, getManifest, getTrace, openSpec, openLa
   const body = root.querySelector('.impact-body');
   let token = 0;
   const html = (chain, extra) => {
-    const sections = chain.sections.length
-      ? chain.sections.map(s => `<button type="button" class="imp-row" data-spec="${esc(chain.spec)}#${s.id}">${esc(s.title)}</button>`).join('')
-      : '<p class="empty">No section mentions this layer.</p>';
+    const sections = chain.type === 'layer'
+      ? (chain.sections.length
+        ? chain.sections.map(s => `<button type="button" class="imp-row" data-spec="${esc(chain.spec)}#${s.id}">${esc(s.title)}</button>`).join('')
+        : '<p class="empty">No section mentions this layer.</p>')
+      : `<button type="button" class="imp-row" data-spec="${esc(chain.spec)}"><code>${esc(chain.spec)}</code></button>`;
     const code = chain.code.length
-      ? chain.code.map(c => fileRow(c, chain.element?.tag ? `@weshcraft ${chain.element.tag}` : '')).join('')
+      ? chain.code.map(c => fileRow(c, chain.tag)).join('')
       : '<p class="empty">No code is tagged for this element yet.</p>';
     const callers = extra.callers.length
       ? extra.callers.map(c => `<div class="imp-row static"><span class="muted">callers</span> <code>${esc(c.name)}</code> <span class="muted">${esc(c.file ?? '')}${c.line ? `:${c.line}` : ''}</span></div>`).join('')
@@ -118,7 +133,10 @@ export function createImpactView({ root, getManifest, getTrace, openSpec, openLa
     const note = extra.graph && extra.graph.ok === false
       ? `<p class="imp-note">${/not installed/.test(extra.graph.reason ?? '') ? 'codegraph is not installed — showing the tagged code only' : /not indexed/.test(extra.graph.reason ?? '') ? 'the project is not indexed (codegraph init) — showing the tagged code only' : `codegraph: ${esc(extra.graph.reason)}`}</p>`
       : '';
-    return `<div class="imp-head"><h3>Layer #${chain.node} “${esc(chain.name)}”</h3><span class="muted">${esc(chain.owner.kind)} “${esc(chain.owner.name)}” (${esc(chain.owner.key)})</span></div>`
+    const head = chain.type === 'layer'
+      ? `<div class="imp-head"><h3>Layer #${chain.node} “${esc(chain.name)}”</h3><span class="muted">${esc(chain.owner.kind)} “${esc(chain.owner.name)}” (${esc(chain.owner.key)})</span></div>`
+      : `<div class="imp-head"><h3>${esc(chain.kind)} “${esc(chain.name)}”</h3><span class="muted">${esc(chain.id)}</span></div>`;
+    return head
       + '<section><h4>In the spec</h4>' + sections + '</section>'
       + '<section><h4>In the code</h4>' + code + callers + affected + note + '</section>'
       + '<section><h4>Nearby</h4>' + nearby + '</section>';
@@ -130,18 +148,28 @@ export function createImpactView({ root, getManifest, getTrace, openSpec, openLa
     if (b.dataset.file) return showFile(b.dataset.file, b.dataset.line ? Number(b.dataset.line) : null);
     if (b.dataset.node) return openLayer(Number(b.dataset.node));
   });
+  const show = async chain => {
+    const extra = await graphOf(chain, { getTrace });
+    body.innerHTML = html(chain, extra);
+    return chain;
+  };
   return {
-    /** Open the panel on a layer. */
+    /** The panel on a layer. */
     async open(node) {
       const mine = ++token;
       body.innerHTML = '<p class="empty">Looking…</p>';
       const chain = await chainOf(node, { getManifest, getTrace });
       if (mine !== token) return null;
       if (!chain) { body.innerHTML = '<p class="empty">This layer is not part of a screen or a component.</p>'; return null; }
-      const extra = await graphOf(chain, { getTrace });
+      return show(chain);
+    },
+    /** The panel on a product element (a screen, an operation, an entity, a rule…). */
+    async openElement(element) {
+      const mine = ++token;
+      body.innerHTML = '<p class="empty">Looking…</p>';
+      const chain = elementChain({ trace: getTrace(), id: element.id, name: element.name, kind: element.kind, spec: element.spec });
       if (mine !== token) return null;
-      body.innerHTML = html(chain, extra);
-      return chain;
+      return show(chain);
     },
     /** The reference block of a layer (what the menu copies). */
     async reference(node) {
@@ -154,6 +182,15 @@ export function createImpactView({ root, getManifest, getTrace, openSpec, openLa
       if (!chain) return null;
       const section = chain.sections[0];
       return section ? `${chain.spec}#${section.id}` : chain.spec;
+    },
+    /** The reference block of an element. */
+    elementReference(element) {
+      return referenceBlock(elementChain({ trace: getTrace(), id: element.id, name: element.name, kind: element.kind, spec: element.spec }));
+    },
+    /** The spec link of an element. */
+    elementSpecLink(element) {
+      const chain = elementChain({ trace: getTrace(), id: element.id, name: element.name, kind: element.kind, spec: element.spec });
+      return chain.spec || null;
     },
   };
 }

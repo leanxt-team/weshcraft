@@ -48,6 +48,8 @@ export function createExecSummaryView({ root, getManifest, getReport = () => nul
     const ents = m.domain.entities;
     const tools = m.surface?.mcp?.tools ?? [];
     const eps = m.surface?.api?.endpoints ?? [];
+    // The operation behind a public endpoint (the element a right click points at).
+    const opOfEp = ep => ops.find(o => o.endpoint === ep.key) ?? null;
 
     // What the product is, in one line.
     const counts = [
@@ -63,7 +65,7 @@ export function createExecSummaryView({ root, getManifest, getReport = () => nul
 
     // The journey: who does what, in the order they do it.
     const fnCard = f => `
-      <button type="button" class="ex-fn" data-f="${esc(f.key)}" title="Open the function in its spec">
+      <button type="button" class="ex-fn" data-f="${esc(f.key)}" data-wc="${esc(f.key)}" title="Open the function in its spec">
         <span class="ex-fn-name">${esc(f.name)}</span>
         ${f.summary ? `<span class="ex-fn-sum">${esc(f.summary)}</span>` : ''}
         ${f.actors.length ? `<span class="ex-fn-who">${f.actors.map(a => esc(ACTORS[a] ?? a)).join(' · ')}</span>` : ''}
@@ -84,7 +86,7 @@ export function createExecSummaryView({ root, getManifest, getReport = () => nul
           ${pages.map(p => `
             <div class="ex-page">
               <h4>${esc(p.name)}</h4>
-              ${(p.screens ?? []).map(k => `<button type="button" class="ex-screen" data-screen="${esc(k)}" title="Show it in the prototype">${esc(scr.get(k)?.name ?? k)}</button>`).join('') || '<p class="empty">no screens</p>'}
+              ${(p.screens ?? []).map(k => `<button type="button" class="ex-screen" data-screen="${esc(k)}" data-wc="${esc(k)}" title="Show it in the prototype">${esc(scr.get(k)?.name ?? k)}</button>`).join('') || '<p class="empty">no screens</p>'}
             </div>`).join('')}
         </div>
       </section>` : (tools.length || eps.length ? `
@@ -92,16 +94,16 @@ export function createExecSummaryView({ root, getManifest, getReport = () => nul
         <h3>What agents and developers use</h3>
         <p class="ex-hint">The product has no screens: it is an API and/or an MCP server.</p>
         <div class="ex-pages">
-          ${tools.length ? `<div class="ex-page"><h4>MCP tools</h4>${tools.map(t => `<button type="button" class="ex-screen" data-tool="${esc(t.key)}" title="Open the tool in its spec"><code>${esc(t.name)}</code></button>`).join('')}</div>` : ''}
-          ${eps.length ? `<div class="ex-page"><h4>Public API</h4>${eps.map(e => `<button type="button" class="ex-screen" data-ep="${esc(e.key)}" title="Open the endpoint in its spec"><b class="v-${esc(e.method.toLowerCase())}">${esc(e.method)}</b> ${esc(e.path)}</button>`).join('')}</div>` : ''}
+          ${tools.length ? `<div class="ex-page"><h4>MCP tools</h4>${tools.map(t => `<button type="button" class="ex-screen" data-tool="${esc(t.key)}" data-wc="tool:${esc(t.name)}" title="Open the tool in its spec"><code>${esc(t.name)}</code></button>`).join('')}</div>` : ''}
+          ${eps.length ? `<div class="ex-page"><h4>Public API</h4>${eps.map(e => `<button type="button" class="ex-screen" data-ep="${esc(e.key)}" data-wc="${esc(opOfEp(e)?.key ?? `ep:${e.method} ${e.path}`)}" title="Open the endpoint in its spec"><b class="v-${esc(e.method.toLowerCase())}">${esc(e.method)}</b> ${esc(e.path)}</button>`).join('')}</div>` : ''}
         </div>
       </section>` : '');
 
     // The back end: what the product calls, and what it keeps.
     const backEnd = ops.length || ents.length ? `
       <div class="ex-api">
-        <div class="ex-col"><h4>Operations</h4>${ops.map(o => `<button type="button" class="ex-op" data-op="${esc(o.key)}"><b class="v-${esc(o.method.toLowerCase())}">${esc(o.method)}</b> ${esc(o.path)}</button>`).join('') || '<p class="empty">none</p>'}</div>
-        <div class="ex-col"><h4>Data</h4>${ents.map(e => `<button type="button" class="ex-ent" data-ent="${esc(e.name)}">${esc(e.name)}</button>`).join('') || '<p class="empty">none</p>'}</div>
+        <div class="ex-col"><h4>Operations</h4>${ops.map(o => `<button type="button" class="ex-op" data-op="${esc(o.key)}" data-wc="${esc(o.key)}"><b class="v-${esc(o.method.toLowerCase())}">${esc(o.method)}</b> ${esc(o.path)}</button>`).join('') || '<p class="empty">none</p>'}</div>
+        <div class="ex-col"><h4>Data</h4>${ents.map(e => `<button type="button" class="ex-ent" data-ent="${esc(e.name)}" data-wc="entity:${esc(e.name)}">${esc(e.name)}</button>`).join('') || '<p class="empty">none</p>'}</div>
         <svg class="ex-wires" aria-hidden="true"><defs><marker id="exArrow2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z"/></marker></defs><g class="g"></g></svg>
       </div>
       ${tools.length || eps.length ? `<p class="ex-more">${tools.length ? `MCP tools: ${tools.map(t => `<code>${esc(t.name)}</code>`).join(', ')}` : ''}${tools.length && eps.length ? ' · ' : ''}${eps.length ? `${plural(eps.length, 'public endpoint')}` : ''}</p>` : ''}` : '<p class="empty">No back end yet.</p>';

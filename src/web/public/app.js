@@ -4,7 +4,8 @@ import { createEditor } from '/app/editor.js';
 import { createFunctionsView } from '/app/functions.js';
 import { createExecSummaryView } from '/app/execsum.js';
 import { createLogicView, createDataView, createApiView, createArchitectureView } from '/app/aspects.js';
-import { createImpactView, provenanceHtml, copyText } from '/app/impact.js';
+import { createImpactView, provenanceHtml, copyText, contextMenu, layerMenu } from '/app/impact.js';
+import { layerName } from '/app/impact-core.js';
 import { spreadEnds } from '/app/wires.js';
 import { buildTree, folderAt, countItems, allFolders, addFolder, renameFolder, removeFolder, moveItem, moveFolder } from '/app/spectree.js';
 
@@ -541,6 +542,42 @@ const layerActions = {
   },
   impact: layer => { setPanel('impact', true); impactView.open(layer.id); },
 };
+// The same menu for an element of the product (a screen, an operation, an entity, a rule…).
+const elementActions = el => ({
+  reference: async () => {
+    const ok = await copyText(impactView.elementReference(el));
+    log({ level: ok ? 'info' : 'error', at: Date.now(), message: ok ? 'Reference copied to the clipboard.' : 'The clipboard is not available here.' });
+  },
+  spec: async () => {
+    const link = impactView.elementSpecLink(el);
+    if (!link) return log({ level: 'warn', at: Date.now(), message: `${el.name} has no spec.` });
+    const ok = await copyText(link);
+    log({ level: ok ? 'info' : 'error', at: Date.now(), message: ok ? `Copied ${link}` : 'The clipboard is not available here.' });
+  },
+  impact: () => { setPanel('impact', true); impactView.openElement(el); },
+});
+/** What a right click points at: a layer of the design, or an element of the product. */
+function wcTarget(el) {
+  const raw = el.dataset.wc;
+  if (!raw) return null;
+  if (raw.startsWith('layer:')) return { type: 'layer', id: Number(raw.slice(6)) };
+  const known = (state.trace?.elements ?? []).find(e => e.id === raw);
+  const kind = known?.kind ?? (raw.startsWith('rule:') ? 'rule' : raw.startsWith('machine:') ? 'lifecycle' : raw.startsWith('arch:') ? 'arch' : 'element');
+  const label = (el.textContent ?? '').replace(/\s+/g, ' ').trim();
+  const name = known?.name ?? (label ? label.slice(0, 32) : (el.getAttribute('title') ?? raw));
+  return { type: 'element', id: raw, name, kind, spec: el.dataset.wcSpec ?? known?.spec ?? '' };
+}
+// Right click anywhere in the app: the menu of what is under the pointer.
+document.addEventListener('contextmenu', e => {
+  const el = e.target.closest?.('[data-wc]');
+  if (!el) return;
+  const t = wcTarget(el);
+  if (!t) return;
+  e.preventDefault();
+  const at = { x: e.clientX, y: e.clientY };
+  if (t.type === 'layer') layerMenu(at, { id: t.id, name: layerName(state.manifest, t.id) ?? '' }, layerActions);
+  else contextMenu(at, `${t.kind} "${t.name}"`, elementActions(t));
+});
 /** Open a layer in the editor (from the provenance block or the impact panel). */
 async function openLayer(id) {
   const screen = state.manifest?.screens.find(s => (s.nodeIds ?? []).includes(id));
@@ -597,10 +634,10 @@ function renderLinkMap() {
   const nodeRow = (screen) => {
     const seen = new Map();
     for (const e of edges.filter(x => x.screen === screen.key)) seen.set(e.node, [...(seen.get(e.node) ?? []), e]);
-    return [...seen].map(([node, es]) => `<button type="button" class="lrow ${es.some(x => x.op) ? 'is-op' : 'is-field'}" data-k="n:${node}" data-screen="${esc(screen.key)}"><span class="ic">${[...new Set(es.map(x => REL_ICON[x.rel]))].join('')}</span><span class="lt">${esc(es[0].label)}</span><code>${esc(nodeLabel(node))}</code></button>`).join('');
+    return [...seen].map(([node, es]) => `<button type="button" class="lrow ${es.some(x => x.op) ? 'is-op' : 'is-field'}" data-k="n:${node}" data-wc="layer:${node}" data-screen="${esc(screen.key)}"><span class="ic">${[...new Set(es.map(x => REL_ICON[x.rel]))].join('')}</span><span class="lt">${esc(es[0].label)}</span><code>${esc(nodeLabel(node))}</code></button>`).join('');
   };
-  const opRow = o => `<button type="button" class="lrow is-op" data-k="o:${esc(o.key)}"><span class="verb v-${esc(o.method.toLowerCase())}">${esc(o.method)}</span><span class="lt">${esc(o.path)}</span><span class="conf ${o.confidence}">${o.confidence === 'explicit' ? '' : 'inferred'}</span></button><div class="lsub">${esc([...m.screens, ...SURFACE_GROUPS].find(s => s.key === o.screen)?.name ?? '')}</div>`;
-  const ent = e => `<div class="lent"><div class="lhead" data-k="e:${esc(e.name)}">${esc(e.name)}</div>${e.fields.map(f => `<button type="button" class="lrow is-field" data-k="f:${esc(`${e.name}.${f.name}`)}"><span class="ic">◉</span><span class="lt">${esc(f.name)}</span><span class="conf ${f.confidence}">${esc(f.type)}</span></button>`).join('')}</div>`;
+  const opRow = o => `<button type="button" class="lrow is-op" data-k="o:${esc(o.key)}" data-wc="${esc(o.key)}"><span class="verb v-${esc(o.method.toLowerCase())}">${esc(o.method)}</span><span class="lt">${esc(o.path)}</span><span class="conf ${o.confidence}">${o.confidence === 'explicit' ? '' : 'inferred'}</span></button><div class="lsub">${esc([...m.screens, ...SURFACE_GROUPS].find(s => s.key === o.screen)?.name ?? '')}</div>`;
+  const ent = e => `<div class="lent"><div class="lhead" data-k="e:${esc(e.name)}" data-wc="entity:${esc(e.name)}">${esc(e.name)}</div>${e.fields.map(f => `<button type="button" class="lrow is-field" data-k="f:${esc(`${e.name}.${f.name}`)}" data-wc="entity:${esc(e.name)}"><span class="ic">◉</span><span class="lt">${esc(f.name)}</span><span class="conf ${f.confidence}">${esc(f.type)}</span></button>`).join('')}</div>`;
   box.innerHTML = `
     ${gaps.length ? `<div class="gaps">${gaps.map(g => `<button type="button" class="gap" data-k="${g.node != null ? `n:${g.node}` : `o:${esc(g.op)}`}">⚠ ${esc(g.message)}</button>`).join('')}</div>` : ''}
     <div class="lcols">
@@ -723,6 +760,12 @@ function reloadProto(hash) {
 window.addEventListener('message', e => {
   if (e.source !== $('#proto').contentWindow) return;
   const m = e.data || {};
+  if (m.weshcraft === 'context') {
+    // Right click in the prototype: the menu of that layer, where the pointer was.
+    const r = $('#proto').getBoundingClientRect();
+    layerMenu({ x: r.left + (m.x ?? 0), y: r.top + (m.y ?? 0) }, { id: m.node, name: m.name ?? '' }, layerActions);
+    return;
+  }
   if (m.weshcraft === 'link') {
     // A layer clicked in the prototype's data overlay: jump to its back-end spec and trace it.
     const op = m.op?.split(' ')[0];
