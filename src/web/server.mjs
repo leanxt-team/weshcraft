@@ -13,6 +13,8 @@ import { accessSummary } from '../publish/credentials.mjs';
 import { collectFiles } from '../publish/git.mjs';
 import { ROOT, DESIGN } from '../layout.mjs';
 import { parseTrusted, identity, forwarded, sameOrigin, clientIp } from './proxy.mjs';
+import { codegraphState, codegraphImpact, codegraphCallers, codegraphQuery, codegraphExplore } from '../codegraph.mjs';
+import { ownerOf } from './public/impact-core.js';
 
 const PUBLIC = path.join(path.dirname(fileURLToPath(import.meta.url)), 'public');
 const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.json': 'application/json; charset=utf-8', '.md': 'text/markdown; charset=utf-8', '.png': 'image/png', '.svg': 'image/svg+xml', '.figcraft': 'application/zip', '.zip': 'application/zip' };
@@ -73,6 +75,17 @@ export function startServer(o) {
     throw new Error(`refusing to listen on ${host} without --token or --trust-proxy (anyone on the network could publish with your git token)`);
   }
   const clients = new Set();
+  // The code graph is slow and the interface asks on every click: the answers are cached for a few
+  // minutes. The promise is what is cached, so two clicks at once share one call.
+  const cgCache = new Map();
+  const CG_TTL = 5 * 60_000;
+  const cached = (key, make) => {
+    const hit = cgCache.get(key);
+    if (hit && Date.now() - hit.at < CG_TTL) return hit.value;
+    const value = Promise.resolve(make()).catch(e => ({ ok: false, reason: e.message }));
+    cgCache.set(key, { at: Date.now(), value });
+    return value;
+  };
   // Every workspace event (jobs, runs, parity, design edits) streams to every open browser.
   const broadcast = ev => {
     const data = `event: ${ev.type}\ndata: ${JSON.stringify(ev)}\n\n`;
@@ -169,6 +182,90 @@ export function startServer(o) {
         return serveFile(res, ws.outDir, rel);
       }
       if (p === '/api/ping') return send(res, 200, { ok: true, app: 'weshcraft', outDir: ws.outDir });
+      if (p === '/api/file') {
+        // A file of the project, so the code behind a spec can be read here. Read-only, and
+        // inside the project: the path is data, never a command.
+        const rel = url.searchParams.get('path') || '';
+        const abs = containPath(ws.outDir, rel);
+        if (!abs) return send(res, 400, { error: 'path must stay inside the project' });
+        let st;
+        try { st = fs.statSync(abs); } catch { return send(res, 404, { error: 'not found' }); }
+        if (!st.isFile()) return send(res, 404, { error: 'not found' });
+        if (st.size > 1024 * 1024) return send(res, 413, { error: 'the file is too big to show here' });
+        const line = Number(url.searchParams.get('line') || 0);
+        const all = fs.readFileSync(abs, 'utf8').split('\n');
+        const from = Math.max(0, (Number.isFinite(line) && line ? line - 30 : 0));
+        const to = Math.min(all.length, from + 90);
+        return send(res, 200, { path: rel.replace(/^\.?\//, ''), from: from + 1, to, lines: all.slice(from, to).map((text, i) => ({ n: from + i + 1, text })) });
+      }
+      if (p === '/api/codegraph') {
+        // The code graph, for the browser: what a symbol reaches and what reaches it. The tool is
+        // optional and slow, so the answers are cached for a few minutes. Every argument is data:
+        // the tool runs in the project folder, never with an argument of the caller's choosing.
+        const what = url.searchParams.get('what') || 'state';
+        const dir = ws.outDir;
+        const num = (v, d, min, max) => { const n = Number(v); return Number.isFinite(n) ? Math.min(max, Math.max(min, n)) : d; };
+        const text = (v, name) => {
+          const s = String(v ?? '').trim().slice(0, 300);
+          if (!s) return { error: `${name} is required` };
+          if (s.startsWith('-')) return { error: `${name} must not start with "-"` };
+          return { value: s };
+        };
+        // A symbol is a name, never a path: it goes to the tool as one argument.
+        const symbol = (v, name) => {
+          const s = text(v, name);
+          if (s.error) return s;
+          if (/[\\/]/.test(s.value) || s.value.includes('..')) return { error: `${name} must be a name, not a path` };
+          return s;
+        };
+        const file = v => {
+          const s = String(v ?? '').trim();
+          if (!s) return { value: null };
+          if (s.startsWith('-')) return { error: 'file must not start with "-"' };
+          if (!containPath(dir, s)) return { error: 'file must stay inside the project' };
+          return { value: s };
+        };
+        // A layer's id is enough: the symbol of the element it belongs to.
+        const symbolOfNode = v => {
+          const id = Number(v);
+          if (!Number.isFinite(id)) return null;
+          const owner = ownerOf(ws.manifest, id);
+          if (!owner) return null;
+          const el = (ws.trace?.elements ?? []).find(e => e.id === owner.key);
+          return el?.code?.find(c => c.symbol)?.symbol ?? null;
+        };
+        if (what === 'state') return send(res, 200, await cached('state', () => codegraphState(dir)));
+        if (what === 'impact' || what === 'callers') {
+          // A symbol by name, or a layer's id: the symbol of the element it belongs to.
+          const given = url.searchParams.get('symbol');
+          let sym = given ? symbol(given, 'symbol') : { value: '' };
+          if (!sym.error && !sym.value) {
+            const fromNode = symbolOfNode(url.searchParams.get('node'));
+            sym = fromNode ? { value: fromNode } : { error: 'symbol: the name of a symbol (or node: a layer id)' };
+          }
+          if (!sym.value) return send(res, 400, { error: sym.error ?? 'symbol: the name of a symbol (or node: a layer id)' });
+          const f = file(url.searchParams.get('file'));
+          if (f.error) return send(res, 400, { error: f.error });
+          const depth = num(url.searchParams.get('depth'), 4, 1, 8);
+          const key = `${what}|${sym.value}|${f.value ?? ''}|${depth}`;
+          return send(res, 200, await cached(key, () => what === 'impact'
+            ? codegraphImpact(dir, sym.value, { depth, file: f.value })
+            : codegraphCallers(dir, sym.value, { file: f.value })));
+        }
+        if (what === 'query') {
+          const q = text(url.searchParams.get('q') ?? url.searchParams.get('symbol'), 'q');
+          if (q.error) return send(res, 400, { error: q.error });
+          const limit = num(url.searchParams.get('limit'), 10, 1, 50);
+          return send(res, 200, await cached(`query|${q.value}|${limit}`, () => codegraphQuery(dir, q.value, { limit })));
+        }
+        if (what === 'explore') {
+          const q = text(url.searchParams.get('q'), 'q');
+          if (q.error) return send(res, 400, { error: q.error });
+          const maxFiles = num(url.searchParams.get('maxFiles'), 6, 1, 12);
+          return send(res, 200, await cached(`explore|${q.value}|${maxFiles}`, () => codegraphExplore(dir, q.value, { maxFiles })));
+        }
+        return send(res, 400, { error: 'what: one of impact, callers, query, explore, state' });
+      }
       if (p === '/api/state') return send(res, 200, { ...ws.state(), source: ws.describe().split(`${ws.outDir}${path.sep}`).join(''), sync: o.syncer?.status() ?? null, figcraftWebUrl: o.figcraftWebUrl ?? null, tokens: await accessSummary(), mcpUrl: '/mcp', user: who?.user ?? null, publicUrl });
       if (p === '/api/events') {
         // A proxy that buffers would hold the whole stream: say so, and keep it alive.

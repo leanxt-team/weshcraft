@@ -10,6 +10,7 @@
    "kind": "function",
    "name": "Onboarding",
    "tag": "fn-onboarding",
+   "graph": "fnOnboarding",
    "code": []
   },
   {
@@ -17,6 +18,7 @@
    "kind": "screen",
    "name": "1 Welcome",
    "tag": "scr-1-welcome",
+   "graph": "screen1Welcome",
    "code": []
   },
   {
@@ -24,6 +26,7 @@
    "kind": "screen",
    "name": "2 Interests",
    "tag": "scr-2-interests",
+   "graph": "screen2Interests",
    "code": []
   },
   {
@@ -31,6 +34,7 @@
    "kind": "screen",
    "name": "3 Location",
    "tag": "scr-3-location",
+   "graph": "screen3Location",
    "code": []
   },
   {
@@ -38,6 +42,7 @@
    "kind": "screen",
    "name": "4 All set",
    "tag": "scr-4-all-set",
+   "graph": "screen4AllSet",
    "code": []
   },
   {
@@ -45,6 +50,7 @@
    "kind": "operation",
    "name": "POST /interests/continue",
    "tag": "POST /interests/continue",
+   "graph": "opPostInterestsContinue",
    "code": []
   },
   {
@@ -52,6 +58,7 @@
    "kind": "operation",
    "name": "POST /location/allow",
    "tag": "POST /location/allow",
+   "graph": "opPostLocationAllow",
    "code": []
   }
  ],

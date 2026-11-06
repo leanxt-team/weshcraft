@@ -1394,3 +1394,146 @@ test('a spec written by another version of WeshCraft is a warning, not a broken 
   const report = checkParity(ws.manifest, out);
   assert.equal(report.ok, true, JSON.stringify(report.issues.filter(i => i.level === 'error')));
 });
+
+// ---- what a layer affects, and where a spec comes from ------------------------------------------
+import { chainFor, referenceBlock, chainText, provenanceFor, provenanceHtml } from '../src/web/public/impact-core.js';
+import { impactChain } from '../src/spec/impact.mjs';
+
+const EMAIL = 6; // the "Email field" layer of the account design
+const withCode = async () => {
+  const { dir, file } = copyTo(ACCOUNT);
+  const put = (f, t) => { fs.mkdirSync(path.dirname(path.join(dir, f)), { recursive: true }); fs.writeFileSync(path.join(dir, f), t); };
+  put('src/pages/SignUp.tsx', '// @weshcraft scr-sign-up\nexport function SignUpPage() { return null; }\n');
+  put('src/pages/Profile.tsx', '// @weshcraft scr-profile\nexport function ProfilePage() { return null; }\n');
+  const ws = new Workspace({ source: new FileSource(file), outDir: dir });
+  await ws.run();
+  const contract = readContract(fs.readFileSync(path.join(dir, 'wcraft/specs/front/screens/scr-sign-up.md'), 'utf8'));
+  return { dir, ws, contract };
+};
+
+test('the smart reference: the layer, its spec, the sections that mention it and how to read it', async () => {
+  const { dir, ws } = await withCode();
+  const contract = readContract(fs.readFileSync(path.join(dir, 'wcraft/specs/front/screens/scr-sign-up.md'), 'utf8'));
+  const chain = chainFor({ manifest: ws.manifest, trace: ws.trace, contract, node: EMAIL });
+  assert.equal(chain.name, 'Email field');
+  assert.equal(chain.owner.kind, 'screen');
+  assert.equal(chain.owner.name, 'Sign up');
+  assert.equal(chain.owner.key, 'scr-sign-up');
+  assert.deepEqual(chain.sections.map(s => s.title), ['§Inputs', '§Front ⇄ back links', '§Layout']);
+  assert.equal(referenceBlock(chain), [
+    'WeshCraft · layer #6 "Email field" — screen "Sign up" (scr-sign-up)',
+    '',
+    '  spec    wcraft/specs/front/screens/scr-sign-up.md  (§Inputs, §Front ⇄ back links, §Layout)',
+    '  read    weshcraft_read {what:"layer", id:6}',
+    '  code    src/pages/SignUp.tsx:1  SignUpPage   (@weshcraft scr-sign-up)',
+    '  explore codegraph explore "how does Sign up work" --path .',
+    '  impact  codegraph impact SignUpPage --depth 4 --path .',
+  ].join('\n'));
+  // the spec really has those sections, and the anchors are there to jump to them
+  const md = fs.readFileSync(path.join(dir, 'wcraft/specs/front/screens/scr-sign-up.md'), 'utf8');
+  for (const a of ['layout', 'copy', 'interactions', 'inputs', 'components', 'links']) assert.match(md, new RegExp(`<a id="${a}"></a>`), a);
+});
+
+test('what a layer affects: its sections, its symbol, the code graph and the product around it', async () => {
+  const { dir, ws, contract } = await withCode();
+  // a fake code graph: the product graph calls the screen, and the profile screen is affected
+  const graph = {
+    callers: async () => ({ ok: true, symbol: 'SignUpPage', callers: [{ name: 'screenSignUp', kind: 'function', file: 'wcraft/graph.mjs', line: 12 }] }),
+    impact: async () => ({ ok: true, symbol: 'SignUpPage', affected: [{ name: 'screenProfile', kind: 'function', file: 'wcraft/graph.mjs', line: 20 }, { name: 'ProfilePage', kind: 'function', file: 'src/pages/Profile.tsx', line: 1 }] }),
+  };
+  const chain = await impactChain({ manifest: ws.manifest, trace: ws.trace, contract, node: EMAIL, dir, graph });
+  assert.equal(chain.symbol, 'SignUpPage');
+  assert.equal(chain.callers[0].name, 'screenSignUp');
+  assert.deepEqual(chain.affected.map(a => a.name), ['screenProfile', 'ProfilePage']);
+  // the affected symbols lead back into the product: the profile screen is nearby
+  assert.deepEqual(chain.nearby.map(n => n.id), ['scr-profile']);
+  assert.equal(chain.nearby[0].spec, 'wcraft/specs/front/screens/scr-profile.md');
+  // the whole chain, as text
+  const text = chainText(chain);
+  assert.match(text, /In the spec — wcraft\/specs\/front\/screens\/scr-sign-up\.md/);
+  assert.match(text, /§Inputs/);
+  assert.match(text, /src\/pages\/SignUp\.tsx:1  SignUpPage  \(@weshcraft scr-sign-up\)/);
+  assert.match(text, /callers: screenSignUp/);
+  assert.match(text, /Nearby\n {2}Profile — screen \(wcraft\/specs\/front\/screens\/scr-profile\.md\)/);
+});
+
+test('where a spec comes from: a screen spec knows its screen and its layers, the API spec its operations', async () => {
+  const { dir, ws } = await withCode();
+  const screen = provenanceFor({ manifest: ws.manifest, trace: ws.trace, spec: 'wcraft/specs/front/screens/scr-sign-up.md' });
+  assert.equal(screen.kind, 'screen');
+  assert.deepEqual(screen.elements.map(e => e.id), ['scr-sign-up']);
+  assert.equal(screen.elements[0].name, 'Sign up');
+  assert.ok(screen.layers.includes(EMAIL), 'the layers it covers');
+  assert.deepEqual(screen.elements[0].code.map(c => c.file), ['src/pages/SignUp.tsx']);
+  const api = provenanceFor({ manifest: ws.manifest, trace: ws.trace, spec: 'wcraft/specs/back/api.md' });
+  assert.equal(api.kind, 'operations');
+  assert.deepEqual(api.elements.map(e => e.id), ws.manifest.domain.operations.map(o => o.key));
+  assert.ok(api.layers.includes(10), 'the button that triggers the operation');
+  const domain = provenanceFor({ manifest: ws.manifest, trace: ws.trace, spec: 'wcraft/specs/back/domain.md' });
+  assert.deepEqual(domain.elements.map(e => e.id), ['entity:Subscription', 'entity:User']);
+  const fns = provenanceFor({ manifest: ws.manifest, trace: ws.trace, spec: 'wcraft/specs/FUNCTIONS.md' });
+  assert.deepEqual(fns.elements.map(e => e.id), ['fn-sign-up']);
+  // the block the reader shows: the design, the code, the exploration
+  const html = provenanceHtml({ manifest: ws.manifest, trace: ws.trace, spec: 'wcraft/specs/front/screens/scr-sign-up.md' });
+  assert.match(html, /<h3>Where this comes from<\/h3>/);
+  assert.match(html, /<h4>The design<\/h4>/);
+  assert.match(html, /<h4>The code<\/h4>/);
+  assert.match(html, /<h4>The exploration<\/h4>/);
+  assert.match(html, /data-node="6"/, 'the layers it covers are clickable');
+  assert.match(html, /data-file="src\/pages\/SignUp\.tsx" data-line="1"/, 'the code is clickable');
+  assert.match(html, /codegraph explore &quot;how does Sign up work&quot; --path \./);
+});
+
+test('without the code graph the chain still answers from the trace, and says so', async () => {
+  const { dir, ws, contract } = await withCode();
+  const graph = { callers: async () => ({ ok: false, reason: 'not installed' }), impact: async () => ({ ok: false, reason: 'not installed' }) };
+  const chain = await impactChain({ manifest: ws.manifest, trace: ws.trace, contract, node: EMAIL, dir, graph });
+  assert.equal(chain.code.length, 1);
+  assert.equal(chain.code[0].file, 'src/pages/SignUp.tsx');
+  assert.match(chainText(chain), /codegraph is not installed — showing the tagged code only/);
+  assert.match(referenceBlock(chain), /code {4}src\/pages\/SignUp\.tsx:1 {2}SignUpPage {3}\(@weshcraft scr-sign-up\)/);
+  // the agent gets the same answer, without the code graph
+  const mcp = new WeshCraftMcp({ workspace: ws, autoRun: false });
+  const r = await mcp.callTool('weshcraft_read', { what: 'impact', node: EMAIL });
+  assert.equal(r.isError, false, r.content[0].text);
+  assert.match(r.content[0].text, /In the spec — wcraft\/specs\/front\/screens\/scr-sign-up\.md/);
+  assert.match(r.content[0].text, /SignUpPage/);
+  const p = await mcp.callTool('weshcraft_read', { what: 'provenance', spec: 'wcraft/specs/front/screens/scr-sign-up.md' });
+  assert.equal(p.isError, false, p.content[0].text);
+  assert.match(p.content[0].text, /Where wcraft\/specs\/front\/screens\/scr-sign-up\.md comes from/);
+  assert.match(p.content[0].text, /screen "Sign up" \(scr-sign-up\)/);
+});
+
+test('the code graph route answers, and a hostile symbol or path is refused', async () => {
+  const { dir, ws } = await withCode();
+  const server = await startServer({ workspace: ws, mcp: new WeshCraftMcp({ workspace: ws }), port: 0, watch: false });
+  const base = server.url.replace(/\/$/, '');
+  const get = async q => { const r = await fetch(`${base}/api/codegraph${q}`); return { status: r.status, body: await r.json() }; };
+  try {
+    const st = await get('?what=state');
+    assert.equal(st.status, 200);
+    assert.equal(typeof st.body.available, 'boolean');
+    // a symbol that would be read as an option, and one that is a path: refused
+    for (const hostile of ['--foo', '../../etc/passwd', '-rf']) {
+      const r = await get(`?what=impact&symbol=${encodeURIComponent(hostile)}`);
+      assert.equal(r.status, 400, hostile);
+      assert.match(r.body.error, /must not start with|must be a name/, hostile);
+    }
+    // a file outside the project: refused
+    const f = await get(`?what=callers&symbol=SignUpPage&file=${encodeURIComponent('../../etc/passwd')}`);
+    assert.equal(f.status, 400);
+    assert.match(f.body.error, /inside the project/);
+    // a file of the project: accepted (the tool answers, or says it cannot)
+    const inside = await get('?what=callers&symbol=SignUpPage&file=src%2Fpages%2FSignUp.tsx');
+    assert.equal(inside.status, 200);
+    assert.equal(typeof inside.body.ok, 'boolean');
+    // the file route stays inside the project too
+    const bad = await fetch(`${base}/api/file?path=${encodeURIComponent('../../etc/passwd')}`);
+    assert.equal(bad.status, 400);
+    const good = await (await fetch(`${base}/api/file?path=src%2Fpages%2FSignUp.tsx&line=1`)).json();
+    assert.equal(good.path, 'src/pages/SignUp.tsx');
+    assert.equal(good.lines[0].text, '// @weshcraft scr-sign-up');
+    // what the route does not know: refused
+    assert.equal((await get('?what=rm-rf')).status, 400);
+  } finally { server.close(); }
+});

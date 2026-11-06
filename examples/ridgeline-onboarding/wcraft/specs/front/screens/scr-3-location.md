@@ -15,6 +15,7 @@
 
 3 Location is reached from “Continue” on 2 Interests. It shows 5 text layers, 0 component instances and 3 interactions.
 
+<a id="layout"></a>
 ## Layout
 
 Hierarchy, sizes and auto layout exactly as designed (px). Instances are specified in their component spec.
@@ -72,6 +73,7 @@ Root frame CSS (generated from the prototype):
 }
 ```
 
+<a id="copy"></a>
 ## Copy
 
 Shown verbatim. Typography and colour per layer; contrast is WCAG 2.1 against the nearest filled ancestor.
@@ -84,10 +86,12 @@ Shown verbatim. Typography and colour per layer; contrast is WCAG 2.1 against th
 | `#126` | Allow location | Allow location | Inter SemiBold 15px / 140% | #ffffff on #0e7c66 | 5.13:1 ✅ |
 | `#128` | Not now | Not now | Inter SemiBold 15px / 140% | #0e7c66 on #ffffff | 5.13:1 ✅ |
 
+<a id="components"></a>
 ## Components
 
 No component instances.
 
+<a id="interactions"></a>
 ## Interactions
 
 | Node | Element | Trigger | Action | Destination | Transition |
@@ -96,10 +100,12 @@ No component instances.
 | `#125` | Allow location | onClick | navigate | [4 All set](scr-4-all-set.md) | dissolve 300 ms |
 | `#127` | Not now | onClick | navigate | [4 All set](scr-4-all-set.md) | moveIn 350 ms |
 
+<a id="inputs"></a>
 ## Inputs
 
 No input fields detected.
 
+<a id="links"></a>
 ## Front ⇄ back links
 
 Where this screen meets the back end (full map: [LINKS.md](../../LINKS.md)). ▶ triggers · ⇢ submits · ☰ filled by · ◉ shows.

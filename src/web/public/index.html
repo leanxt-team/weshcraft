@@ -87,6 +87,14 @@
     <div class="tabpanel" data-panel="figcraft" hidden><iframe id="design" title="FigCraft" src="about:blank" allow="clipboard-read; clipboard-write; local-fonts"></iframe></div>
     <div class="tabpanel scroll" data-panel="links" hidden><div id="linkmap" class="linkmap"><p class="empty">No run yet.</p></div></div>
     <div class="tabpanel scroll" data-panel="manifest" hidden><pre id="manifest" class="mono"></pre></div>
+    <aside class="impact" id="impact" aria-label="What does this affect?">
+      <div class="pane-head">
+        <h2>Impact</h2>
+        <div class="spacer"></div>
+        <button type="button" class="drawer-close" data-close-drawer="impact" aria-label="Close the impact panel" title="Close">×</button>
+      </div>
+      <div class="impact-body"><p class="empty">Right-click a layer to see what it affects.</p></div>
+    </aside>
   </section>
 
   <aside class="specs" id="specsPanel" data-mode="list" aria-label="Specs">
@@ -201,6 +209,11 @@
     <p class="result" id="publishResult" role="status"></p>
     <div class="row"><button class="btn primary" value="go" id="publishGo">Publish</button><button class="btn ghost" value="off" id="syncOff" type="submit" formnovalidate>Stop syncing</button><button class="btn ghost" value="cancel" formnovalidate>Close</button></div>
   </form>
+</dialog>
+
+<dialog id="fileDlg" class="filedlg">
+  <div class="pane-head"><code id="filePath"></code><div class="spacer"></div><button type="button" class="icon-btn" id="fileClose" aria-label="Close" title="Close">×</button></div>
+  <pre id="fileBody" class="mono"></pre>
 </dialog>
 
 <div class="ed-menu" id="edMenu" role="menu" hidden></div>

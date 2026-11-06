@@ -15,6 +15,7 @@
 
 4 All set is reached from “Allow location” on 3 Location, “Not now” on 3 Location. It shows 4 text layers, 0 component instances and 0 interactions.
 
+<a id="layout"></a>
 ## Layout
 
 Hierarchy, sizes and auto layout exactly as designed (px). Instances are specified in their component spec.
@@ -47,6 +48,7 @@ Root frame CSS (generated from the prototype):
 }
 ```
 
+<a id="copy"></a>
 ## Copy
 
 Shown verbatim. Typography and colour per layer; contrast is WCAG 2.1 against the nearest filled ancestor.
@@ -58,18 +60,22 @@ Shown verbatim. Typography and colour per layer; contrast is WCAG 2.1 against th
 | `#140` | We found 42 trails within an hour of you. Three of them have gol | We found 42 trails within an hour of you. Three of them have golden larches this week. | Inter Regular 15px / 150% | #d7f5ec on #0a4f42 | 8.22:1 ✅ |
 | `#143` | Explore trails | Explore trails | Inter SemiBold 15px / 140% | #0e7c66 on #ffffff | 5.13:1 ✅ |
 
+<a id="components"></a>
 ## Components
 
 No component instances.
 
+<a id="interactions"></a>
 ## Interactions
 
 No prototype interactions on this screen.
 
+<a id="inputs"></a>
 ## Inputs
 
 No input fields detected.
 
+<a id="links"></a>
 ## Front ⇄ back links
 
 This screen has no back-end link (static content or navigation only).

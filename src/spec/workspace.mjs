@@ -11,7 +11,7 @@ import { domainSpec, apiSpec, openapi, conventionsSpec } from './back.mjs';
 import { linksSpec } from './links.mjs';
 import { functionsSpec } from './functions.mjs';
 import { logicSpec, dataSpec, apiOverviewSpec, architectureSpec } from './aspects.mjs';
-import { scanTags, traceOf, graphModule, traceSpec, graphPath, recordedGraphPath } from './trace.mjs';
+import { scanTags, traceOf, graphModule, graphSymbols, traceSpec, graphPath, recordedGraphPath } from './trace.mjs';
 import { buildTree, normalize } from '../web/public/spectree.js';
 import { readProjectConfig, updateProjectConfig } from '../design/discover.mjs';
 import { mcpToolSpec, mcpIndexSpec, endpointSpec, apiIndexSpec } from './surface.mjs';
@@ -330,7 +330,9 @@ export class Workspace {
     if (!trace.elements.length) { for (const f of [spec('TRACE.md'), spec('trace.json')]) fs.rmSync(this.file(f), { force: true }); return trace; }
     put(graphFile, graphModule(this.manifest, trace, { graphFile }));
     put(spec('TRACE.md'), `${traceSpec(this.manifest, trace, { graphFile })}\n`);
-    put(spec('trace.json'), `${JSON.stringify({ graph: graphFile, coverage: trace.coverage, elements: trace.elements.map(e => ({ id: e.id, kind: e.kind, name: e.name, tag: e.kind === 'operation' ? e.refs[1] : e.refs[0], code: e.code.map(t => ({ file: t.file, line: t.line, symbol: t.symbol, lang: t.lang })) })), unknown: trace.unknown.map(t => ({ file: t.file, line: t.line, ref: t.ref })) }, null, 1)}\n`);
+    // The graph symbol of every element: the name a code graph reports when it is affected.
+    const { sym } = graphSymbols(trace.elements);
+    put(spec('trace.json'), `${JSON.stringify({ graph: graphFile, coverage: trace.coverage, elements: trace.elements.map(e => ({ id: e.id, kind: e.kind, name: e.name, tag: e.kind === 'operation' ? e.refs[1] : e.refs[0], graph: sym.get(e.id) ?? null, code: e.code.map(t => ({ file: t.file, line: t.line, symbol: t.symbol, lang: t.lang })) })), unknown: trace.unknown.map(t => ({ file: t.file, line: t.line, ref: t.ref })) }, null, 1)}\n`);
     this.emit('trace', { coverage: trace.coverage, unknown: trace.unknown.length });
     return trace;
   }

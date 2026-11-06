@@ -15,6 +15,7 @@
 
 Sign up is reached from outside the prototyped flows. It shows 5 text layers, 0 component instances and 1 interactions.
 
+<a id="layout"></a>
 ## Layout
 
 Hierarchy, sizes and auto layout exactly as designed (px). Instances are specified in their component spec.
@@ -47,6 +48,7 @@ Root frame CSS (generated from the prototype):
 }
 ```
 
+<a id="copy"></a>
 ## Copy
 
 Shown verbatim. Typography and colour per layer; contrast is WCAG 2.1 against the nearest filled ancestor.
@@ -59,16 +61,19 @@ Shown verbatim. Typography and colour per layer; contrast is WCAG 2.1 against th
 | `#9` | Placeholder | At least 8 characters | Inter Regular 15px / 140% | #64748b on #f1f5f9 | 4.34:1 ⚠️ below 4.5:1 |
 | `#11` | Label | Create account | Inter SemiBold 16px / 140% | #ffffff on #0e7c66 | 5.13:1 ✅ |
 
+<a id="components"></a>
 ## Components
 
 No component instances.
 
+<a id="interactions"></a>
 ## Interactions
 
 | Node | Element | Trigger | Action | Destination | Transition |
 |---|---|---|---|---|---|
 | `#10` | Create account | onClick | navigate | [Profile](scr-profile.md) | dissolve 250 ms |
 
+<a id="inputs"></a>
 ## Inputs
 
 | Node | Field | Kind | Placeholder / default | Validation |
@@ -76,6 +81,7 @@ No component instances.
 | `#6` | Email field | email | you@example.com | RFC 5322 address, required |
 | `#8` | Password field | password | At least 8 characters | required, min 8 chars (confirm) |
 
+<a id="links"></a>
 ## Front ⇄ back links
 
 Where this screen meets the back end (full map: [LINKS.md](../../LINKS.md)). ▶ triggers · ⇢ submits · ☰ filled by · ◉ shows.

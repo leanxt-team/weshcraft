@@ -15,6 +15,7 @@
 
 Profile is reached from “Create account” on Sign up. It shows 4 text layers, 0 component instances and 0 interactions.
 
+<a id="layout"></a>
 ## Layout
 
 Hierarchy, sizes and auto layout exactly as designed (px). Instances are specified in their component spec.
@@ -44,6 +45,7 @@ Root frame CSS (generated from the prototype):
 }
 ```
 
+<a id="copy"></a>
 ## Copy
 
 Shown verbatim. Typography and colour per layer; contrast is WCAG 2.1 against the nearest filled ancestor.
@@ -55,18 +57,22 @@ Shown verbatim. Typography and colour per layer; contrast is WCAG 2.1 against th
 | `#14` | Plan | {{subscription.plan}} | Inter SemiBold 15px / 140% | #0e7c66 on #f8fafc | 4.9:1 ✅ |
 | `#16` | Label | Save | Inter SemiBold 16px / 140% | #ffffff on #0e7c66 | 5.13:1 ✅ |
 
+<a id="components"></a>
 ## Components
 
 No component instances.
 
+<a id="interactions"></a>
 ## Interactions
 
 No prototype interactions on this screen.
 
+<a id="inputs"></a>
 ## Inputs
 
 No input fields detected.
 
+<a id="links"></a>
 ## Front ⇄ back links
 
 Where this screen meets the back end (full map: [LINKS.md](../../LINKS.md)). ▶ triggers · ⇢ submits · ☰ filled by · ◉ shows.

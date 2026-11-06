@@ -15,6 +15,7 @@
 
 2 Interests is reached from “Get started” on 1 Welcome. It shows 10 text layers, 0 component instances and 2 interactions.
 
+<a id="layout"></a>
 ## Layout
 
 Hierarchy, sizes and auto layout exactly as designed (px). Instances are specified in their component spec.
@@ -97,6 +98,7 @@ Root frame CSS (generated from the prototype):
 }
 ```
 
+<a id="copy"></a>
 ## Copy
 
 Shown verbatim. Typography and colour per layer; contrast is WCAG 2.1 against the nearest filled ancestor.
@@ -114,10 +116,12 @@ Shown verbatim. Typography and colour per layer; contrast is WCAG 2.1 against th
 | `#85` | Ridge walks | Ridge walks | Inter SemiBold 15px / 140% | #0f172a on #ffffff | 17.85:1 ✅ |
 | `#88` | Continue | Continue | Inter SemiBold 15px / 140% | #ffffff on #0e7c66 | 5.13:1 ✅ |
 
+<a id="components"></a>
 ## Components
 
 No component instances.
 
+<a id="interactions"></a>
 ## Interactions
 
 | Node | Element | Trigger | Action | Destination | Transition |
@@ -125,10 +129,12 @@ No component instances.
 | `#31` | Back | onClick | back | — | instant |
 | `#87` | Continue | onClick | navigate | [3 Location](scr-3-location.md) | push 400 ms |
 
+<a id="inputs"></a>
 ## Inputs
 
 No input fields detected.
 
+<a id="links"></a>
 ## Front ⇄ back links
 
 Where this screen meets the back end (full map: [LINKS.md](../../LINKS.md)). ▶ triggers · ⇢ submits · ☰ filled by · ◉ shows.

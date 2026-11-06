@@ -15,6 +15,7 @@
 
 1 Welcome is reached from the start of the flow. It shows 5 text layers, 0 component instances and 1 interactions.
 
+<a id="layout"></a>
 ## Layout
 
 Hierarchy, sizes and auto layout exactly as designed (px). Instances are specified in their component spec.
@@ -54,6 +55,7 @@ Root frame CSS (generated from the prototype):
 }
 ```
 
+<a id="copy"></a>
 ## Copy
 
 Shown verbatim. Typography and colour per layer; contrast is WCAG 2.1 against the nearest filled ancestor.
@@ -66,20 +68,24 @@ Shown verbatim. Typography and colour per layer; contrast is WCAG 2.1 against th
 | `#22` | Get started | Get started | Inter SemiBold 15px / 140% | #ffffff on #0e7c66 | 5.13:1 ✅ |
 | `#23` | I already have an account | I already have an account | Inter Medium 13px / 140% | #0e7c66 on #ffffff | 5.13:1 ✅ |
 
+<a id="components"></a>
 ## Components
 
 No component instances.
 
+<a id="interactions"></a>
 ## Interactions
 
 | Node | Element | Trigger | Action | Destination | Transition |
 |---|---|---|---|---|---|
 | `#21` | Get started | onClick | navigate | [2 Interests](scr-2-interests.md) | push 400 ms |
 
+<a id="inputs"></a>
 ## Inputs
 
 No input fields detected.
 
+<a id="links"></a>
 ## Front ⇄ back links
 
 This screen has no back-end link (static content or navigation only).

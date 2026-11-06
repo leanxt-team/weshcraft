@@ -4,6 +4,7 @@ import { createEditor } from '/app/editor.js';
 import { createFunctionsView } from '/app/functions.js';
 import { createExecSummaryView } from '/app/execsum.js';
 import { createLogicView, createDataView, createApiView, createArchitectureView } from '/app/aspects.js';
+import { createImpactView, provenanceHtml, copyText } from '/app/impact.js';
 import { spreadEnds } from '/app/wires.js';
 import { buildTree, folderAt, countItems, allFolders, addFolder, renameFolder, removeFolder, moveItem, moveFolder } from '/app/spectree.js';
 
@@ -329,7 +330,9 @@ async function openJob(id, anchor) {
 function showDoc(md, file) {
   const doc = $('#doc');
   const same = doc.dataset.file === (file ?? '');
-  const html = md ? markdown(md) : '<p class="empty">Not written yet.</p>';
+  // Every generated spec says where it comes from: the design, the code, the exploration.
+  const prov = file ? provenanceHtml({ manifest: state.manifest, trace: state.trace, spec: file }) : '';
+  const html = md ? `${markdown(md)}${prov}` : '<p class="empty">Not written yet.</p>';
   if (same && doc.dataset.html === html) return;
   doc.dataset.html = html;
   doc.innerHTML = html;
@@ -510,6 +513,56 @@ const exView = createExecSummaryView({
   openFile: f => { openFile(f); if (phone.matches) setPhoneView('read'); else showSpec(); },
   showScreen: key => { if (phone.matches) setPhoneView('proto'); else selectTab('proto'); state.protoScreen = key; protoPost({ weshcraft: 'show', key }); },
 });
+
+// ---- what a layer affects, and where a spec comes from -----------------------------------------
+// The panel (a drawer over the view), the layer's menu (in the editor) and the provenance block
+// (in the reader) all read the same chain: the spec sections, the code, the code graph's answer.
+const impactView = createImpactView({
+  root: $('#impact'),
+  getManifest: () => state.manifest,
+  getTrace: () => state.trace,
+  openSpec: f => { openFile(f); if (phone.matches) setPhoneView('read'); else showSpec(); },
+  openLayer: id => openLayer(id),
+  showFile: (file, line) => showFile(file, line),
+  log,
+});
+const layerActions = {
+  reference: async layer => {
+    const text = await impactView.reference(layer.id);
+    if (!text) return log({ level: 'warn', at: Date.now(), message: `Layer #${layer.id} is not part of a screen or a component.` });
+    const ok = await copyText(text);
+    log({ level: ok ? 'info' : 'error', at: Date.now(), message: ok ? 'Reference copied to the clipboard.' : 'The clipboard is not available here.' });
+  },
+  spec: async layer => {
+    const link = await impactView.specLink(layer.id);
+    if (!link) return log({ level: 'warn', at: Date.now(), message: `Layer #${layer.id} has no spec.` });
+    const ok = await copyText(link);
+    log({ level: ok ? 'info' : 'error', at: Date.now(), message: ok ? `Copied ${link}` : 'The clipboard is not available here.' });
+  },
+  impact: layer => { setPanel('impact', true); impactView.open(layer.id); },
+};
+/** Open a layer in the editor (from the provenance block or the impact panel). */
+async function openLayer(id) {
+  const screen = state.manifest?.screens.find(s => (s.nodeIds ?? []).includes(id));
+  if (screen) await editor?.showScreen(screen.id);
+  selectTab('design');
+  await editor?.show(id);
+}
+// The code behind a spec: the file, with the line the trace knows.
+const fileDlg = $('#fileDlg');
+async function showFile(file, line) {
+  if (!file) return;
+  const r = await fetch(`/api/file?path=${encodeURIComponent(file)}${line ? `&line=${line}` : ''}`);
+  if (!r.ok) {
+    const j = await r.json().catch(() => ({}));
+    return log({ level: 'error', at: Date.now(), message: j.error ?? `cannot open ${file}` });
+  }
+  const j = await r.json();
+  $('#filePath').textContent = j.path;
+  $('#fileBody').innerHTML = j.lines.map(l => `<span class="fl${l.n === line ? ' hit' : ''}"><i>${l.n}</i>${esc(l.text)}</span>`).join('');
+  if (!fileDlg.open) fileDlg.showModal();
+}
+$('#fileClose').addEventListener('click', () => fileDlg.close());
 
 // ---- front ⇄ back link map ------------------------------------------------------------------
 const REL_ICON = { triggers: '▶', submits: '⇢', lists: '☰', displays: '◉', invokes: '⚙', exposes: '↗' };
@@ -776,7 +829,7 @@ async function init() {
   renderSync(st.sync);
   connect();
   // The design editor: first tab when the design is editable here (a .figcraft file, not a live FigCraft).
-  editor = createEditor({ openFile: f => { selectTab('proto'); openFile(f); if (phone.matches) setPhoneView('read'); }, markdown, log });
+  editor = createEditor({ openFile: f => { selectTab('proto'); openFile(f); if (phone.matches) setPhoneView('read'); }, markdown, log, layerActions });
   await editor.init(editable => {
     state.editable = !!editable;
     fnView.refresh();
@@ -818,6 +871,11 @@ $('#issues').addEventListener('click', e => {
 $('#doc').addEventListener('click', e => {
   const chip = e.target.closest('.nodechip');
   if (chip) { selectTab('proto'); protoPost({ weshcraft: 'highlight', node: chip.dataset.node }); return; }
+  // The provenance block: a layer opens in the editor, a code location opens the file.
+  const layer = e.target.closest('[data-node]');
+  if (layer) { openLayer(Number(layer.dataset.node)); return; }
+  const code = e.target.closest('[data-file]');
+  if (code) { showFile(code.dataset.file, code.dataset.line ? Number(code.dataset.line) : null); return; }
   const a = e.target.closest('a[data-href]');
   if (a && !/^https?:/.test(a.dataset.href)) {
     e.preventDefault();
@@ -838,16 +896,17 @@ const PANEL_KEY = 'weshcraft.panels.v3';
 let panelPrefs = {};
 try { panelPrefs = JSON.parse(localStorage.getItem(PANEL_KEY) || '{}'); } catch { /* storage blocked */ }
 const section = () => document.body.dataset.section || 'proto';
-const chosen = () => ({ right: true, edl: true, edr: true, ...panelPrefs });
-const PANEL_LABEL = { right: 'the specs', edl: 'screens and layers', edr: 'the inspector' };
+const chosen = () => ({ right: true, edl: true, edr: true, impact: false, ...panelPrefs });
+const PANEL_LABEL = { right: 'the specs', edl: 'screens and layers', edr: 'the inspector', impact: 'the impact' };
 // One Specs panel beside the view: the list of specs, and the spec you open in it (back to the list
 // with ‹ Specs). When the room runs out it stops squeezing the view and slides over it as a drawer,
 // opened by the same » and closed again by a click beside it, × or Escape (not remembered). The
 // editor does the same inside the view: screens/layers and the inspector become drawers when the
 // canvas would get too small. Phones keep their own one-view layout (standalone browser only).
-const drawer = { right: false, edl: false, edr: false };
+const drawer = { right: false, edl: false, edr: false, impact: false };
 let lay = 'wide', edTight = false;
-const overlay = k => (k === 'right' ? lay === 'narrow' : edTight);
+// The impact panel always floats over the view: it is a panel, not a column of the editor.
+const overlay = k => (k === 'right' ? lay === 'narrow' : k === 'impact' ? true : edTight);
 const panelState = () => { const c = chosen(); return Object.fromEntries(Object.keys(drawer).map(k => [k, overlay(k) ? drawer[k] : c[k]])); };
 function measureLayout() {
   const w = $('.layout')?.clientWidth ?? innerWidth;
@@ -891,7 +950,13 @@ function setPanel(k, open) {
   if (overlay(k)) {
     drawer[k] = open;
     // one drawer per side pair at a time
-    if (open && k !== 'right') { const pair = k === 'edl' ? 'edr' : 'edl'; if (overlay(pair)) drawer[pair] = false; }
+    if (open && k !== 'right') {
+      const pair = k === 'edl' ? 'edr' : k === 'edr' ? 'edl' : null;
+      if (pair && overlay(pair)) drawer[pair] = false;
+      // the impact panel floats over the inspector: not both at once
+      if (k === 'impact') drawer.edr = false;
+      if (k === 'edr') drawer.impact = false;
+    }
   } else {
     panelPrefs = { ...panelPrefs, [k]: open };
     try { localStorage.setItem(PANEL_KEY, JSON.stringify(panelPrefs)); } catch { /* storage blocked */ }
@@ -931,7 +996,7 @@ function selectTab(t) {
   const sb = document.querySelector(`.tab[data-tab="${t}"] span`);
   if (sb) $('#sectionTitle').textContent = sb.textContent;
   document.body.classList.toggle('editing', t === 'design');
-  closeDrawers(['right']);
+  closeDrawers(['right', 'impact']);
   applyPanels();
   document.querySelectorAll('.tabpanel').forEach(p => {
     const show = p.dataset.panel === t;

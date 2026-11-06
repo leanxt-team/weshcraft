@@ -208,7 +208,7 @@ export class WeshCraftMcp {
           instructions: [
             'WeshCraft: a design, the product it describes (functions, logic, data, API & MCP, architecture) and specs kept in step with both, linked to the code. Seven tools:',
             '- weshcraft_status first: where things stand, what to do next.',
-            '- weshcraft_read {what}: tree / find / layer / tokens / screenshot of the design; functions, logic, data, api, architecture, links, trace of the product; spec, folders, manifest, parity.',
+            '- weshcraft_read {what}: tree / find / layer / tokens / screenshot of the design; functions, logic, data, api, architecture, links, trace of the product; impact (what a layer affects), provenance (where a spec comes from); spec, folders, manifest, parity.',
             this.ws.source?.store ? '- weshcraft_edit {ops}: every change in one batch and one undo step (layers, copy, links, bindings, API calls, tokens; functions, rules, lifecycles, components; spec folders). Read the tree for ids first; wait:true returns parity.'
               : this.ws.source ? '- The design is not editable here (live FigCraft or --read-only): read only.'
               : '- weshcraft_new starts a design (or the project is an API / MCP service only), then weshcraft_edit.',

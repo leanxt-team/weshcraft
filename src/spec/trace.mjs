@@ -139,15 +139,24 @@ export function traceOf(manifest, tags) {
     if (el) { if (!links.get(el.id).some(x => x.file === t.file && x.line === t.line)) links.get(el.id).push(t); } else unknown.push(t);
   }
   const counted = els.filter(el => el.kind !== 'function');
+  // The graph symbol of every element: the name a code graph reports when it is affected.
+  const { sym } = graphSymbols(els);
   return {
-    elements: els.map(el => ({ ...el, code: links.get(el.id) })),
+    elements: els.map(el => ({ ...el, graph: sym.get(el.id) ?? null, tag: el.kind === 'operation' ? el.refs[1] : el.refs[0], code: links.get(el.id) })),
     unknown,
     coverage: { traced: counted.filter(el => links.get(el.id).length).length, total: counted.length },
   };
 }
 
 // ---- design/weshcraft.graph.mjs ------------------------------------------------------------
-export function graphModule(manifest, trace, { source = '', graphFile = GRAPH_FILE } = {}) {
+const KIND = { function: 'fn', screen: 'screen', component: 'component', operation: 'op', entity: 'entity', tool: 'tool' };
+
+/**
+ * The symbol every element gets in the product graph (wcraft/graph.mjs). The names are what a code
+ * graph reports as affected, so the trace keeps them: that is how an affected symbol leads back to
+ * the product element it belongs to.
+ */
+export function graphSymbols(elements) {
   const used = new Set();
   const ident = (prefix, name) => {
     let id = `${prefix}${pascal(name)}`;
@@ -155,9 +164,13 @@ export function graphModule(manifest, trace, { source = '', graphFile = GRAPH_FI
     used.add(id);
     return id;
   };
-  const KIND = { function: 'fn', screen: 'screen', component: 'component', operation: 'op', entity: 'entity', tool: 'tool' };
   const sym = new Map();
-  for (const el of trace.elements) sym.set(el.id, ident(KIND[el.kind], el.kind === 'operation' ? el.name.replace(/^(\w+)\s/, '$1 ') : el.name));
+  for (const el of elements) sym.set(el.id, ident(KIND[el.kind], el.kind === 'operation' ? el.name.replace(/^(\w+)\s/, '$1 ') : el.name));
+  return { sym, used, ident };
+}
+
+export function graphModule(manifest, trace, { source = '', graphFile = GRAPH_FILE } = {}) {
+  const { sym, used, ident } = graphSymbols(trace.elements);
   const root = ident('weshcraft', 'product');
   // Code that can be imported (exported JS/TS symbols) is called; the rest is named in the comment.
   const imports = new Map(); // file → { names: Map(name → local), def: local }

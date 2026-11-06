@@ -1,6 +1,7 @@
 // WeshCraft design editor: FigCraft's core editing tools in the browser, on the same document and
 // undo stack agents use over MCP. The server renders each screen exactly as the prototype does;
 // this module draws selection, handles and tools over it, and sends operations back.
+import { layerMenu } from '/app/impact.js';
 const $ = s => document.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const PAD = 64;
@@ -15,7 +16,7 @@ const ICON = {
 };
 const icon = t => `<svg viewBox="0 0 24 24" aria-hidden="true">${ICON[t] ?? ICON.frame}</svg>`;
 
-export function createEditor({ openFile, markdown, log }) {
+export function createEditor({ openFile, markdown, log, layerActions }) {
   const E = {
     S: null, screenId: null, tree: null, nodes: new Map(), sel: [], tool: 'select', zoom: 1, fit: true,
     version: -1, open: new Set(), insp: 'design', fonts: new Set(), busy: null, pending: false, editing: null,
@@ -230,6 +231,25 @@ export function createEditor({ openFile, markdown, log }) {
     const li = e.target.closest('li[data-id]');
     if (li && !e.target.closest('button')) inlineRename(li.querySelector('.nm'), Number(li.dataset.id));
   });
+  // The layer's menu: a smart reference to copy, the link of its spec, what it affects.
+  function layerMenuAt(e, id) {
+    const n = node(id);
+    if (!n) return;
+    e.preventDefault();
+    const name = n.text && n.type === 'text' ? (n.name || n.text) : n.name;
+    layerMenu({ x: e.clientX, y: e.clientY }, { id, name }, {
+      reference: layer => layerActions?.reference?.(layer),
+      spec: layer => layerActions?.spec?.(layer),
+      impact: layer => layerActions?.impact?.(layer),
+    });
+  }
+  layers.addEventListener('contextmenu', e => {
+    const li = e.target.closest('li[data-id]');
+    if (!li) return;
+    const id = Number(li.dataset.id);
+    if (!E.sel.includes(id)) select([id]);
+    layerMenuAt(e, id);
+  });
   let dragRow = null;
   layers.addEventListener('dragstart', e => { const li = e.target.closest('li[data-id]'); dragRow = Number(li.dataset.id); e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', String(dragRow)); });
   layers.addEventListener('dragover', e => {
@@ -391,6 +411,14 @@ export function createEditor({ openFile, markdown, log }) {
     if (next == null) return;
     if (node(next)?.type === 'text' && next === path.at(-1) && cur === next) return editText(next);
     select([next]);
+  });
+  scroller.addEventListener('contextmenu', e => {
+    // The selected layer, or the one under the pointer.
+    const path = hitPath(e);
+    const id = (E.sel.length === 1 && path.includes(E.sel[0])) ? E.sel[0] : (pick(path, true) ?? E.sel[0] ?? null);
+    if (id == null) return;
+    if (!E.sel.includes(id)) select([id]);
+    layerMenuAt(e, id);
   });
 
   function startResize(e, h) {
@@ -733,7 +761,7 @@ export function createEditor({ openFile, markdown, log }) {
       !isScreen ? `<div class="f bind"><span>Shows</span><input data-k="bindEntity" value="${esc(p.bind?.entity ?? '')}" placeholder="entity" spellcheck="false" aria-label="Entity"><b>.</b><input data-k="bindField" value="${esc(p.bind?.field ?? '')}" placeholder="field" spellcheck="false" aria-label="Field">${sel('bindType', [['string', 'text'], ['number', 'number'], ['boolean', 'bool'], ['date', 'date'], ['url', 'url'], ['image', 'image'], ['email', 'email'], ['money', 'money']], p.bind?.type ?? 'string')}</div>` : '',
       field('Dev status', sel('devStatus', [['', 'None'], ['readyForDev', 'Ready for dev'], ['completed', 'Completed']], p.devStatus ?? '')),
       `<div class="ed-notes">${(p.notes ?? []).map(n => `<p class="note">${esc(n)}</p>`).join('')}<input data-k="note" placeholder="Add a note for the spec…" aria-label="Add note"></div>`,
-      `<button type="button" class="link small" data-do="spec">Open the screen spec ›</button></section>`,
+      `<div class="row wrap"><button type="button" class="link small" data-do="spec">Open the screen spec ›</button><button type="button" class="link small" data-do="impact">What does this affect? ›</button></div></section>`,
       `<section class="ed-sec"><h4>Layout</h4><div class="grid4">${field('X', num('x', p.x, flow || isScreen ? 'disabled' : ''))}${field('Y', num('y', p.y, flow || isScreen ? 'disabled' : ''))}${field('W', num('width', p.width))}${field('H', num('height', p.height))}</div>`,
       flow || p.sizing ? `<div class="grid2">${field('Width', sel('sizingH', [['fixed', 'Fixed'], ['hug', 'Hug'], ['fill', 'Fill']], p.sizing?.h ?? 'fixed'))}${field('Height', sel('sizingV', [['fixed', 'Fixed'], ['hug', 'Hug'], ['fill', 'Fill']], p.sizing?.v ?? 'fixed'))}</div>` : '',
       flow ? `<label class="chk"><input type="checkbox" data-k="absolute" ${p.sizing?.absolute ? 'checked' : ''}> Absolute position</label>` : '',
@@ -791,6 +819,7 @@ export function createEditor({ openFile, markdown, log }) {
     if (act === 'del') { const ids = E.sel.filter(id => id !== E.screenId); E.sel = []; return ops([{ op: 'delete', ids }], 'Delete'); }
     if (act === 'dup') { if (E.sel[0] === E.screenId) { const r = await ops([{ op: 'duplicate', id: E.screenId, ref: 'c' }], 'Duplicate screen'); if (r) { E.screenId = r.refs.c; E.sel = []; E.fit = true; refresh(); } return; } return duplicateSel(); }
     if (act === 'spec') { const s = E.S?.screens?.find(x => x.id === E.screenId); if (s?.key) openFile(`wcraft/specs/front/screens/${s.key}.md`); return; }
+    if (act === 'impact') { const id = E.sel[0]; if (id != null) layerActions?.impact?.({ id, name: node(id)?.name ?? '' }); return; }
     if (act === 'token') {
       const name = insp.querySelector('[data-tok=name]').value.trim(), value = insp.querySelector('[data-tok=value]').value.trim();
       if (!name || !value) return status('Token needs a name and a value', 'err');
@@ -871,6 +900,16 @@ export function createEditor({ openFile, markdown, log }) {
   return {
     async init(cb) { onAvailable = cb; const S = await api('').catch(() => null); if (S?.reason !== 'read-only') onAvailable?.(!!S?.editable, S); },
     shown() { shown = true; refresh(); },
+    /** Another screen (the layer asked for is not on this one). */
+    async showScreen(id) { if (id == null || id === E.screenId) return; E.screenId = id; E.sel = []; E.fit = true; await refresh(); },
+    /** Select a layer and show it (from the provenance block or the impact panel). */
+    async show(id) {
+      if (!E.nodes.has(id)) return false;
+      for (let p = parentOf(id); p != null; p = parentOf(p)) E.open.add(p);
+      await select([id]);
+      elOf(id)?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+      return true;
+    },
     /** A design change from anyone (agent, another tab, FigCraft saving the file). */
     onDesign(ev) { if (shown && document.body.classList.contains('editing') && ev.version !== E.version) refresh(); else if (ev.version !== E.version) E.stale = true; },
     /** Specs were regenerated: screen keys may have changed; the Spec tab refreshes. */

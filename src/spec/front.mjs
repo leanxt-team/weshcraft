@@ -102,6 +102,7 @@ export function screenSpec(model, manifest, screen, { notes, ops = [], code = nu
   const inbound = manifest.screens.flatMap(s => s.actions.filter(a => a.destScreen === screen.key).map(a => `${q(a.label || a.name)} on ${s.name}`));
   L.push(`${screen.name} is reached from ${inbound.length ? inbound.join(', ') : manifest.flows.some(f => f.start === screen.key) ? 'the start of the flow' : 'outside the prototyped flows'}. It shows ${screen.texts.length} text layers, ${screen.instances.length} component instances and ${screen.actions.length} interactions.`);
   L.push('');
+  L.push('<a id="layout"></a>');
   L.push('## Layout');
   L.push('');
   L.push('Hierarchy, sizes and auto layout exactly as designed (px). Instances are specified in their component spec.');
@@ -114,6 +115,7 @@ export function screenSpec(model, manifest, screen, { notes, ops = [], code = nu
   L.push(`.${screen.key} {\n${css2str({ ...nodeCss(model, root), position: 'relative' })}\n}`);
   L.push('```');
   L.push('');
+  L.push('<a id="copy"></a>');
   L.push('## Copy');
   L.push('');
   L.push('Shown verbatim. Typography and colour per layer; contrast is WCAG 2.1 against the nearest filled ancestor.');
@@ -125,6 +127,7 @@ export function screenSpec(model, manifest, screen, { notes, ops = [], code = nu
   }
   if (!copyRows.length) L.push('| — | — | (no text) | | | |');
   L.push('');
+  L.push('<a id="components"></a>');
   L.push('## Components');
   L.push('');
   if (screen.instances.length) {
@@ -137,6 +140,7 @@ export function screenSpec(model, manifest, screen, { notes, ops = [], code = nu
     }
   } else L.push('No component instances.');
   L.push('');
+  L.push('<a id="interactions"></a>');
   L.push('## Interactions');
   L.push('');
   if (screen.actions.length) {
@@ -147,6 +151,7 @@ export function screenSpec(model, manifest, screen, { notes, ops = [], code = nu
     }
   } else L.push('No prototype interactions on this screen.');
   L.push('');
+  L.push('<a id="inputs"></a>');
   L.push('## Inputs');
   L.push('');
   if (screen.inputs.length) {
@@ -155,6 +160,7 @@ export function screenSpec(model, manifest, screen, { notes, ops = [], code = nu
     for (const i of screen.inputs) L.push(`| ${ref(i.id)} | ${mdEscape(i.name)} | ${i.kind} | ${mdEscape(i.placeholder)} | ${i.kind === 'email' ? 'RFC 5322 address, required' : i.kind === 'password' ? 'required, min 8 chars (confirm)' : 'confirm with product'} |`);
   } else L.push('No input fields detected.');
   L.push('');
+  L.push('<a id="links"></a>');
   L.push('## Front ⇄ back links');
   L.push('');
   const linkRows = screenLinkRows(manifest, screen.key);
@@ -249,7 +255,8 @@ export function componentSpec(model, manifest, comp, { notes, code = null } = {}
   } else L.push('No exposed properties.');
   L.push('');
   if (comp.variants.length) {
-    L.push('## Variants');
+    L.push('<a id="variants"></a>');
+  L.push('## Variants');
     L.push('');
     L.push('| Node | Variant | Size | Visual |');
     L.push('|---|---|---|---|');
@@ -260,6 +267,7 @@ export function componentSpec(model, manifest, comp, { notes, code = null } = {}
     }
     L.push('');
   }
+  L.push('<a id="anatomy"></a>');
   L.push('## Anatomy');
   L.push('');
   L.push(...outline(model, comp.variants[0]?.id ?? comp.id, 0, 6));

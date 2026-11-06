@@ -26,6 +26,9 @@ const desktopPlugin = {
     b.onResolve({ filter: /^\/app\/spectree\.js$/ }, () => ({ path: path.join(app, 'spectree.js') }));
     b.onResolve({ filter: /^\/app\/techcatalog\.js$/ }, () => ({ path: path.join(app, 'techcatalog.js') }));
     b.onResolve({ filter: /^\/app\/wires\.js$/ }, () => ({ path: path.join(app, 'wires.js') }));
+    b.onResolve({ filter: /^\/app\/contract\.js$/ }, () => ({ path: path.join(app, 'contract.js') }));
+    b.onResolve({ filter: /^\/app\/impact\.js$/ }, () => ({ path: path.join(app, 'impact.js') }));
+    b.onResolve({ filter: /^\/app\/impact-core\.js$/ }, () => ({ path: path.join(app, 'impact-core.js') }));
     b.onLoad({ filter: /src[\\/]web[\\/]public[\\/].*\.js$/ }, a => ({ contents: DESKTOP(fs.readFileSync(a.path, 'utf8')), loader: 'js' }));
   },
 };

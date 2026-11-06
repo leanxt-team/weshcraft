@@ -11,9 +11,13 @@
 //   weshcraft_new       start a design (only when the project has none)
 // The finer tools behind them (design_*, weshcraft_* of earlier versions) still answer when called by
 // name, for older clients; they are not listed.
+import fs from 'node:fs';
 import { toDeclared } from '../model/functions.mjs';
 import { logicToDeclared, architectureToDeclared, RULE_KINDS, COMPONENT_KINDS } from '../model/aspects.mjs';
 import { searchTech, techFacts, matchTech } from '../web/public/techcatalog.js';
+import { impactChain } from '../spec/impact.mjs';
+import { chainText, provenanceText, provenanceFor, ownerOf } from '../web/public/impact-core.js';
+import { readContract } from '../spec/contract.mjs';
 
 const OPS = [
   'Layers (applied in order; `ref` names what an op creates, later ops can use it as an id):',
@@ -34,11 +38,11 @@ export const PUBLIC_TOOLS = [
   { name: 'weshcraft_status', description: 'Where the project stands: the design, the product (functions, logic, architecture: declared or suggested), parity, spec ⇄ code coverage, sync, the live URL, and what to do next. Start here.', inputSchema: { type: 'object', properties: {} } },
   {
     name: 'weshcraft_read',
-    description: 'Read anything, compactly. what: tree (outline of the design, one line per layer; root: a screen) · find (query) · layer (id) · tokens · screenshot (id: a screen or layer, PNG) · functions · logic · data · api · architecture · links (front ⇄ back; screen, op, field filters) · trace (spec ⇄ code; function, untraced) · spec (path, e.g. wcraft/specs/LOGIC.md) · folders (the spec tree) · manifest (screen) · parity · technologies (query: the catalog of 440 tools and cloud services with what each is and its alternatives; or text: what a component tech line is recognised as).',
+    description: 'Read anything, compactly. what: tree (outline of the design, one line per layer; root: a screen) · find (query) · layer (id) · impact (node: what a layer affects — the spec sections, the code, the callers and the other product elements) · provenance (spec: where a spec comes from) · tokens · screenshot (id: a screen or layer, PNG) · functions · logic · data · api · architecture · links (front ⇄ back; screen, op, field filters) · trace (spec ⇄ code; function, untraced) · spec (path, e.g. wcraft/specs/LOGIC.md) · folders (the spec tree) · manifest (screen) · parity · technologies (query: the catalog of 440 tools and cloud services with what each is and its alternatives; or text: what a component tech line is recognised as).',
     inputSchema: { type: 'object', properties: {
-      what: { type: 'string', enum: ['tree', 'find', 'layer', 'tokens', 'screenshot', 'functions', 'logic', 'data', 'api', 'architecture', 'links', 'trace', 'spec', 'folders', 'manifest', 'parity', 'technologies'] },
-      root: { type: ['number', 'string'] }, depth: { type: 'number' }, query: { type: 'string' }, type: { type: 'string' }, id: { type: ['number', 'string'] }, scale: { type: 'number' },
-      text: { type: 'string' }, path: { type: 'string' }, screen: { type: 'string' }, op: { type: 'string' }, field: { type: 'string' }, function: { type: 'string' }, untraced: { type: 'boolean' }, limit: { type: 'number' },
+      what: { type: 'string', enum: ['tree', 'find', 'layer', 'impact', 'provenance', 'tokens', 'screenshot', 'functions', 'logic', 'data', 'api', 'architecture', 'links', 'trace', 'spec', 'folders', 'manifest', 'parity', 'technologies'] },
+      root: { type: ['number', 'string'] }, depth: { type: 'number' }, query: { type: 'string' }, type: { type: 'string' }, id: { type: ['number', 'string'] }, node: { type: ['number', 'string'] }, scale: { type: 'number' },
+      text: { type: 'string' }, path: { type: 'string' }, spec: { type: 'string' }, screen: { type: 'string' }, op: { type: 'string' }, field: { type: 'string' }, function: { type: 'string' }, untraced: { type: 'boolean' }, limit: { type: 'number' },
     }, required: ['what'] },
   },
   {
@@ -156,6 +160,25 @@ export async function callPublic(mcp, name, args = {}) {
         return text(list.map(e => techFacts(e)));
       }
       if (!ws.manifest) await ws.run();
+      // What a layer affects, and where a spec comes from: answered here, on the server, so an
+      // agent gets the whole chain even when the code graph is not installed.
+      if (w === 'impact') {
+        const id = Number(args.node ?? args.id);
+        if (!Number.isFinite(id)) return text('node: the id of a layer (weshcraft_read {what:"tree"} lists them)', true);
+        const owner = ownerOf(ws.manifest, id);
+        if (!owner) return text(`no layer #${id} in this design`, true);
+        const trace = ws.trace ?? ws.writeTrace();
+        let contract = null;
+        try { contract = readContract(fs.readFileSync(ws.file(owner.spec), 'utf8')); } catch { /* the spec is not written yet */ }
+        const chain = await impactChain({ manifest: ws.manifest, trace, contract, node: id, dir: ws.outDir });
+        return text(chainText(chain));
+      }
+      if (w === 'provenance') {
+        const spec = String(args.spec ?? args.path ?? '').trim();
+        if (!spec) return text('spec: the path of a spec (wcraft/specs/front/screens/scr-home.md)', true);
+        const trace = ws.trace ?? ws.writeTrace();
+        return text(provenanceText(provenanceFor({ manifest: ws.manifest, trace, spec })));
+      }
       switch (w) {
         case 'functions': case 'logic': case 'architecture': return legacy(`design_${w}`, {});
         case 'data': return text(ws.manifest.data.entities.map(e => ({ name: e.name, fields: e.fields.map(f => `${f.name}${f.required ? '' : '?'}: ${f.enum ? f.enum.join('|') : f.type}`), relations: e.relations.map(r => `${r.field} → ${r.to}${r.many ? '[]' : ''}`), writtenBy: e.writtenBy, readBy: e.readBy, shownOn: e.shownOn })));

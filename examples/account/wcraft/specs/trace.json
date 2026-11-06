@@ -10,6 +10,7 @@
    "kind": "function",
    "name": "Sign up",
    "tag": "fn-sign-up",
+   "graph": "fnSignUp",
    "code": []
   },
   {
@@ -17,6 +18,7 @@
    "kind": "screen",
    "name": "Sign up",
    "tag": "scr-sign-up",
+   "graph": "screenSignUp",
    "code": []
   },
   {
@@ -24,6 +26,7 @@
    "kind": "screen",
    "name": "Profile",
    "tag": "scr-profile",
+   "graph": "screenProfile",
    "code": []
   },
   {
@@ -31,6 +34,7 @@
    "kind": "operation",
    "name": "POST /users",
    "tag": "POST /users",
+   "graph": "opPostUsers",
    "code": []
   },
   {
@@ -38,6 +42,7 @@
    "kind": "operation",
    "name": "GET /users/me",
    "tag": "GET /users/me",
+   "graph": "opGetUsersMe",
    "code": []
   },
   {
@@ -45,6 +50,7 @@
    "kind": "operation",
    "name": "PATCH /users/me",
    "tag": "PATCH /users/me",
+   "graph": "opPatchUsersMe",
    "code": []
   },
   {
@@ -52,6 +58,7 @@
    "kind": "entity",
    "name": "Subscription",
    "tag": "Subscription",
+   "graph": "entitySubscription",
    "code": []
   },
   {
@@ -59,6 +66,7 @@
    "kind": "entity",
    "name": "User",
    "tag": "User",
+   "graph": "entityUser",
    "code": []
   }
  ],
