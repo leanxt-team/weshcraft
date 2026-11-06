@@ -132,13 +132,16 @@ export function updateChangelog(existing, diff, { at = new Date(), keep = 30 } =
   if (!diff.items.length) return existing ?? null;
   const head = '# Design changelog\n\nEvery regeneration that changed the prototype, newest first. Written by WeshCraft from the manifest; `#id` cites the layer.\n';
   const entries = [];
+  // What the user wrote before the first entry is theirs: it stays.
+  let preamble = '';
   if (existing) {
-    const parts = existing.split(/(?=<!-- weshcraft:change [0-9a-f]+ -->)/).slice(1);
-    for (const p of parts) entries.push(p.trim());
+    const parts = existing.split(/(?=<!-- weshcraft:change [0-9a-f]+ -->)/);
+    preamble = (parts[0] ?? '').replace(/^# Design changelog\n\nEvery regeneration that changed the prototype, newest first\. Written by WeshCraft from the manifest; `#id` cites the layer\.\n/, '').trim();
+    for (const p of parts.slice(1)) entries.push(p.trim());
   }
   if (entries[0]?.startsWith(`<!-- weshcraft:change ${diff.to} -->`)) entries.shift();
   entries.unshift(`<!-- weshcraft:change ${diff.to} -->\n${changesMarkdown(diff, { title: `${at.toISOString().slice(0, 16).replace('T', ' ')} UTC · \`${diff.from ?? '∅'}\` → \`${diff.to}\`` })}`);
-  return `${head}\n${entries.slice(0, keep).join('\n\n')}\n`;
+  return `${head}${preamble ? `${preamble}\n\n` : ''}${entries.slice(0, keep).join('\n\n')}\n`;
 }
 
 export { MARK };

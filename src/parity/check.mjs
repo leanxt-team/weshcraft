@@ -40,7 +40,7 @@ export function checkParity(manifest, outDir, { graphFile } = {}) {
       checks++;
       if (allNodes.has(id)) continue;
       // Notes survive regeneration: a layer deleted later leaves them pointing at nothing.
-      if (notes.includes(`\`#${id}\``)) err('dangling-ref', rel(file), `its Notes cite \`#${id}\`, a layer no longer in the design: update the Notes (Edit notes, or weshcraft_notes), or undo the deletion`, id);
+      if (notes.includes(`\`#${id}\``)) warn('dangling-ref', rel(file), `its Notes cite \`#${id}\`, a layer no longer in the design: update the Notes (Edit notes, or weshcraft_notes), or undo the deletion`, id);
       else err('dangling-ref', rel(file), `cites \`#${id}\`, which is not in the prototype`, id);
     }
     return { md, c, visible: visibleText(md) };
@@ -113,18 +113,26 @@ export function checkParity(manifest, outDir, { graphFile } = {}) {
   }
 
   // Logic, data, API overview, architecture: each overview matches the product; declared refs exist.
-  for (const [file, kind, contract, what] of [
-    [specPath('LOGIC.md'), 'logic', manifest.logic && logicContract, 'rules or lifecycles'],
-    [specPath('DATA.md'), 'data', manifest.data && dataContract, 'entities, relations or their use'],
-    [specPath('API.md'), 'api-overview', manifest.data && apiOverviewContract, 'operations, endpoints or tools'],
-    [specPath('ARCHITECTURE.md'), 'architecture', manifest.architecture && architectureContract, 'components or links'],
+  // Only the fields the check really asserts are compared: a WeshCraft upgrade that adds a field
+  // must not turn every project's CI red.
+  const pick = (o, fields) => Object.fromEntries(fields.filter(f => o?.[f] !== undefined).map(f => [f, o[f]]));
+  for (const [file, kind, contract, what, fields] of [
+    [specPath('LOGIC.md'), 'logic', manifest.logic && logicContract, 'rules or lifecycles', ['rules', 'machines']],
+    [specPath('DATA.md'), 'data', manifest.data && dataContract, 'entities, relations or their use', ['entities']],
+    [specPath('API.md'), 'api-overview', manifest.data && apiOverviewContract, 'operations, endpoints or tools', ['operations', 'endpoints', 'tools']],
+    [specPath('ARCHITECTURE.md'), 'architecture', manifest.architecture && architectureContract, 'components or links', ['components', 'links']],
   ]) {
     if (!contract) continue;
     const spec = loadSpec(path.join(outDir, file), kind);
     if (!spec) continue;
     checks++;
-    const { kind: _k, sourceHash: _h, ...have } = spec.c;
-    if (key(have) !== key(contract(manifest))) err(`${kind}-differs`, file, `the ${what} differ from the product: regenerate`);
+    const want = contract(manifest);
+    const have = pick(spec.c, fields);
+    if (Object.keys(have).length !== fields.length) {
+      warn(`${kind}-outdated`, file, `this spec was written by another version of WeshCraft: regenerate it`);
+    } else if (key(have) !== key(pick(want, fields))) {
+      err(`${kind}-differs`, file, `the ${what} differ from the product: regenerate`);
+    }
   }
   for (const x of manifest.logic?.missing ?? []) { checks++; warn('logic-unknown-ref', specPath('LOGIC.md'), `${x.owner} refers to ${x.ref}, which is not in the product`); }
   for (const x of manifest.architecture?.missing ?? []) { checks++; warn('architecture-unknown-ref', specPath('ARCHITECTURE.md'), `${x.owner} refers to ${x.ref}, which is not in the product`); }
@@ -151,6 +159,15 @@ export function checkParity(manifest, outDir, { graphFile } = {}) {
     }
   }
 
+  // Component specs that no longer belong to a component.
+  const compsDir = path.join(outDir, specPath('front/components'));
+  if (fs.existsSync(compsDir)) {
+    for (const name of fs.readdirSync(compsDir)) {
+      if (!name.endsWith('.md')) continue;
+      checks++;
+      if (!manifest.components.some(c => `${c.key}.md` === name)) err('orphan-spec', specPath('front/components', name), 'spec for a component that is no longer in the prototype');
+    }
+  }
   for (const comp of manifest.components) {
     const file = path.join(outDir, specPath('front/components'), `${comp.key}.md`);
     const spec = loadSpec(file, 'front-component');
@@ -259,7 +276,12 @@ export function checkParity(manifest, outDir, { graphFile } = {}) {
     for (const f of shown) {
       checks++;
       const m = /name="weshcraft-source-hash" content="([0-9a-f]+)"/.exec(f.html);
-      if (m?.[1] !== manifest.source.hash) err('prototype-stale', protoPath(f.file), `prototype built from ${m?.[1] ?? 'unknown'}, design is ${manifest.source.hash}`);
+      if (m?.[1] !== manifest.source.hash) warn('prototype-outdated', protoPath(f.file), `the prototype was built from ${m?.[1] ?? 'unknown'}, the design is now ${manifest.source.hash}`);
+      // The design itself is what matters: a change in the inferred back end does not make the
+      // prototype stale.
+      const d = /name="weshcraft-design-hash" content="([0-9a-f]+)"/.exec(f.html);
+      const want = manifest.source.design ?? manifest.source.hash;
+      if ((d?.[1] ?? m?.[1]) !== want) err('prototype-stale', protoPath(f.file), `prototype built from ${d?.[1] ?? m?.[1] ?? 'unknown'}, design is ${want}`);
     }
     for (const s of manifest.screens) {
       checks++;
@@ -274,7 +296,7 @@ export function checkParity(manifest, outDir, { graphFile } = {}) {
   return { ok: errors === 0, score: checks ? (errors ? Math.min(99.9, Math.floor(((checks - errors) / checks) * 1000) / 10) : 100) : 100, checks, errors, warnings: issues.length - errors, issues, sourceHash: manifest.source.hash };
 }
 
-export function parityMarkdown(report, manifest) {
+export function parityMarkdown(report, manifest, { atRisk = null } = {}) {
   const L = ['# Spec ↔ prototype parity', ''];
   L.push(`${report.ok ? '✅ **In sync.**' : '❌ **Out of sync.**'} ${report.checks} checks, ${report.errors} errors, ${report.warnings} warnings, score ${report.score}%. Prototype \`${report.sourceHash}\` (${manifest.screens.length} screens, ${manifest.components.length} components, ${manifest.tokens.variables.length} tokens, ${manifest.domain.operations.length} operations).`);
   L.push('');
@@ -284,6 +306,15 @@ export function parityMarkdown(report, manifest) {
     for (const i of report.issues) L.push(`| ${i.level} | ${i.code} | \`${i.file}\` | ${i.message.replace(/\|/g, '\\|')}${i.node != null ? ` (\`#${i.node}\`)` : ''} |`);
   } else {
     L.push('Every screen, text, interaction, instance, input, component, token, navigation edge, entity and operation in the prototype is in the specs, verbatim, and nothing else is.');
+  }
+  // The code that is at risk: what the code graph says the change would touch.
+  if (atRisk) {
+    L.push('');
+    if (atRisk.affectedTests?.length) {
+      L.push(`**The code at risk.** These tests cover the code behind the specs that changed: ${atRisk.affectedTests.map(t => `\`${t}\``).join(', ')}.`);
+    } else if (atRisk.files?.length) {
+      L.push(`**The code at risk.** The specs that changed come from ${atRisk.files.map(f => `\`${f}\``).join(', ')}; the code graph found no test covering it.`);
+    }
   }
   L.push('');
   return L.join('\n');

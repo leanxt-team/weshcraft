@@ -3,7 +3,8 @@
  "source": {
   "name": "Ridgeline onboarding",
   "truncated": false,
-  "hash": "e249123dd8bfcc22"
+  "hash": "e249123dd8bfcc22",
+  "design": "bf2be333efad50bd"
  },
  "screens": [
   {

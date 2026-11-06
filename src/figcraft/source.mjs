@@ -20,7 +20,10 @@ export class FileSource {
   describe() { return `file ${this.file}`; }
   async load() {
     const { document, thumbnail } = readFigcraftArchive(this.file);
-    return { model: fromFigcraftFile(document), thumbnail };
+    const model = fromFigcraftFile(document);
+    // A partial file (a half-written save, a format change) must not look like an empty design.
+    if (model.truncated) throw new Error(`${this.file}: the FigCraft document is partial (a node lists more children than the file has) — save it again in FigCraft`);
+    return { model, thumbnail };
   }
   /** Renders are not available offline; the prototype falls back to WeshCraft's own HTML. */
   async render() { return null; }

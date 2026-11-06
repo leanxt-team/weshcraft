@@ -90,7 +90,7 @@ export class Bridge {
   /** What answers on a port: this project's WeshCraft, nothing, or something else. */
   async probe(port) {
     try {
-      const r = await fetch(`http://127.0.0.1:${port}/api/ping`, { headers: this.headers(), signal: AbortSignal.timeout(1500) });
+      const r = await fetch(`http://127.0.0.1:${port}/api/ping`, { headers: this.headers(), signal: AbortSignal.timeout(800) });
       if (!r.ok) return 'taken';
       const j = await r.json().catch(() => ({}));
       const real = p => { try { return fs.realpathSync.native(p); } catch { return path.resolve(p); } };
@@ -127,9 +127,11 @@ export class Bridge {
         const child = this.spawnImpl(this.nodePath, [this.bin, ...serveArgs(this.cfg)], { cwd: this.dir, stdio: 'ignore', detached: false, env: process.env });
         this.child = child;
         let exited = false;
+        // A spawn that fails (no node on the PATH) must not kill the host.
+        child.on?.('error', e => { exited = true; this.child = null; this.ready = null; this.log(`weshcraft server could not start: ${e.message}`); });
         child.on?.('exit', code => { exited = true; if (this.child === child) { this.log(`weshcraft server exited (${code})`); this.child = null; this.ready = null; } });
-        // Never outlive OpenCode / OpenChamber.
-        process.once?.('exit', () => this.stop());
+        // Never outlive OpenCode / OpenChamber (registered once, not once per spawn).
+        if (!this.exitHook) { this.exitHook = true; process.once?.('exit', () => this.stop()); }
         for (let i = 0; i < 80; i++) {
           const now = await this.probe(port);
           if (now === 'ours') return true;
@@ -148,7 +150,7 @@ export class Bridge {
 
   async rpc(method, params, signal) {
     await this.start();
-    const r = await fetch(`${this.base}/mcp`, { method: 'POST', headers: this.headers(), body: JSON.stringify({ jsonrpc: '2.0', id: ++this.id, method, params }), signal });
+    const r = await fetch(`${this.base}/mcp`, { method: 'POST', headers: this.headers(), body: JSON.stringify({ jsonrpc: '2.0', id: ++this.id, method, params }), signal: signal ?? AbortSignal.timeout(30_000) });
     const j = await r.json();
     if (j.error) throw new Error(j.error.message);
     return j.result;

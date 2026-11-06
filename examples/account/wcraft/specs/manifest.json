@@ -3,7 +3,8 @@
  "source": {
   "name": "Account",
   "truncated": false,
-  "hash": "e868cb3c8b18019b"
+  "hash": "e868cb3c8b18019b",
+  "design": "79adac5c4e7492d6"
  },
  "screens": [
   {

@@ -14,9 +14,11 @@ import { ciFiles } from './ci.mjs';
 import { changesMarkdown, summaryLine } from '../spec/diff.mjs';
 import { resolveToken, describeSource } from './credentials.mjs';
 import { GRAPH, SPECS, PROTOTYPE } from '../layout.mjs';
+import { writeFileSafe } from '../util/common.mjs';
 
+// Git never waits for a human: a remote that asks for credentials fails instead of hanging.
 const run = (cmd, args, cwd) => new Promise((resolve, reject) => {
-  execFile(cmd, args, { cwd, maxBuffer: 64 * 1024 * 1024 }, (err, stdout, stderr) => {
+  execFile(cmd, args, { cwd, maxBuffer: 64 * 1024 * 1024, timeout: 120_000, env: { ...process.env, GIT_TERMINAL_PROMPT: '0' } }, (err, stdout, stderr) => {
     if (err) reject(Object.assign(new Error(`${cmd} ${args[0]}: ${(stderr || err.message).trim().split('\n').slice(-2).join(' ')}`), { code: err.code }));
     else resolve(stdout.trim());
   });
@@ -129,6 +131,8 @@ export class Syncer {
       if (fs.existsSync(path.resolve(top, p))) throw new Error(`repository is in the middle of a ${marker.toLowerCase().replace(/_head$/, '')}; finish it first`);
     }
     const current = await run('git', ['rev-parse', '--abbrev-ref', 'HEAD'], top);
+    // A detached HEAD: a commit made there is only in the reflog, and git gc would delete it.
+    if (current === 'HEAD') throw new Error('the repository is on a detached HEAD: check out a branch first (WeshCraft never switches branches in your working tree)');
     if (t.branch && current !== t.branch) throw new Error(`check out ${t.branch} first (on ${current}); WeshCraft never switches branches in your working tree`);
     const rel = p => path.relative(top, p).split(path.sep).join('/');
     const paths = [PROTOTYPE, SPECS, this.ws.graphFile ?? GRAPH].map(d => path.join(out, d)).filter(p => fs.existsSync(p)).map(rel);
@@ -139,20 +143,42 @@ export class Syncer {
     const provider = t.ci || (fs.existsSync(path.join(top, '.gitlab-ci.yml')) ? 'gitlab' : 'github');
     for (const f of ciFiles(provider, { prefix: rel(out) === '' ? '' : rel(out), args: ciArgs || undefined })) {
       const abs = path.join(top, f.path);
-      if (!fs.existsSync(abs)) { fs.mkdirSync(path.dirname(abs), { recursive: true }); fs.writeFileSync(abs, f.content); }
+      if (!fs.existsSync(abs)) writeFileSafe(abs, f.content);
       paths.push(f.path);
+      // The GitLab file is only a job: the pipeline must include it, or it never runs.
+      if (provider === 'gitlab') {
+        const gitlabCi = path.join(top, '.gitlab-ci.yml');
+        if (fs.existsSync(gitlabCi)) {
+          const text = fs.readFileSync(gitlabCi, 'utf8');
+          if (!text.includes(f.path)) {
+            writeFileSafe(gitlabCi, `include:\n  - local: ${f.path}\n\n${text}`);
+            paths.push('.gitlab-ci.yml');
+          }
+        }
+      }
     }
     await run('git', ['add', '--', ...paths], top);
     const staged = await run('git', ['diff', '--cached', '--name-only', '--', ...paths], top);
-    if (!staged) return { changed: false, branch: current };
-    const m = this.ws.manifest;
-    const ch = this.ws.changes ?? { items: [] };
-    const details = changesMarkdown(ch, { title: 'x' }).replace(/^### x\n\n/, '');
-    await run('git', ['commit', '-m', `docs(specs): ${m.source.name}: ${summaryLine(ch)}`, '-m', `Prototype ${m.source.hash}, parity ${this.ws.report.score}% (${this.ws.report.checks} checks).`, ...(details ? ['-m', details] : []), '--', ...paths], top);
-    const commit = await run('git', ['rev-parse', '--short', 'HEAD'], top);
+    // Nothing new to commit: the push may still be waiting from an earlier attempt.
+    if (!staged && !t.push) return { changed: false, branch: current };
+    let commit = null;
+    if (staged) {
+      const m = this.ws.manifest;
+      const ch = this.ws.changes ?? { items: [] };
+      const details = changesMarkdown(ch, { title: 'x' }).replace(/^### x\n\n/, '');
+      await run('git', ['commit', '-m', `docs(specs): ${m.source.name}: ${summaryLine(ch)}`, '-m', `Prototype ${m.source.hash}, parity ${this.ws.report.score}% (${this.ws.report.checks} checks).`, ...(details ? ['-m', details] : []), '--', ...paths], top);
+      commit = await run('git', ['rev-parse', '--short', 'HEAD'], top);
+    } else {
+      commit = await run('git', ['rev-parse', '--short', 'HEAD'], top);
+    }
     let pushed = false;
-    if (t.push) { await run('git', ['push', t.remote || 'origin', `HEAD:${current}`], top); pushed = true; }
-    return { changed: true, commit, branch: current, files: staged.split('\n').length, pushed };
+    if (t.push) {
+      // Push when the branch is ahead of its upstream: a push that failed once is retried.
+      const upstream = await run('git', ['rev-parse', '--abbrev-ref', '--symbolic-full-name', '@{u}'], top).catch(() => null);
+      const ahead = upstream ? Number(await run('git', ['rev-list', '--count', `${upstream}..HEAD`], top).catch(() => '0')) : 1;
+      if (ahead > 0) { await run('git', ['push', t.remote || 'origin', `HEAD:${current}`], top); pushed = true; }
+    }
+    return { changed: !!staged, commit, branch: current, files: staged ? staged.split('\n').length : 0, pushed };
   }
 
   close() { bus.off('weshcraft', this.onRun); }

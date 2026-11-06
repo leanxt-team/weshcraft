@@ -8,6 +8,8 @@ import { ciFiles } from './ci.mjs';
 import { DESIGN, SPECS, PROTOTYPE, GRAPH, spec } from '../layout.mjs';
 
 const TEXT = new Set(['.md', '.json', '.html', '.css', '.yml', '.yaml', '.txt', '.js', '.mjs', '.svg']);
+/** GitHub's own limit for one file in a tree. */
+const MAX_BLOB = 100 * 1024 * 1024;
 
 /** Files to publish: everything WeshCraft wrote under outDir, plus CI and the design source. */
 export function collectFiles(outDir, { designFile, designInputs, prefix = '', ci = true, provider = 'github', designPath } = {}) {
@@ -66,24 +68,39 @@ export function prBody(report, manifest, extra = '') {
 }
 
 async function api(base, token, method, url, body, auth) {
-  const res = await fetch(`${base}${url}`, {
-    method,
-    headers: {
-      ...(auth === 'gitlab' ? { 'PRIVATE-TOKEN': token } : { Authorization: `Bearer ${token}`, Accept: 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28' }),
-      'Content-Type': 'application/json',
-      'User-Agent': 'weshcraft',
-    },
-    body: body ? JSON.stringify(body) : undefined,
-  });
-  const text = await res.text();
-  let json = null;
-  try { json = text ? JSON.parse(text) : null; } catch { json = { raw: text }; }
-  if (!res.ok) {
-    const e = new Error(`${method} ${url}: ${res.status} ${json?.message ?? json?.error ?? text.slice(0, 200)}`);
-    e.status = res.status;
-    throw e;
+  // A hung request must not wedge the publisher: every call has a deadline, and the transient
+  // failures (a busy server, a blinking network) are tried again.
+  let last;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      const res = await fetch(`${base}${url}`, {
+        method,
+        headers: {
+          ...(auth === 'gitlab' ? { 'PRIVATE-TOKEN': token } : { Authorization: `Bearer ${token}`, Accept: 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28' }),
+          'Content-Type': 'application/json',
+          'User-Agent': 'weshcraft',
+        },
+        body: body ? JSON.stringify(body) : undefined,
+        signal: AbortSignal.timeout(60_000),
+      });
+      const text = await res.text();
+      let json = null;
+      try { json = text ? JSON.parse(text) : null; } catch { json = { raw: text }; }
+      if (!res.ok) {
+        const e = new Error(`${method} ${url}: ${res.status} ${json?.message ?? json?.error ?? text.slice(0, 200)}`);
+        e.status = res.status;
+        if ([502, 503, 504].includes(res.status) && attempt < 2) { last = e; await new Promise(r => setTimeout(r, 500 * (attempt + 1))); continue; }
+        throw e;
+      }
+      return json;
+    } catch (e) {
+      last = e;
+      const transient = e.name === 'TimeoutError' || e.name === 'AbortError' || e.code === 'ECONNRESET' || e.code === 'ETIMEDOUT';
+      if (!transient || attempt === 2) throw e;
+      await new Promise(r => setTimeout(r, 500 * (attempt + 1)));
+    }
   }
-  return json;
+  throw last;
 }
 
 /**
@@ -98,17 +115,24 @@ export async function publishGitHub(o) {
   const info = await call('GET', R);
   const baseBranch = o.base || info.default_branch;
   const baseRef = await call('GET', `${R}/git/ref/heads/${encodeURIComponent(baseBranch)}`);
+  // A file too big for the API fails here, before anything is created.
+  for (const f of o.files) if (f.data.length > MAX_BLOB) throw new Error(`${f.path} is ${Math.round(f.data.length / 1024 / 1024)} MB: the limit for one file is 100 MB`);
   let parentSha;
+  let createdBranch = false;
   try {
     parentSha = (await call('GET', `${R}/git/ref/heads/${encodeURIComponent(o.branch)}`)).object.sha;
   } catch (e) {
     if (e.status !== 404) throw e;
-    await call('POST', `${R}/git/refs`, { ref: `refs/heads/${o.branch}`, sha: baseRef.object.sha });
+    // The branch is created at the end, with the commit on it: a failure in between leaves
+    // the repository as it was.
     parentSha = baseRef.object.sha;
+    createdBranch = true;
   }
   const parent = await call('GET', `${R}/git/commits/${parentSha}`);
   const tree = [];
   for (const f of o.files) {
+    // The CI file belongs to the user: it is added once, never overwritten.
+    if (isCiPath(f.path) && await existsOnBranch(call, R, o.branch, f.path)) continue;
     if (isText(f.path)) tree.push({ path: f.path, mode: '100644', type: 'blob', content: f.data.toString('utf8') });
     else {
       const blob = await call('POST', `${R}/git/blobs`, { content: f.data.toString('base64'), encoding: 'base64' });
@@ -118,13 +142,34 @@ export async function publishGitHub(o) {
   const newTree = await call('POST', `${R}/git/trees`, { base_tree: parent.tree.sha, tree });
   if (newTree.sha === parent.tree.sha) return { provider: 'github', changed: false, branch: o.branch, url: `${info.html_url}/tree/${o.branch}` };
   const commit = await call('POST', `${R}/git/commits`, { message: o.message || o.title, tree: newTree.sha, parents: [parentSha] });
-  await call('PATCH', `${R}/git/refs/heads/${encodeURIComponent(o.branch)}`, { sha: commit.sha, force: false });
+  try {
+    if (createdBranch) await call('POST', `${R}/git/refs`, { ref: `refs/heads/${o.branch}`, sha: commit.sha });
+    else await call('PATCH', `${R}/git/refs/heads/${encodeURIComponent(o.branch)}`, { sha: commit.sha, force: false });
+  } catch (e) {
+    // Nothing was published: the branch we created is taken away again.
+    if (createdBranch) await call('DELETE', `${R}/git/refs/heads/${encodeURIComponent(o.branch)}`).catch(() => {});
+    throw e;
+  }
   if (o.pr === false) return { provider: 'github', changed: true, commit: commit.sha, branch: o.branch, url: `${info.html_url}/tree/${o.branch}` };
   const open = await call('GET', `${R}/pulls?state=open&head=${encodeURIComponent(`${owner}:${o.branch}`)}`);
   let pr = open[0];
   if (pr) pr = await call('PATCH', `${R}/pulls/${pr.number}`, { body: o.body });
   else pr = await call('POST', `${R}/pulls`, { title: o.title, head: o.branch, base: baseBranch, body: o.body, draft: !!o.draft });
   return { provider: 'github', changed: true, commit: commit.sha, branch: o.branch, url: pr.html_url, number: pr.number };
+}
+
+/** The CI files WeshCraft adds: the user's own copy is never replaced. */
+const isCiPath = p => p === '.github/workflows/weshcraft-parity.yml' || p === 'ci/weshcraft.gitlab-ci.yml';
+
+/** Is that file already on the branch? */
+async function existsOnBranch(call, R, branch, filePath) {
+  try {
+    await call('GET', `${R}/contents/${filePath}?ref=${encodeURIComponent(branch)}`);
+    return true;
+  } catch (e) {
+    if (e.status === 404) return false;
+    return false; // the branch may not exist yet: nothing is there
+  }
 }
 
 /**
@@ -148,10 +193,12 @@ export async function publishGitLab(o) {
     if (items.length < 100) break;
   }
   // Only files whose content differs from the branch: an unchanged sync makes no commit.
-  const actions = o.files.filter(f => existing.get(f.path) !== gitBlobSha(f.data)).map(f => ({
-    action: existing.has(f.path) ? 'update' : 'create', file_path: f.path,
-    ...(isText(f.path) ? { content: f.data.toString('utf8') } : { content: f.data.toString('base64'), encoding: 'base64' }),
-  }));
+  // The CI file belongs to the user: it is added once, never overwritten.
+  const actions = o.files.filter(f => !(isCiPath(f.path) && existing.has(f.path)))
+    .filter(f => existing.get(f.path) !== gitBlobSha(f.data)).map(f => ({
+      action: existing.has(f.path) ? 'update' : 'create', file_path: f.path,
+      ...(isText(f.path) ? { content: f.data.toString('utf8') } : { content: f.data.toString('base64'), encoding: 'base64' }),
+    }));
   if (!actions.length && !branchExists) await call('POST', `${P}/repository/branches?branch=${encodeURIComponent(o.branch)}&ref=${encodeURIComponent(baseBranch)}`);
   if (!actions.length) return { provider: 'gitlab', changed: false, branch: o.branch, url: `${project.web_url}/-/tree/${encodeURIComponent(o.branch)}` };
   const commit = await call('POST', `${P}/repository/commits`, {

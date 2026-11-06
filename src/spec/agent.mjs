@@ -35,21 +35,35 @@ export function agentPrompt(job, draft) {
   ].join('\n');
 }
 
+/** The agent's answer is bounded: a runaway agent must not eat the heap or the spec. */
+export const MAX_AGENT_OUTPUT = 256 * 1024;
+
 /**
  * Run the agent; stream stdout chunks to onChunk. Resolves with the full text.
- * @param {{command?: string, cwd?: string, timeoutMs?: number}} opts
+ * @param {{command?: string, cwd?: string, timeoutMs?: number, maxBytes?: number}} opts
  */
-export function runAgent(prompt, onChunk, { command = DEFAULT_AGENT, cwd, timeoutMs = 600_000 } = {}) {
+export function runAgent(prompt, onChunk, { command = DEFAULT_AGENT, cwd, timeoutMs = 600_000, maxBytes = MAX_AGENT_OUTPUT } = {}) {
   const [bin, ...args] = splitCommand(command);
   return new Promise((resolve, reject) => {
     const p = spawn(bin, args, { cwd, stdio: ['pipe', 'pipe', 'pipe'], env: process.env });
-    let out = '', err = '';
-    const timer = setTimeout(() => { p.kill(); reject(new Error(`agent timed out after ${timeoutMs / 1000}s`)); }, timeoutMs);
-    p.stdout.on('data', d => { out += d; onChunk?.(String(d)); });
+    let out = '', err = '', over = false;
+    const timer = setTimeout(() => { p.kill('SIGKILL'); reject(new Error(`agent timed out after ${timeoutMs / 1000}s`)); }, timeoutMs);
+    p.stdout.on('data', d => {
+      if (over) return;
+      out += d;
+      if (out.length > maxBytes) {
+        over = true;
+        p.kill('SIGKILL');
+        reject(new Error(`the agent wrote more than ${Math.round(maxBytes / 1024)} KB: stopped`));
+        return;
+      }
+      onChunk?.(String(d));
+    });
     p.stderr.on('data', d => { err = (err + d).slice(-4000); });
     p.on('error', e => { clearTimeout(timer); reject(new Error(`cannot start agent \`${bin}\`: ${e.message}`)); });
     p.on('close', code => {
       clearTimeout(timer);
+      if (over) return;
       if (code === 0) resolve(out.trim());
       else reject(new Error(`agent exited ${code}: ${err.trim().split('\n').slice(-3).join(' ')}`));
     });

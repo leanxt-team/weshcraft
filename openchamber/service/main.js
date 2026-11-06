@@ -25,23 +25,36 @@ const POLL_MS = 12_000; // under the host's 20 s request timeout
 
 export function createService(deps = {}) {
   const projects = new Map(); // directory → { bridge, events, seq, waiters, stream }
+  const IDLE_MS = 15 * 60_000; // a project nobody visits for a quarter of an hour is let go
 
   const configFor = (directory, force) => (deps.config ? deps.config(directory, { force }) : detectConfig(directory, { force }));
 
   function project(directory, { force = false } = {}) {
     if (!directory || typeof directory !== 'string') return { error: 'no project open' };
     const known = projects.get(directory);
-    if (known) return known;
+    if (known) { known.touched = Date.now(); return known; }
     const cfg = configFor(directory, force);
     if (!cfg) return { none: true };
     if (cfg.error) return { error: cfg.error };
     const p = {
       bridge: deps.bridge ? deps.bridge(directory, cfg) : new Bridge(directory, cfg, { log: m => console.log(`[weshcraft] ${m}`) }),
-      events: [], seq: 0, waiters: new Set(), stream: null,
+      events: [], seq: 0, waiters: new Set(), stream: null, touched: Date.now(),
     };
     projects.set(directory, p);
     return p;
   }
+
+  /** Let go of the projects nobody visits any more: each one holds a server and a connection. */
+  const sweep = setInterval(() => {
+    const now = Date.now();
+    for (const [dir, p] of projects) {
+      if (now - p.touched < IDLE_MS) continue;
+      projects.delete(dir);
+      try { p.stream?.abort(); } catch { /* already gone */ }
+      try { p.bridge.stop(); } catch { /* already gone */ }
+    }
+  }, 60_000);
+  sweep.unref?.();
 
   const call = async (bridge, path, { method = 'GET', body } = {}) => {
     const r = await fetch(`${bridge.base}${path}`, { method, headers: bridge.headers(), body: method === 'GET' || method === 'HEAD' ? undefined : body, signal: AbortSignal.timeout(19_000) });
@@ -157,13 +170,23 @@ export function createService(deps = {}) {
 
   // ---- chunked uploads -----------------------------------------------------------------------
   const uploads = new Map();
+  const UPLOAD_TTL = 120_000;   // an upload that stops halfway is forgotten
+  const MAX_PARTS = 4096;
   async function upload(p, q, body) {
     const id = q.get('id'), part = Number(q.get('part')), parts = Number(q.get('parts'));
     if (!id || !(parts > 0) || !(part >= 0 && part < parts)) return { status: 400, body: JSON.stringify({ error: 'bad upload part' }) };
+    if (parts > MAX_PARTS) return { status: 400, body: JSON.stringify({ error: `too many parts (${parts}): the limit is ${MAX_PARTS}` }) };
     const u = uploads.get(id) ?? { parts: new Array(parts), at: Date.now() };
     u.parts[part] = Buffer.from(body, 'base64');
+    u.at = Date.now();
     uploads.set(id, u);
-    if (u.parts.filter(Boolean).length < parts) return { status: 202, body: JSON.stringify({ received: part }) };
+    // An abandoned upload must not stay in memory for ever.
+    clearTimeout(u.timer);
+    u.timer = setTimeout(() => uploads.delete(id), UPLOAD_TTL);
+    u.timer.unref?.();
+    let filled = 0;
+    for (const x of u.parts) if (x) filled++;
+    if (filled < parts) return { status: 202, body: JSON.stringify({ received: part }) };
     uploads.delete(id);
     await p.bridge.start();
     const r = await fetch(`${p.bridge.base}/api/upload?name=${encodeURIComponent(q.get('name') || 'design.figcraft')}`, { method: 'POST', headers: { ...p.bridge.headers(), 'Content-Type': 'application/octet-stream' }, body: Buffer.concat(u.parts) });
@@ -196,7 +219,7 @@ export function createService(deps = {}) {
 
   return {
     handle, state,
-    stop: () => { for (const p of projects.values()) { p.stream?.abort(); p.shareServer?.close(); p.bridge?.stop(); } },
+    stop: () => { clearInterval(sweep); for (const p of projects.values()) { p.stream?.abort(); p.shareServer?.close(); p.bridge?.stop(); } },
   };
 }
 
@@ -205,7 +228,21 @@ export function listen({ port, token, service = createService() }) {
     const reply = (status, body) => { res.writeHead(status, { 'Content-Type': 'application/json; charset=utf-8' }); res.end(body); };
     if (req.headers.authorization !== `Bearer ${token}`) return reply(401, JSON.stringify({ error: 'unauthorized' }));
     const url = new URL(req.url ?? '/', 'http://127.0.0.1');
-    const readBody = () => new Promise((resolve, reject) => { let s = ''; req.setEncoding('utf8'); req.on('data', c => { s += c; }); req.on('end', () => resolve(s)); req.on('error', reject); });
+    // The body is bounded: an upload part is at most a few megabytes.
+    const MAX_BODY = 16 * 1024 * 1024;
+    const readBody = () => new Promise((resolve, reject) => {
+      let s = '', n = 0, done = false;
+      const timer = setTimeout(() => { if (done) return; done = true; reject(new Error('the request body took too long')); }, 120_000);
+      timer.unref?.();
+      req.setEncoding('utf8');
+      req.on('data', c => {
+        n += c.length;
+        if (n > MAX_BODY) { done = true; clearTimeout(timer); reject(new Error('the request body is too large')); req.destroy(); return; }
+        s += c;
+      });
+      req.on('end', () => { if (done) return; done = true; clearTimeout(timer); resolve(s); });
+      req.on('error', e => { if (done) return; done = true; clearTimeout(timer); reject(e); });
+    });
     try {
       const r = await service.handle(req.method, url, readBody);
       reply(r.status, r.body);

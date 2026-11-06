@@ -20,11 +20,60 @@ export const slug = s =>
 export const pascal = s => slug(s).split('-').filter(Boolean).map(w => w[0].toUpperCase() + w.slice(1)).join('') || 'Item';
 export const camel = s => { const p = pascal(s); return p[0].toLowerCase() + p.slice(1); };
 
-export function writeFileSafe(file, data) {
+/**
+ * Write a file without ever leaving it half-written: the bytes go to a temp file next to it,
+ * are flushed to disk, and then replace the target in one atomic rename.
+ */
+export function writeFileSafe(file, data, { fsync = false } = {}) {
   fs.mkdirSync(path.dirname(file), { recursive: true });
   const tmp = `${file}.${process.pid}.tmp`;
-  fs.writeFileSync(tmp, data);
-  fs.renameSync(tmp, file);
+  try {
+    const fd = fs.openSync(tmp, 'w');
+    try {
+      fs.writeFileSync(fd, data);
+      if (fsync) fs.fsyncSync(fd);
+    } finally { fs.closeSync(fd); }
+    fs.renameSync(tmp, file);
+  } catch (e) {
+    try { fs.rmSync(tmp, { force: true }); } catch { /* the temp file is already gone */ }
+    throw e;
+  }
+  if (fsync) {
+    // The rename itself must survive a power cut: flush the directory entry too.
+    try { const dir = fs.openSync(path.dirname(file), 'r'); fs.fsyncSync(dir); fs.closeSync(dir); } catch { /* not on every platform */ }
+  }
+}
+
+/**
+ * A path inside a root, or nothing: the path is resolved, followed through symlinks and checked
+ * against the root. `..` segments and encoded separators never escape.
+ * @returns {string|null} the absolute path, or null when it is outside
+ */
+export function containPath(root, rel) {
+  const base = path.resolve(root);
+  const raw = String(rel ?? '').replace(/^\/+/, '');
+  if (!raw || raw.includes('\0')) return null;
+  // Normalise the separators first, then refuse anything that still points outside.
+  const parts = raw.split(/[\\/]+/);
+  if (parts.some(p => p === '..')) return null;
+  const abs = path.resolve(base, ...parts);
+  if (abs !== base && !abs.startsWith(base + path.sep)) return null;
+  // Symlinks: the real path decides, not the written one.
+  try {
+    const real = fs.realpathSync(abs);
+    const realBase = fs.realpathSync(base);
+    if (real !== realBase && !real.startsWith(realBase + path.sep)) return null;
+    return abs;
+  } catch {
+    // The file does not exist yet: its parent must still be inside.
+    const parent = path.dirname(abs);
+    try {
+      const realParent = fs.realpathSync(parent);
+      const realBase = fs.realpathSync(base);
+      if (realParent !== realBase && !realParent.startsWith(realBase + path.sep)) return null;
+    } catch { /* the parent does not exist either: the resolved path already passed the check */ }
+    return abs;
+  }
 }
 
 /** Run async jobs with at most `limit` in flight. Results keep input order. */
@@ -40,6 +89,13 @@ export async function pool(items, limit, fn) {
   };
   await Promise.all(Array.from({ length: Math.max(1, Math.min(limit, items.length)) }, worker));
   return results;
+}
+
+/** A promise that settles after `ms`, so a hung call never wedges a caller. */
+export function withTimeout(promise, ms, message = 'timed out') {
+  let timer;
+  const guard = new Promise((_, reject) => { timer = setTimeout(() => reject(new Error(message)), ms); timer.unref?.(); });
+  return Promise.race([promise, guard]).finally(() => clearTimeout(timer));
 }
 
 /** Process-wide event bus: the web UI streams it over SSE. */

@@ -19,7 +19,7 @@ import { readNotes } from './contract.mjs';
 import { diffManifests, updateChangelog, summaryLine } from './diff.mjs';
 import { agentPrompt, runAgent, sanitizeNotes, DEFAULT_AGENT } from './agent.mjs';
 import { checkParity, parityMarkdown } from '../parity/check.mjs';
-import { GRAPH, spec, proto, link, PROTOTYPE } from '../layout.mjs';
+import { ROOT, spec, proto, link, PROTOTYPE } from '../layout.mjs';
 
 export class Workspace {
   /**
@@ -52,6 +52,9 @@ export class Workspace {
     if (store) {
       const onChange = ev => { this.emit('design', ev); this.schedule(); };
       store.on('change', onChange);
+      // A failed save (a full disk, a read-only file) must not kill the server.
+      store.on('saveError', e => this.emit('log', { level: 'error', message: `could not save the design: ${e.message}` }));
+      store.on('saveWarn', m => this.emit('log', { level: 'warn', message: m }));
       this.offChange = () => store.off('change', onChange);
     }
   }
@@ -65,17 +68,31 @@ export class Workspace {
   }
 
   kick() {
-    if (this.running) { this.running.finally(() => { if (this.dirty && !this.soonTimer) this.kick(); }); return; }
+    if (this.running) {
+      // The run may reject: the chain must not become an unhandled rejection (that kills the process).
+      this.running.then(() => this.reKick(), () => this.reKick());
+      return;
+    }
     this.dirty = false;
     this.run().catch(e => this.emit('log', { level: 'error', message: e.message }));
   }
 
+  /** After a run: another one is due when an edit landed while it was running. */
+  reKick() {
+    if (this.dirty && !this.soonTimer) this.kick();
+  }
+
   /** Resolves once every scheduled regeneration has finished. */
-  async settled() {
+  async settled(timeoutMs = 120_000) {
+    const deadline = Date.now() + timeoutMs;
     for (;;) {
-      if (this.soonTimer || this.dirty) { await new Promise(r => setTimeout(r, 40)); continue; }
+      if (this.soonTimer || this.dirty) {
+        if (Date.now() > deadline) return false;
+        await new Promise(r => setTimeout(r, 40));
+        continue;
+      }
       if (this.running) { await this.running.catch(() => {}); continue; }
-      return;
+      return true;
     }
   }
 
@@ -103,6 +120,12 @@ export class Workspace {
       this.changes = diffManifests(prev, this.manifest);
       // Not on the very first run into an empty folder: nothing to compare with.
       if (prev) {
+        // The design came back empty (a half-written file, a format change, a bad export):
+        // nothing is deleted and nothing is rewritten.
+        const was = prev.screens?.length ?? 0;
+        if (was > 0 && this.manifest.screens.length === 0) {
+          throw new Error(`the design came back with no screens (it had ${was} before): nothing was changed — check the .figcraft file`);
+        }
         const cf = this.file(spec('CHANGES.md'));
         const next = updateChangelog(fs.existsSync(cf) ? fs.readFileSync(cf, 'utf8') : null, this.changes);
         if (next) writeFileSafe(cf, next);
@@ -192,13 +215,21 @@ export class Workspace {
     });
   }
 
+  /** The WeshCraft folder ignores its own temp files and the trash: they never belong in git. */
+  writeGitignore() {
+    const f = this.file(path.posix.join(ROOT, '.gitignore'));
+    const want = '*.tmp\n.trash/\n';
+    try { if (fs.existsSync(f) && fs.readFileSync(f, 'utf8') === want) return; } catch { /* write it again */ }
+    writeFileSafe(f, want);
+  }
+
   writePrototype() {
     const files = renderPrototype(this.model, this.manifest);
     for (const f of files) writeFileSafe(this.file(proto(f.file)), f.html);
-    // A page that is no longer in the design: its file goes.
+    // A page that is no longer in the design: its file goes (to the trash, never away).
     const keep = new Set(files.map(f => f.file));
     const dir = this.file(PROTOTYPE);
-    if (fs.existsSync(dir)) for (const n of fs.readdirSync(dir)) if (n.endsWith('.html') && !keep.has(n)) fs.rmSync(path.join(dir, n));
+    if (fs.existsSync(dir)) for (const n of fs.readdirSync(dir)) if (n.endsWith('.html') && !keep.has(n)) this.trash(proto(n));
     writeFileSafe(this.file(proto('tokens.css')), tokensCss(this.manifest));
     if (this.thumbnail) writeFileSafe(this.file(proto('thumbnail.png')), this.thumbnail);
     return files;
@@ -226,11 +257,21 @@ export class Workspace {
           this.emit('chunk', { id: job.id, chunk });
         }, { cwd: this.outDir, command: this.agent });
         const allowed = new Set([...md.matchAll(/`#(\d+)`/g)].map(x => Number(x[1])));
-        md = job.build(sanitizeNotes(text, allowed));
+        // An agent that says nothing adds nothing: the notes that are already there stay.
+        if (text && text.trim()) md = job.build(sanitizeNotes(text, allowed));
+        else this.emit('log', { level: 'warn', message: `${job.title}: the agent wrote nothing, the notes were kept` });
       } catch (e) {
         this.emit('log', { level: 'warn', message: `${job.title}: agent pass skipped (${e.message})` });
       }
       void streamed;
+    }
+    // The notes are read again right before the write: a note written while the agent worked
+    // (or while the job was queued) must not be lost.
+    const fresh = fs.existsSync(target) ? fs.readFileSync(target, 'utf8') : null;
+    const now = readNotes(fresh);
+    if (now != null && now !== notes) {
+      md = md.replace(/(<!-- weshcraft:notes:start -->\n)[\s\S]*?(\n<!-- weshcraft:notes:end -->)/, (_, a, b) => `${a}${now}${b}`);
+      this.emit('log', { level: 'warn', message: `${job.title}: the notes changed while this spec was written — the newer ones were kept` });
     }
     writeFileSafe(target, md);
     this.setJob(job, { status: 'done', finishedAt: Date.now(), preview: md });
@@ -249,21 +290,26 @@ export class Workspace {
     this.emit('run', { status: 'started', run: this.runs });
     await this.snapshot();
     await this.references();
+    this.writeGitignore();
     this.writePrototype();
     this.emit('prototype', { hash: this.manifest.source.hash });
     const jobs = this.plan();
     this.jobs.clear();
     for (const j of jobs) this.setJob(j, { status: 'queued', preview: null, startedAt: null, finishedAt: null, error: null });
     const results = await pool(jobs, this.concurrency, j => this.runJob(j, { force }));
-    results.forEach((r, i) => { if (!r.ok) this.setJob(jobs[i], { status: 'failed', error: String(r.error?.message ?? r.error) }); });
+    const failed = results.map((r, i) => ({ r, i })).filter(x => !x.r.ok);
+    for (const { r, i } of failed) this.setJob(jobs[i], { status: 'failed', error: String(r.error?.message ?? r.error) });
     this.removeOrphans();
     this.writeTrace();
     const report = this.check();
     this.writeIndex();
     const ms = Date.now() - t0;
-    this.emit('run', { status: 'finished', run: this.runs, ms, ok: report.ok, score: report.score });
-    this.emit('log', { level: report.ok ? 'info' : 'warn', message: `Run ${this.runs}: ${jobs.length} specs in ${ms} ms, parity ${report.score}% (${report.errors} errors)` });
-    return { jobs: [...this.jobs.values()].map(({ preview, ...j }) => j), report, ms };
+    // A spec that could not be written is a failure: the run did not do what it says.
+    const ok = report.ok && failed.length === 0;
+    if (failed.length) this.emit('log', { level: 'error', message: `${failed.length} spec${failed.length === 1 ? '' : 's'} could not be written` });
+    this.emit('run', { status: 'finished', run: this.runs, ms, ok, score: report.score });
+    this.emit('log', { level: ok ? 'info' : 'warn', message: `Run ${this.runs}: ${jobs.length} specs in ${ms} ms, parity ${report.score}% (${report.errors} errors)` });
+    return { jobs: [...this.jobs.values()].map(({ preview, ...j }) => j), report, ms, ok, failed: failed.length };
   }
 
   /**
@@ -292,15 +338,32 @@ export class Workspace {
   /** Specs for screens/components deleted in FigCraft are removed, not left to rot. */
   removeOrphans() {
     const keep = new Set(this.plan().map(j => j.file));
+    const ours = n => /^(scr|cmp|tool|ep)-[\w.-]+\.md$/.test(n) || n === 'README.md';
     for (const dir of [spec('front/screens'), spec('front/components'), spec('front/mcp'), spec('front/api')]) {
       const abs = this.file(dir);
       if (!fs.existsSync(abs)) continue;
       for (const f of fs.readdirSync(abs)) {
         if (f.endsWith('.md') && !keep.has(`${dir}/${f}`)) {
-          fs.rmSync(path.join(abs, f));
+          // Only what WeshCraft itself wrote, and never unlinked: the hand-written Notes go to
+          // the trash, where they can be recovered.
+          if (!ours(f)) { this.emit('log', { level: 'warn', message: `Kept ${dir}/${f}: WeshCraft did not write it` }); continue; }
+          this.trash(`${dir}/${f}`);
           this.emit('log', { level: 'info', message: `Removed ${dir}/${f}: no longer in the prototype` });
         }
       }
+    }
+  }
+
+  /** Move a file out of the way (into wcraft/.trash/), never unlink it: nothing is lost. */
+  trash(rel) {
+    const from = this.file(rel);
+    if (!fs.existsSync(from)) return;
+    const to = this.file(path.posix.join(ROOT, '.trash', new Date().toISOString().replace(/[:.]/g, '-'), rel));
+    try {
+      fs.mkdirSync(path.dirname(to), { recursive: true });
+      fs.renameSync(from, to);
+    } catch (e) {
+      this.emit('log', { level: 'warn', message: `Could not move ${rel} to the trash: ${e.message}` });
     }
   }
 

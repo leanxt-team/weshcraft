@@ -717,8 +717,11 @@ function applySummary(s) {
   });
   loadTrace();
 }
+let stream = null;
 function connect() {
+  if (stream) return; // one stream only
   const es = new EventSource('/api/events');
+  stream = es;
   es.addEventListener('job', e => {
     const { job } = JSON.parse(e.data);
     state.jobs.set(job.id, job);
@@ -753,7 +756,12 @@ function connect() {
 }
 
 async function init() {
-  const st = await (await fetch('/api/state')).json();
+  // The live stream comes first: the state can take a while (the access check), and the UI
+  // must not sit dead until it is there.
+  connect();
+  let st = { jobs: [], log: [] };
+  try { st = await (await fetch('/api/state')).json(); }
+  catch (e) { log({ level: 'error', at: Date.now(), message: `WeshCraft is not reachable: ${e.message}` }); setTimeout(init, 3000); return; }
   $('#source').textContent = st.source;
   $('#source').title = st.source;
   if (st.figcraftWebUrl) { $('#figcraftTab').hidden = false; $('#design').dataset.src = st.figcraftWebUrl; }

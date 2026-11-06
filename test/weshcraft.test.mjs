@@ -608,6 +608,44 @@ test('MCP: the light toolset reads, edits in one batch with wait, undoes, starts
   ws.source.close(); ws2.source.close();
 });
 
+test('behind a reverse proxy: the identity is believed only from a trusted peer, cross-site posts are refused', async () => {
+  const { dir, file } = copyTo(ACCOUNT);
+  const ws = new Workspace({ source: openEditable(file), outDir: dir, editDelayMs: 20 });
+  const mcp = new WeshCraftMcp({ workspace: ws });
+  // The proxy is this machine (loopback): its forwarded headers are believed.
+  const server = await startServer({ workspace: ws, mcp, port: 0, watch: false, trustProxy: ['127.0.0.1', '::1'], publicUrl: 'https://wesh.example.com' });
+  const base = server.url.replace(/\/$/, '');
+  try {
+    await ws.run();
+    // A trusted peer forwarding an identity: it is accepted, and it is shown.
+    const st = await (await fetch(`${base}/api/state`, { headers: { 'remote-user': 'ada', 'remote-email': 'ada@example.com', 'x-forwarded-proto': 'https' } })).json();
+    assert.equal(st.user, 'ada');
+    // The liveness check a proxy makes: no token, no identity, nothing revealed.
+    const health = await fetch(`${base}/healthz`);
+    assert.equal(health.status, 200);
+    assert.deepEqual(await health.json(), { ok: true });
+    // A cross-site post is refused even when the proxy authenticated the user.
+    const cross = await fetch(`${base}/api/design/op`, { method: 'POST', headers: { 'remote-user': 'ada', origin: 'https://evil.example' }, body: JSON.stringify({ ops: [{ op: 'text', id: 4, text: 'Hacked' }] }) });
+    assert.equal(cross.status, 403);
+    assert.ok(!fs.readFileSync(file, 'utf8').includes('Hacked'), 'nothing was changed');
+    // The same post from our own site goes through.
+    const own = await fetch(`${base}/api/design/op`, { method: 'POST', headers: { 'remote-user': 'ada', origin: 'https://wesh.example.com' }, body: JSON.stringify({ ops: [{ op: 'text', id: 4, text: 'Join us' }] }) });
+    assert.equal(own.status, 200);
+    // The live stream asks the proxy not to buffer it.
+    const ac = new AbortController();
+    const stream = await fetch(`${base}/api/events`, { headers: { 'remote-user': 'ada' }, signal: ac.signal });
+    assert.equal(stream.headers.get('x-accel-buffering'), 'no');
+    ac.abort();
+  } finally { server.close(); ws.source.close(); }
+  // Without --trust-proxy the headers are worth nothing.
+  const ws2 = new Workspace({ source: openEditable(file), outDir: dir, editDelayMs: 20 });
+  const server2 = await startServer({ workspace: ws2, mcp: new WeshCraftMcp({ workspace: ws2 }), port: 0, watch: false });
+  try {
+    const st = await (await fetch(`${server2.url.replace(/\/$/, '')}/api/state`, { headers: { 'remote-user': 'mallory' } })).json();
+    assert.equal(st.user, null, 'an untrusted peer cannot claim a user');
+  } finally { server2.close(); ws2.source.close(); }
+});
+
 test('design in the browser: API ops, render, undo, live events, external saves reload', async () => {
   const { dir, file } = copyTo(ACCOUNT);
   const ws = new Workspace({ source: openEditable(file), outDir: dir, editDelayMs: 20 });
@@ -1134,4 +1172,225 @@ test('weshcraft_read technologies: the catalog for agents, no design needed', as
   assert.ok(r.some(x => x.name === 'Amazon SQS' && x.alternatives.includes('RabbitMQ')), JSON.stringify(r).slice(0, 300));
   const t = JSON.parse((await mcp.callTool('weshcraft_read', { what: 'technologies', text: 'Go · Gin · Postgres on Cloud SQL' })).content[0].text);
   assert.deepEqual(t.map(x => x.name), ['Go', 'Gin', 'PostgreSQL', 'Cloud SQL']);
+});
+
+// ---- the stability pass -----------------------------------------------------------------------
+
+test('a spec that leaves the design is moved to the trash, never unlinked; a hand-written file stays', async () => {
+  const out = tmp();
+  const doc = JSON.parse(fs.readFileSync(ACCOUNT, 'utf8'));
+  const file = path.join(out, 'wcraft/design/account.figcraft.json');
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  fs.writeFileSync(file, JSON.stringify(doc));
+  const ws = new Workspace({ source: new FileSource(file), outDir: out });
+  await ws.run();
+  const screenSpec = path.join(out, 'wcraft/specs/front/screens/scr-profile.md');
+  assert.ok(fs.existsSync(screenSpec));
+  // A file WeshCraft did not write is never touched.
+  const mine = path.join(out, 'wcraft/specs/front/screens/MY-SPEC.md');
+  fs.writeFileSync(mine, '# mine');
+  // The design loses a screen.
+  const doc2 = JSON.parse(fs.readFileSync(file, 'utf8'));
+  doc2.nodes['1'].children = [2];
+  fs.writeFileSync(file, JSON.stringify(doc2));
+  await ws.run({ force: true });
+  assert.ok(!fs.existsSync(screenSpec), 'the spec of a screen that is gone is not left behind');
+  const trash = path.join(out, 'wcraft/.trash');
+  assert.ok(fs.existsSync(trash), 'it is in the trash, not gone');
+  const moved = fs.readdirSync(trash, { recursive: true }).filter(f => String(f).endsWith('scr-profile.md'));
+  assert.equal(moved.length, 1, 'the file can be recovered');
+  assert.ok(fs.existsSync(mine), 'a file WeshCraft did not write stays');
+});
+
+test('a design that comes back empty changes nothing', async () => {
+  const out = tmp();
+  const doc = JSON.parse(fs.readFileSync(ACCOUNT, 'utf8'));
+  const file = path.join(out, 'wcraft/design/account.figcraft.json');
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  fs.writeFileSync(file, JSON.stringify(doc));
+  const ws = new Workspace({ source: new FileSource(file), outDir: out });
+  await ws.run();
+  const spec = path.join(out, 'wcraft/specs/front/screens/scr-profile.md');
+  assert.ok(fs.existsSync(spec));
+  // The file is saved empty (a broken export).
+  fs.writeFileSync(file, JSON.stringify({ ...doc, pages: [], nodes: { 1: { ...doc.nodes['1'], children: [] } } }));
+  await assert.rejects(() => ws.run({ force: true }), /no screens/);
+  assert.ok(fs.existsSync(spec), 'nothing was deleted');
+});
+
+test('the file route and the MCP paths stay inside the WeshCraft folder', async () => {
+  const { dir, file } = copyTo(ACCOUNT);
+  fs.writeFileSync(path.join(dir, 'secret.json'), '{"secret":"do-not-leak"}');
+  const ws = new Workspace({ source: openEditable(file), outDir: dir, editDelayMs: 20 });
+  const mcp = new WeshCraftMcp({ workspace: ws });
+  const server = await startServer({ workspace: ws, mcp, port: 0, watch: false });
+  const base = server.url.replace(/\/$/, '');
+  try {
+    for (const p of ['/out/wcraft/../secret.json', '/out/wcraft/%2e%2e/secret.json', '/out/wcraft/..%2fsecret.json']) {
+      const r = await fetch(`${base}${p}`);
+      assert.ok(r.status === 403 || r.status === 404, `${p} is refused (${r.status})`);
+      assert.ok(!(await r.text()).includes('do-not-leak'), `${p} leaks nothing`);
+    }
+    const read = await mcp.callTool('weshcraft_read_spec', { path: '../secret.json' });
+    assert.equal(read.isError, true);
+    assert.ok(!read.content[0].text.includes('do-not-leak'));
+  } finally { server.close(); ws.source.close(); }
+});
+
+test('an agent that writes nothing leaves the notes alone; an agent that floods is stopped', async () => {
+  const out = tmp();
+  const file = path.join(out, 'wcraft/design/account.figcraft.json');
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  fs.copyFileSync(ACCOUNT, file);
+  const ws = new Workspace({ source: new FileSource(file), outDir: out, agent: 'node -e "process.stdout.write(\'\')"' });
+  await ws.run();
+  const spec = path.join(out, 'wcraft/specs/front/screens/scr-sign-up.md');
+  fs.writeFileSync(spec, fs.readFileSync(spec, 'utf8').replace(/<!-- weshcraft:notes:start -->\n[\s\S]*?\n<!-- weshcraft:notes:end -->/, '<!-- weshcraft:notes:start -->\nMY NOTE\n<!-- weshcraft:notes:end -->'));
+  await ws.run({ force: true });
+  assert.match(fs.readFileSync(spec, 'utf8'), /MY NOTE/, 'the notes survive an agent that says nothing');
+  // An agent that floods: stopped, and the spec is still written.
+  const ws2 = new Workspace({ source: new FileSource(file), outDir: out, agent: 'node -e "process.stdout.write(\'x\'.repeat(2000000))"' });
+  await ws2.run({ force: true });
+  assert.ok(fs.existsSync(spec));
+  assert.ok(fs.statSync(spec).size < 500_000, 'the flood did not land in the spec');
+});
+
+test('an external change to the design is merged with ours, not overwritten', async () => {
+  const { dir, file } = copyTo(ACCOUNT);
+  const source = openEditable(file);
+  const store = source.store;
+  const ws = new Workspace({ source, outDir: dir, editDelayMs: 20 });
+  try {
+    await ws.run();
+    // Somebody else edits the file (FigCraft, git).
+    const other = DesignStore.open(file);
+    other.apply([{ op: 'text', id: 5, text: 'From FigCraft' }]);
+    other.saveNow();
+    // We edit too, and save.
+    store.apply([{ op: 'text', id: 4, text: 'From the editor' }]);
+    store.saveNow();
+    const doc = JSON.parse(fs.readFileSync(file, 'utf8'));
+    assert.equal(doc.nodes['4'].characters, 'From the editor', 'our edit is there');
+    assert.equal(doc.nodes['5'].characters, 'From FigCraft', 'their edit is there too');
+  } finally { source.close(); }
+});
+
+test('the notes are written atomically and the newer ones win', async () => {
+  const out = tmp();
+  const file = path.join(out, 'wcraft/design/account.figcraft.json');
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  fs.copyFileSync(ACCOUNT, file);
+  const ws = new Workspace({ source: new FileSource(file), outDir: out });
+  const mcp = new WeshCraftMcp({ workspace: ws });
+  await ws.run();
+  const spec = path.join(out, 'wcraft/specs/front/screens/scr-sign-up.md');
+  const r = await mcp.callTool('weshcraft_write_notes', { path: 'wcraft/specs/front/screens/scr-sign-up.md', notes: '### Edge cases\n- Offline.' });
+  assert.ok(!r.isError, r.content?.[0]?.text);
+  assert.match(fs.readFileSync(spec, 'utf8'), /- Offline\./);
+  // The contract is still there: the notes write did not break the spec.
+  assert.match(fs.readFileSync(spec, 'utf8'), /weshcraft:contract/);
+});
+
+test('an upload never overwrites a design without being told to', async () => {
+  const { dir, file } = copyTo(ACCOUNT);
+  const ws = new Workspace({ source: openEditable(file), outDir: dir, editDelayMs: 20 });
+  const mcp = new WeshCraftMcp({ workspace: ws });
+  const server = await startServer({ workspace: ws, mcp, port: 0, watch: false });
+  const base = server.url.replace(/\/$/, '');
+  try {
+    const again = await fetch(`${base}/api/upload?name=account.figcraft.json`, { method: 'POST', body: fs.readFileSync(ACCOUNT) });
+    assert.equal(again.status, 409, 'the existing design is not clobbered');
+    assert.ok(fs.readFileSync(file, 'utf8').includes('Create your account'), 'the design is untouched');
+  } finally { server.close(); ws.source.close(); }
+});
+
+test('the changelog keeps what the user wrote before the first entry', async () => {
+  const out = tmp();
+  const file = path.join(out, 'wcraft/design/account.figcraft.json');
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  fs.copyFileSync(ACCOUNT, file);
+  const ws = new Workspace({ source: new FileSource(file), outDir: out });
+  await ws.run();
+  const changes = path.join(out, 'wcraft/specs/CHANGES.md');
+  fs.writeFileSync(changes, '# Design changelog\n\nMy own note about this project.\n');
+  const doc = JSON.parse(fs.readFileSync(file, 'utf8'));
+  doc.nodes['4'].characters = 'Changed';
+  fs.writeFileSync(file, JSON.stringify(doc));
+  await ws.run({ force: true });
+  assert.match(fs.readFileSync(changes, 'utf8'), /My own note about this project\./);
+});
+
+test('a spec that could not be written fails the run', async () => {
+  const out = tmp();
+  const file = path.join(out, 'wcraft/design/account.figcraft.json');
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  fs.copyFileSync(ACCOUNT, file);
+  const ws = new Workspace({ source: new FileSource(file), outDir: out });
+  await ws.run();
+  // A spec builder that throws: the run must say so.
+  const job = ws.plan()[0];
+  const orig = job.build;
+  job.build = () => { throw new Error('boom in the spec builder'); };
+  ws.jobs.clear();
+  ws.manifest && (ws.plan = () => [job]);
+  const r = await ws.run({ force: true });
+  assert.equal(r.ok, false, 'the run failed');
+  assert.equal(r.failed, 1);
+  job.build = orig;
+});
+
+test('the CI file is pinned, watches the right folder, and the GitLab pipeline includes it', async () => {
+  const { ciFiles } = await import('../src/publish/ci.mjs');
+  const gh = ciFiles('github', { prefix: 'apps/web' })[0];
+  assert.match(gh.content, /weshcraft@\d+\.\d+\.\d+/, 'the version is pinned');
+  assert.match(gh.content, /paths: \["apps\/web\/wcraft\/\*\*"\]/);
+  const gl = ciFiles('gitlab', {})[0];
+  assert.match(gl.content, /changes: \["wcraft\/\*\*"\]/);
+  // The GitLab job is included by the user's pipeline, or it never runs.
+  const dir = tmp();
+  fs.writeFileSync(path.join(dir, '.gitlab-ci.yml'), 'stages: [test]\n');
+  const out = path.join(dir, 'wcraft');
+  fs.mkdirSync(out, { recursive: true });
+  const ws = new Workspace({ source: new FileSource(ACCOUNT), outDir: dir });
+  await ws.run();
+  const { Syncer, parseTarget } = await import('../src/publish/sync.mjs');
+  const sync = new Syncer(ws, parseTarget('git', { auto: false }));
+  try {
+    execFileSync('git', ['init', '-q'], { cwd: dir });
+    execFileSync('git', ['-c', 'user.email=t@e.com', '-c', 'user.name=T', 'commit', '-q', '--allow-empty', '-m', 'init'], { cwd: dir });
+    execFileSync('git', ['config', 'user.email', 't@e.com'], { cwd: dir });
+    execFileSync('git', ['config', 'user.name', 'T'], { cwd: dir });
+    await sync.sync();
+    const ci = fs.readFileSync(path.join(dir, '.gitlab-ci.yml'), 'utf8');
+    assert.match(ci, /include:\n {2}- local: ci\/weshcraft\.gitlab-ci\.yml/, 'the pipeline includes the job');
+    assert.match(ci, /stages: \[test\]/, 'the rest of the file is kept');
+  } finally { sync.close(); }
+});
+
+test('a detached HEAD is refused: a commit there would live only in the reflog', async () => {
+  const { dir, g } = gitRepo();
+  execFileSync('git', ['commit', '-q', '--allow-empty', '-m', 'x'], { cwd: dir });
+  execFileSync('git', ['checkout', '-q', '--detach', 'HEAD'], { cwd: dir });
+  const ws = new Workspace({ source: new FileSource(ACCOUNT), outDir: dir });
+  const { Syncer, parseTarget } = await import('../src/publish/sync.mjs');
+  const sync = new Syncer(ws, parseTarget('git', { auto: false }));
+  try {
+    await ws.run();
+    await assert.rejects(() => sync.sync(), /detached HEAD/);
+  } finally { sync.close(); }
+});
+
+test('a spec written by another version of WeshCraft is a warning, not a broken build', async () => {
+  const out = tmp();
+  const file = path.join(out, 'wcraft/design/account.figcraft.json');
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  fs.copyFileSync(ACCOUNT, file);
+  const ws = new Workspace({ source: new FileSource(file), outDir: out });
+  await ws.run();
+  // A contract with a field this version does not know.
+  const spec = path.join(out, 'wcraft/specs/LOGIC.md');
+  const md = fs.readFileSync(spec, 'utf8').replace('"rules": [', '"somethingNew": 1,\n "rules": [');
+  fs.writeFileSync(spec, md);
+  const report = checkParity(ws.manifest, out);
+  assert.equal(report.ok, true, JSON.stringify(report.issues.filter(i => i.level === 'error')));
 });

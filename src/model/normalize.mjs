@@ -196,7 +196,16 @@ export function fromFigcraftFile(doc) {
   if (doc?.format !== 'figcraft') throw new Error('not a FigCraft document (format != "figcraft")');
   const nodes = new Map();
   for (const raw of Object.values(doc.nodes)) nodes.set(Number(raw.id), toNode(raw));
-  for (const raw of Object.values(doc.nodes)) nodes.get(Number(raw.id)).children = (raw.children || []).map(Number);
+  for (const raw of Object.values(doc.nodes)) {
+    const n = nodes.get(Number(raw.id));
+    n.children = (raw.children || []).map(Number);
+    // A node that says it has more children than the file lists: the file is partial.
+    if (raw.childCount != null && raw.childCount > n.children.length) n.truncated = true;
+  }
+  // A page pointing at a node the file does not have: the file is partial too.
+  for (const raw of Object.values(doc.nodes)) {
+    for (const c of raw.children || []) if (!nodes.has(Number(c))) nodes.get(Number(raw.id)).truncated = true;
+  }
   return finish({
     name: doc.name, pages: (doc.pages || []).map(Number), nodes,
     variables: variablesFromFile(doc.variables), styles: doc.styles ?? [], comments: doc.comments ?? [],

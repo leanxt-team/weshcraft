@@ -431,5 +431,8 @@ export function buildManifest(model, { sourceName = model.name, surface = null }
   manifest.data = buildData(manifest);
   manifest.architecture = buildArchitecture(manifest, declaredAspect(model, 'architecture') ?? surface?.architecture ?? null);
   manifest.source.hash = sha({ screens, components, tokens: manifest.tokens, flows, domain, links, surface: surf, functions: manifest.functions, logic: manifest.logic, architecture: manifest.architecture }, 16);
+  // What the *design* says, without the inferred back end: a change in the inference must not
+  // make every committed prototype look stale.
+  manifest.source.design = sha({ screens: screens.map(s => s.fingerprint), tokens: manifest.tokens, flows }, 16);
   return manifest;
 }

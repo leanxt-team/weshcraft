@@ -275,7 +275,8 @@ function linkIndex(manifest) {
 export function prototypePages(manifest) {
   const pages = (manifest.pages ?? []).map(p => ({ key: p.key, name: p.name, screens: p.screens ?? [], file: p.file ?? `${p.key}.html` }));
   if (manifest.surface) pages.push({ key: 'page-surface', name: 'API & MCP', screens: [], file: 'page-surface.html', surface: true });
-  if (!pages.length) return [];
+  // A project with no design and no surface still gets a prototype page (an empty one).
+  if (!pages.length) return [{ key: 'page-empty', name: 'Prototype', screens: [], file: 'index.html', empty: true }];
   if (!pages.some(p => p.file === 'index.html')) {
     const start = manifest.flows?.[0]?.start ?? null;
     const first = pages.find(p => p.screens.includes(start)) ?? pages.find(p => p.screens.length) ?? pages[0];
@@ -326,6 +327,7 @@ function renderPage(model, manifest, page, pages, { title }) {
 <meta name="generator" content="weshcraft">
 <meta name="color-scheme" content="light dark">
 <meta name="weshcraft-source-hash" content="${manifest.source.hash}">
+<meta name="weshcraft-design-hash" content="${manifest.source.design ?? manifest.source.hash}">
 ${fontLink}
 <style>
 ${tokenCss}

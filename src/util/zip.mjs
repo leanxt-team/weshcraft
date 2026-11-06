@@ -55,6 +55,8 @@ export function readZip(buf) {
 
 /** @param {Array<[string, Buffer|string]>} entries */
 export function writeZip(entries) {
+  // The archive format counts its entries in 16 bits: say so instead of failing with a range error.
+  if (entries.length > 65535) throw new Error(`too many files for a zip (${entries.length}): the limit is 65535`);
   const locals = [];
   const centrals = [];
   let offset = 0;

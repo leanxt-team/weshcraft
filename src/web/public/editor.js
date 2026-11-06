@@ -507,7 +507,10 @@ export function createEditor({ openFile, markdown, log }) {
       const r = d.r;
       if (!r) return drawOverlay();
       const props = { width: R(r.w), height: R(r.h) };
-      if (!d.flow && d.id !== E.screenId) { props.x = R(d.px + (r.x - d.b.x)); props.y = R(d.py + (r.y - d.b.y)); }
+      // The position moves by a delta, not to an absolute place: the tree the drag started from
+      // may already be out of date (an agent moved the layer meanwhile).
+      const dx = r.x - d.b.x, dy = r.y - d.b.y;
+      const shift = !d.flow && d.id !== E.screenId && (dx || dy) ? [{ op: 'offset', id: d.id, dx: R(dx), dy: R(dy) }] : [];
       if (d.flow) {
         const cur = node(d.id);
         const sizing = {};
@@ -515,7 +518,7 @@ export function createEditor({ openFile, markdown, log }) {
         if (R(r.h) !== R(d.b.h)) sizing.v = 'fixed';
         if (Object.keys(sizing).length && cur) props.sizing = sizing;
       }
-      return ops([{ op: 'set', id: d.id, props }], 'Resize');
+      return ops([...shift, { op: 'set', id: d.id, props }], 'Resize');
     }
     // move
     const moved = d.moved;
@@ -524,9 +527,8 @@ export function createEditor({ openFile, markdown, log }) {
     if (!moved) return;
     const p = designPoint(e);
     const dx = p.x - d.start.x, dy = p.y - d.start.y;
-    const n = node(d.id);
     const parent = parentOf(d.id);
-    if (target === parent && !node(parent).flow) return ops([{ op: 'set', id: d.id, props: { x: R(n.x + dx), y: R(n.y + dy) } }], 'Move');
+    if (target === parent && !node(parent).flow) return ops([{ op: 'offset', id: d.id, dx: R(dx), dy: R(dy) }], 'Move');
     if (target === parent && slot) {
       const from = node(parent).children.findIndex(k => k.id === d.id);
       if (slot.index === from || slot.index === from + 1) return;

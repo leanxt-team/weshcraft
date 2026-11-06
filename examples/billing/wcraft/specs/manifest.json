@@ -3,7 +3,8 @@
  "source": {
   "name": "Billing service",
   "truncated": false,
-  "hash": "06ae1ccbb7dfb23a"
+  "hash": "06ae1ccbb7dfb23a",
+  "design": "074ed8796eb9ddee"
  },
  "screens": [],
  "components": [],

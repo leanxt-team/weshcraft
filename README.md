@@ -243,17 +243,36 @@ Auto sync runs after a regeneration only when parity is OK, so a branch never re
 
 ## CI
 
-`publish` adds `.github/workflows/weshcraft-parity.yml` (GitHub) or `ci/weshcraft.gitlab-ci.yml` (GitLab; `include:` it from your `.gitlab-ci.yml`). They run `npx weshcraft check` on the committed `.figcraft`. Until WeshCraft is on a registry, set the `WESHCRAFT_PACKAGE` variable to your copy, e.g. `github:your-org/weshcraft` or `git+https://gitlab.example.com/your-group/weshcraft.git`.
+`publish` adds `.github/workflows/weshcraft-parity.yml` (GitHub) or `ci/weshcraft.gitlab-ci.yml` (GitLab; `include:` it from your `.gitlab-ci.yml` — WeshCraft adds the include for you when it can). They run `npx --yes weshcraft@<version> check` on the committed `.figcraft`, with the version pinned: a new release cannot change the check under your feet. Until WeshCraft is on a registry, set the `WESHCRAFT_PACKAGE` variable to your copy, e.g. `github:your-org/weshcraft` or `git+https://gitlab.example.com/your-group/weshcraft.git`.
+
+When the check fails, it says what the code graph thinks is at risk: the tests that cover the code behind the specs that changed (`codegraph affected`).
 
 This repository's own tests run in `.github/workflows/ci.yml` and `.gitlab-ci.yml`.
 
 ## Security
 
-- `serve` listens on 127.0.0.1 only unless you pass `--token` (then every request needs it; the browser gets an HttpOnly cookie).
+- `serve` listens on 127.0.0.1 only unless you pass `--token` or `--trust-proxy` (then every request needs one of them; the browser gets an HttpOnly cookie).
 - GitHub/GitLab access is inherited, in this order: a token typed in the publish dialog, `GITHUB_TOKEN`/`GH_TOKEN`/`GITLAB_TOKEN`/`GL_TOKEN`, the account signed in to OpenChamber (`~/.config/openchamber`), the `gh`/`glab` login, git's credential helper. Tokens stay in the local server process: never written to disk, never sent to the browser or the OpenChamber pages (they only see which source is used).
-- File paths from MCP and HTTP are confined to the WeshCraft folder inside the output folder; uploads and new designs are written under `wcraft/design/`.
-- Design edits are written atomically (temporary file + rename); WeshCraft's own saves are recognised by content hash, so only outside changes trigger a reload. Undo history lives in memory (200 steps) and is shared by everyone editing through the same server.
+- File paths from MCP and HTTP are confined to the WeshCraft folder inside the output folder (no `..`, no symlink out); uploads and new designs are written under `wcraft/design/`.
+- Design edits are written atomically (temporary file + rename, flushed to disk) and the previous file is kept as `.bak`; WeshCraft's own saves are recognised by content hash, so only outside changes trigger a reload — and an outside change is merged with yours, not overwritten. Undo history lives in memory (200 steps), survives a reload, and is shared by everyone editing through the same server.
+- A spec that leaves the design is moved to `wcraft/.trash/`, never unlinked: the Notes in it can be recovered.
 - FigCraft's own `--automation-read-root` / `--automation-write-root` flags still apply to the FigCraft process; pass them through `--figcraft-cli` wrappers when you want an agent confined.
+
+## Behind a reverse proxy
+
+WeshCraft runs happily behind Caddy, nginx or Traefik. In **forward auth** (the proxy authenticates the user and forwards the identity in a header), tell WeshCraft who to believe:
+
+```bash
+node bin/weshcraft.mjs serve --host 0.0.0.0 --trust-proxy 10.0.0.0/8 --public-url https://wesh.example.com
+```
+
+- `--trust-proxy` (repeatable: an address, a CIDR, or `*`) says which peers may send the identity. The headers are read **only** from those peers: `Remote-User` / `X-Forwarded-User`, `Remote-Email` / `X-Forwarded-Email`, `Remote-Groups` / `X-Forwarded-Groups`. Without it, the headers are worth nothing.
+- `--public-url` is the address the users reach: the links WeshCraft prints and shares point there, not at `127.0.0.1`.
+- **Cross-site requests are refused** when the proxy authenticated them: the proxy's login does not stop a page on another site from posting (the browser sends the proxy's cookies by itself), so a change must come from your own site.
+- **The live stream is not buffered**: WeshCraft sends `X-Accel-Buffering: no` and a heartbeat. If a proxy still holds it, set `flush_interval -1` in Caddy (`reverse_proxy`) or `proxy_buffering off` in nginx.
+- **`/healthz`** answers `{"ok":true}` with no token and nothing else: that is the health check to point the proxy at (`/api/ping` stays authenticated).
+- The body's limits are 2 MB (the API), 8 MB (the design API) and 64 MB (an upload); give the proxy at least that much.
+- Requests that change something are logged with the authenticated user and the client's address (through the proxy).
 
 ## Limits
 

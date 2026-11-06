@@ -12,6 +12,7 @@ import { resolveToken } from '../publish/credentials.mjs';
 import { callDesignTool } from '../design/tools.mjs';
 import { PUBLIC_TOOLS, NEW_TOOL, callPublic } from './toolset.mjs';
 import { ROOT } from '../layout.mjs';
+import { containPath, writeFileSafe } from '../util/common.mjs';
 
 const PROTOCOL = '2025-06-18';
 
@@ -60,8 +61,8 @@ export class WeshCraftMcp {
     // (specs/…, prototype/…) still works, so a path from an older session still finds its file.
     let rel = String(p || '').replace(/^\/+/, '');
     if (!rel.startsWith(`${ROOT}/`)) rel = `${ROOT}/${rel}`;
-    const abs = path.resolve(this.ws.outDir, rel);
-    if (!abs.startsWith(this.ws.outDir + path.sep)) throw new Error('path must stay inside the WeshCraft folder');
+    const abs = containPath(path.join(this.ws.outDir, ROOT), rel.slice(ROOT.length + 1));
+    if (!abs) throw new Error('path must stay inside the WeshCraft folder');
     return abs;
   }
 
@@ -124,12 +125,13 @@ export class WeshCraftMcp {
         case 'weshcraft_write_notes': {
           const abs = this.safePath(args.path);
           if (!fs.existsSync(abs)) return text(`not found: ${args.path}`, true);
-          const md = fs.readFileSync(abs, 'utf8');
-          if (readNotes(md) == null) return text('this file has no Notes block', true);
-          const next = md.replace(/(<!-- weshcraft:notes:start -->\n)[\s\S]*?(\n<!-- weshcraft:notes:end -->)/, (_, a, b) => `${a}${String(args.notes).replace(/<!--[\s\S]*?-->/g, '').trim()}${b}`);
-          fs.writeFileSync(abs, next);
+          // Read, change and write as one step: a run that rewrites the same file in between
+          // must not have its work reverted by a stale copy of the file.
+          const notes = String(args.notes ?? '').replace(/<!--[\s\S]*?-->/g, '').trim();
+          const applied = await this.writeNotes(abs, notes);
+          if (!applied) return text(`this file has no Notes block: ${args.path}`, true);
           const job = [...this.ws.jobs.values()].find(j => j.file === path.relative(this.ws.outDir, abs).split(path.sep).join('/'));
-          if (job) this.ws.setJob(job, { status: 'done', preview: next, finishedAt: Date.now() });
+          if (job) this.ws.setJob(job, { status: 'done', preview: applied, finishedAt: Date.now() });
           const r = this.ws.manifest ? this.ws.check() : null;
           return text({ written: args.path, parity: r && { ok: r.ok, score: r.score, issues: r.issues.filter(i => i.file === args.path) } });
         }
@@ -164,6 +166,31 @@ export class WeshCraftMcp {
     });
     this.ws.emit('published', { result: res });
     return res;
+  }
+
+  /**
+   * Replace the Notes block of a spec, atomically and without losing a concurrent rewrite:
+   * the file is read again right before the write, and the notes are put into that version.
+   * @returns {string|null} the new content, or null when the file has no Notes block
+   */
+  writeNotes(abs, notes) {
+    const apply = md => {
+      if (readNotes(md) == null) return null;
+      return md.replace(/(<!-- weshcraft:notes:start -->\n)[\s\S]*?(\n<!-- weshcraft:notes:end -->)/, (_, a, b) => `${a}${notes}${b}`);
+    };
+    // One writer at a time: two notes writes must not interleave.
+    this.noteLock ??= Promise.resolve();
+    let result = null;
+    const run = async () => {
+      const md = fs.readFileSync(abs, 'utf8');
+      const next = apply(md);
+      if (next == null) return;
+      writeFileSafe(abs, next);
+      result = next;
+    };
+    const done = this.noteLock.then(run, run);
+    this.noteLock = done.catch(() => {});
+    return done.then(() => result);
   }
 
   /** Handle one JSON-RPC message; returns the response object or null for notifications. */

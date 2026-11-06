@@ -72,8 +72,13 @@ export class DesignStore extends EventEmitter {
     let buf;
     try { buf = fs.readFileSync(this.file); } catch { return false; }
     if (sha(buf) === this.lastWritten) return false;
+    // Unsaved edits of ours: write them first, so nothing is lost, then take the file.
+    if (this.saveTimer) { this.saveNow(); }
     this.load();
-    this.undoStack = []; this.redoStack = [];
+    // The history survives a reload: a step whose layers are all still there can still be undone.
+    const alive = e => [...e.nodes.keys()].every(k => this.doc.nodes[k] !== undefined);
+    this.undoStack = this.undoStack.filter(alive);
+    this.redoStack = this.redoStack.filter(alive);
     this.version++;
     this.emit('change', { version: this.version, label: 'Reloaded from disk', ids: null, by: 'disk' });
     return true;
@@ -141,6 +146,10 @@ export class DesignStore extends EventEmitter {
     const entry = { label, ...this.journal };
     this.journal = null;
     if (!entry.nodes.size && !entry.meta) return result;
+    // Remember what the document looked like before this change: it is what a merge needs.
+    this.pending ??= { nodes: new Map(), meta: null };
+    for (const [k, v] of entry.nodes) if (!this.pending.nodes.has(k)) this.pending.nodes.set(k, v);
+    if (entry.meta && !this.pending.meta) this.pending.meta = clone(entry.meta);
     this.undoStack.push(entry);
     if (this.undoStack.length > UNDO_LIMIT) this.undoStack.shift();
     this.redoStack = [];
@@ -188,13 +197,19 @@ export class DesignStore extends EventEmitter {
   // ---- saving ----------------------------------------------------------------------------------
   scheduleSave() {
     clearTimeout(this.saveTimer);
-    this.saveTimer = setTimeout(() => { try { this.saveNow(); } catch (e) { this.emit('error', e); } }, this.saveDelayMs);
+    this.saveTimer = setTimeout(() => { try { this.saveNow(); } catch (e) { this.emit('saveError', e); } }, this.saveDelayMs);
     this.saveTimer.unref?.();
   }
 
   saveNow() {
     clearTimeout(this.saveTimer);
     this.saveTimer = null;
+    // Somebody else changed the file since we last read it (FigCraft, git, another WeshCraft):
+    // their change is merged with ours, not overwritten by it.
+    try {
+      const onDisk = fs.readFileSync(this.file);
+      if (this.lastWritten && sha(onDisk) !== this.lastWritten) { this.mergeExternal(); return; }
+    } catch { /* no file yet, or unreadable: the write below reports it */ }
     const json = JSON.stringify(this.doc);
     let buf;
     if (this.entries) {
@@ -204,11 +219,48 @@ export class DesignStore extends EventEmitter {
       buf = writeZip([['document.json', entries.get('document.json')], ...[...entries].filter(([k]) => k !== 'document.json')]);
     } else buf = Buffer.from(json);
     fs.mkdirSync(path.dirname(this.file), { recursive: true });
+    // The old file stays as a backup: a power cut during the write can then not lose the design.
+    const backup = `${this.file}.bak`;
+    try { if (fs.existsSync(this.file)) fs.copyFileSync(this.file, backup); } catch { /* the backup is a nicety */ }
     const tmp = `${this.file}.${process.pid}.tmp`;
-    fs.writeFileSync(tmp, buf);
-    fs.renameSync(tmp, this.file);
+    try {
+      const fd = fs.openSync(tmp, 'w');
+      try { fs.writeFileSync(fd, buf); fs.fsyncSync(fd); } finally { fs.closeSync(fd); }
+      fs.renameSync(tmp, this.file);
+    } catch (e) {
+      try { fs.rmSync(tmp, { force: true }); } catch { /* already gone */ }
+      throw e;
+    }
     this.lastWritten = sha(buf);
+    this.pending = null;
     this.emit('saved', { version: this.version });
+  }
+
+  /**
+   * The file changed on disk while we were editing. Take their version, put our unsaved edits
+   * back on top of it (where they do not collide), and save that: nobody's work is lost.
+   */
+  mergeExternal() {
+    const pending = this.pending;
+    const ours = new Map();
+    if (pending) for (const k of pending.nodes.keys()) ours.set(k, clone(this.doc.nodes[k]) ?? null);
+    const before = pending?.nodes ?? new Map();
+    this.load();
+    let kept = 0, dropped = 0;
+    for (const [k, mine] of ours) {
+      const theirs = this.doc.nodes[k] ?? null;
+      const same = JSON.stringify(theirs) === JSON.stringify(before.get(k));
+      if (same) { if (mine === null) delete this.doc.nodes[k]; else this.doc.nodes[k] = mine; kept++; }
+      else dropped++;
+    }
+    // Our ids must not collide with the ones the file now uses.
+    const maxId = Math.max(0, ...Object.keys(this.doc.nodes).map(Number).filter(Number.isFinite));
+    if (Number.isFinite(this.doc.next_id) && this.doc.next_id <= maxId) this.doc.next_id = maxId + 1;
+    this.version++;
+    this.emit('change', { version: this.version, label: 'Merged with the file on disk', ids: [...ours.keys()].map(Number), by: 'disk' });
+    this.emit('saveWarn', `the design changed on disk: ${kept} of your edits were kept${dropped ? `, ${dropped} were newer on disk` : ''}`);
+    // Write the merged document (the external change is in it, ours is on top).
+    this.saveNow();
   }
 
   flush() { if (this.saveTimer) this.saveNow(); }
@@ -255,6 +307,22 @@ export class DesignStore extends EventEmitter {
     this.touch(id);
     const raw = clone(this.node(id));
     applyProps(raw, props);
+    this.doc.nodes[String(id)] = raw;
+    return id;
+  }
+
+  /**
+   * Move a layer by a delta, from where it is *now*: the drag started from a tree that may
+   * already be out of date (an agent moved the layer meanwhile), and an absolute position would
+   * put it back where it was.
+   */
+  offset(id, dx, dy) {
+    this.touch(id);
+    const raw = clone(this.node(id));
+    const t = raw.transform ?? [1, 0, 0, 1, 0, 0];
+    t[4] = (t[4] ?? 0) + Number(dx || 0);
+    t[5] = (t[5] ?? 0) + Number(dy || 0);
+    raw.transform = t;
     this.doc.nodes[String(id)] = raw;
     return id;
   }
@@ -578,6 +646,7 @@ export class DesignStore extends EventEmitter {
             case 'create': out = this.create({ parent: r(o.parent), index: o.index, type: o.type, props: o.props ?? {} }); break;
             case 'screen': out = this.screen({ name: o.name, width: o.width, height: o.height, fill: o.fill, layout: o.layout, props: o.props ?? {} }); break;
             case 'set': out = this.set(r(o.id), o.props ?? {}); break;
+            case 'offset': out = this.offset(r(o.id), o.dx, o.dy); break;
             case 'text': out = this.set(r(o.id), { text: o.text }); break;
             case 'delete': out = this.remove([].concat(o.ids ?? o.id).map(r)); break;
             case 'move': out = this.move(r(o.id), r(o.parent), o.index); break;

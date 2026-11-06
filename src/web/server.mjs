@@ -5,67 +5,92 @@ import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
-import { bus } from '../util/common.mjs';
+import { bus, containPath, writeFileSafe } from '../util/common.mjs';
 import { writeZip } from '../util/zip.mjs';
 import { openEditable } from '../design/source.mjs';
 import { designApi } from './design-api.mjs';
 import { accessSummary } from '../publish/credentials.mjs';
 import { collectFiles } from '../publish/git.mjs';
 import { ROOT, DESIGN } from '../layout.mjs';
+import { parseTrusted, identity, forwarded, sameOrigin, clientIp } from './proxy.mjs';
 
 const PUBLIC = path.join(path.dirname(fileURLToPath(import.meta.url)), 'public');
 const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.json': 'application/json; charset=utf-8', '.md': 'text/markdown; charset=utf-8', '.png': 'image/png', '.svg': 'image/svg+xml', '.figcraft': 'application/zip', '.zip': 'application/zip' };
 const MAX_UPLOAD = 64 * 1024 * 1024;
+const MAX_ZIP = 512 * 1024 * 1024;
 
 function send(res, status, body, type = 'application/json; charset=utf-8', extra = {}) {
   res.writeHead(status, { 'Content-Type': type, 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff', ...extra });
   res.end(typeof body === 'string' || Buffer.isBuffer(body) ? body : JSON.stringify(body));
 }
 
-function readBody(req, limit = 2 * 1024 * 1024) {
+function readBody(req, limit = 2 * 1024 * 1024, timeoutMs = 30_000) {
   return new Promise((resolve, reject) => {
     const chunks = [];
     let n = 0;
+    let done = false;
+    // A body that never ends must not hold the handler (and the socket) for minutes.
+    const timer = setTimeout(() => {
+      if (done) return;
+      done = true;
+      reject(Object.assign(new Error('the request body took too long'), { status: 408 }));
+      req.destroy();
+    }, timeoutMs);
+    timer.unref?.();
+    const finish = (fn, arg) => { if (done) return; done = true; clearTimeout(timer); fn(arg); };
     req.on('data', c => {
       n += c.length;
-      if (n > limit) { reject(Object.assign(new Error('request too large'), { status: 413 })); req.destroy(); return; }
+      if (n > limit) { finish(reject, Object.assign(new Error('request too large'), { status: 413 })); req.destroy(); return; }
       chunks.push(c);
     });
-    req.on('end', () => resolve(Buffer.concat(chunks)));
-    req.on('error', reject);
+    req.on('end', () => finish(resolve, Buffer.concat(chunks)));
+    req.on('error', e => finish(reject, e));
   });
 }
 
 function serveFile(res, root, rel) {
-  const abs = path.resolve(root, `.${path.posix.normalize(`/${rel}`)}`);
-  if (abs !== root && !abs.startsWith(root + path.sep)) return send(res, 403, { error: 'forbidden' });
+  // The path stays inside the root: no `..`, no symlink out.
+  const abs = containPath(root, rel);
+  if (!abs) return send(res, 403, { error: 'forbidden' });
   if (!fs.existsSync(abs) || !fs.statSync(abs).isFile()) return send(res, 404, { error: 'not found' });
   send(res, 200, fs.readFileSync(abs), TYPES[path.extname(abs)] ?? 'application/octet-stream');
 }
 
 /**
- * @param {{workspace, mcp, host?: string, port?: number, token?: string, figcraftWebUrl?: string, uploadsDir?: string, watch?: boolean}} o
+ * @param {{workspace, mcp, host?: string, port?: number, token?: string, figcraftWebUrl?: string,
+ *          uploadsDir?: string, watch?: boolean, trustProxy?: string[], publicUrl?: string}} o
  */
 export function startServer(o) {
   const ws = o.workspace;
   const token = o.token || null;
   const host = o.host || '127.0.0.1';
-  if (!token && !['127.0.0.1', 'localhost', '::1'].includes(host)) {
-    throw new Error(`refusing to listen on ${host} without --token (anyone on the network could publish with your git token)`);
+  const publicUrl = o.publicUrl || null;
+  // Behind a proxy: the peers whose forwarded headers (the identity, the scheme, the host) are
+  // believed. Empty by default: nothing is trusted until the operator says so.
+  const trusted = parseTrusted(o.trustProxy || []);
+  const hasProxy = (o.trustProxy || []).length > 0;
+  if (!token && !hasProxy && !['127.0.0.1', 'localhost', '::1'].includes(host)) {
+    throw new Error(`refusing to listen on ${host} without --token or --trust-proxy (anyone on the network could publish with your git token)`);
   }
   const clients = new Set();
   // Every workspace event (jobs, runs, parity, design edits) streams to every open browser.
   const broadcast = ev => {
     const data = `event: ${ev.type}\ndata: ${JSON.stringify(ev)}\n\n`;
-    for (const c of clients) c.write(data);
+    for (const c of clients) {
+      // A client that does not read must not make the server grow: drop it.
+      if (!c.write(data)) { clients.delete(c); c.end(); }
+    }
   };
   bus.on('weshcraft', broadcast);
   const authorized = (req, url) => {
+    // Forward auth: the proxy already authenticated the user, so the token is not needed.
+    if (hasProxy && identity(req, trusted)) return true;
     if (!token) return true;
     const h = req.headers.authorization || '';
     const cookie = /(?:^|;\s*)weshcraft=([^;]+)/.exec(req.headers.cookie || '')?.[1];
     const given = h.startsWith('Bearer ') ? h.slice(7) : cookie || url.searchParams.get('token');
-    return !!given && given.length === token.length && crypto.timingSafeEqual(Buffer.from(given), Buffer.from(token));
+    if (!given || given.length !== token.length) return false;
+    return crypto.timingSafeEqual(Buffer.from(given), Buffer.from(token));
   };
 
   // The design file can change outside WeshCraft (FigCraft saved it, git checkout). Watch its folder:
@@ -89,23 +114,51 @@ export function startServer(o) {
     } catch { /* folder gone: nothing to watch */ }
   };
   if (ws.source?.kind === 'file') watchFile(ws.source.file);
-  // Surface files (OpenAPI, MCP tool lists) regenerate on save too.
+  // Surface files (OpenAPI, MCP tool lists) regenerate on save too. The folder is watched, not
+  // the file: a file that is replaced (every editor does that) would stop firing.
+  const surfaceWatchers = [];
   if (o.watch) {
     let t = null;
     const rerun = () => { clearTimeout(t); t = setTimeout(() => ws.run().catch(e => ws.emit('log', { level: 'error', message: e.message })), 400); };
-    for (const f of ws.surface?.files ?? []) {
-      try { fs.watch(f, rerun); } catch { /* missing file: reported by the run */ }
-      // Files a surface file points to (openapi.yaml next to weshcraft.surface.json).
-      try { const dir = path.dirname(f); for (const n of fs.readdirSync(dir)) if (/\.(ya?ml|json)$/i.test(n) && path.join(dir, n) !== f) fs.watch(path.join(dir, n), rerun); } catch { /* ignore */ }
+    const dirs = new Set((ws.surface?.files ?? []).map(f => path.dirname(f)));
+    for (const dir of dirs) {
+      try {
+        surfaceWatchers.push(fs.watch(dir, (_e, name) => {
+          if (name && !/\.(ya?ml|json)$/i.test(name)) return;
+          rerun();
+        }));
+      } catch { /* the folder is gone: the run reports it */ }
     }
   }
 
   const server = http.createServer(async (req, res) => {
     const url = new URL(req.url, 'http://localhost');
     try {
+      // The liveness check a proxy makes: it says nothing and needs no token.
+      if (url.pathname === '/healthz') return send(res, 200, { ok: true });
+      // The proxy's identity, when it is trusted; the client's address for the log.
+      const who = identity(req, trusted);
+      const scheme = (forwarded(req, trusted).scheme || (publicUrl ? new URL(publicUrl).protocol.replace(':', '') : null) || (req.socket?.encrypted ? 'https' : 'http'));
+      if (hasProxy && !who && !token) return send(res, 401, { error: 'unauthorized: the proxy did not forward an identity' });
       if (!authorized(req, url)) return send(res, 401, { error: 'unauthorized: open the URL with ?token=…' });
-      if (token && url.searchParams.get('token')) res.setHeader('Set-Cookie', `weshcraft=${token}; HttpOnly; SameSite=Strict; Path=/`);
+      // A cross-site request must not change anything: the proxy's login does not stop a page on
+      // another site from posting (the browser sends the proxy's cookies by itself). The check
+      // applies to the requests the proxy authenticated; the token and the cookie (SameSite)
+      // already keep the others safe.
+      if (who && !sameOrigin(req, { publicUrl, trusted })) return send(res, 403, { error: 'forbidden: cross-origin request' });
+      if (token && url.searchParams.get('token')) {
+        const attrs = [`weshcraft=${token}`, 'HttpOnly', 'SameSite=Strict', 'Path=/'];
+        if (scheme === 'https') attrs.push('Secure');
+        res.setHeader('Set-Cookie', attrs.join('; '));
+      }
       const p = url.pathname;
+      // Who changed something, and from where: the trail behind a proxy.
+      if (!['GET', 'HEAD', 'OPTIONS'].includes(req.method)) {
+        res.on('finish', () => {
+          if (res.statusCode >= 400) return;
+          ws.emit('log', { level: 'info', message: `${req.method} ${p} — ${who?.user ?? clientIp(req, trusted)}` });
+        });
+      }
 
       if (p === '/' || p === '/index.html') return serveFile(res, PUBLIC, 'index.html');
       if (p.startsWith('/app/')) return serveFile(res, PUBLIC, p.slice(5));
@@ -115,14 +168,14 @@ export function startServer(o) {
         if (!rel.startsWith(`${ROOT}/`)) return send(res, 404, { error: 'not found' });
         return serveFile(res, ws.outDir, rel);
       }
-
       if (p === '/api/ping') return send(res, 200, { ok: true, app: 'weshcraft', outDir: ws.outDir });
-      if (p === '/api/state') return send(res, 200, { ...ws.state(), source: ws.describe().split(`${ws.outDir}${path.sep}`).join(''), sync: o.syncer?.status() ?? null, figcraftWebUrl: o.figcraftWebUrl ?? null, tokens: await accessSummary(), mcpUrl: '/mcp' });
+      if (p === '/api/state') return send(res, 200, { ...ws.state(), source: ws.describe().split(`${ws.outDir}${path.sep}`).join(''), sync: o.syncer?.status() ?? null, figcraftWebUrl: o.figcraftWebUrl ?? null, tokens: await accessSummary(), mcpUrl: '/mcp', user: who?.user ?? null, publicUrl });
       if (p === '/api/events') {
-        res.writeHead(200, { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-store', Connection: 'keep-alive' });
+        // A proxy that buffers would hold the whole stream: say so, and keep it alive.
+        res.writeHead(200, { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-store', Connection: 'keep-alive', 'X-Accel-Buffering': 'no' });
         res.write(`event: hello\ndata: ${JSON.stringify({ type: 'hello' })}\n\n`);
         clients.add(res);
-        const ping = setInterval(() => res.write(': ping\n\n'), 20000);
+        const ping = setInterval(() => res.write(': ping\n\n'), 10000);
         req.on('close', () => { clearInterval(ping); clients.delete(res); });
         return;
       }
@@ -148,9 +201,13 @@ export function startServer(o) {
         const name = (url.searchParams.get('name') || 'design.figcraft').replace(/[^\w.-]+/g, '_').replace(/^\.+/, '') || 'design.figcraft';
         if (!/\.(figcraft|json)$/i.test(name)) return send(res, 400, { error: 'upload a .figcraft file' });
         const dir = o.uploadsDir || path.join(ws.outDir, DESIGN);
-        fs.mkdirSync(dir, { recursive: true });
         const file = path.join(dir, name);
-        fs.writeFileSync(file, buf);
+        // An existing design is never overwritten by an upload without being told to.
+        if (fs.existsSync(file) && url.searchParams.get('overwrite') !== '1') {
+          return send(res, 409, { error: `${name} already exists: open it instead, or upload with overwrite=1` });
+        }
+        fs.mkdirSync(dir, { recursive: true });
+        writeFileSafe(file, buf); // atomic: an interrupted upload cannot truncate the design
         ws.useSource(openEditable(file));
         watchFile(file);
         ws.run({ force: true }).catch(e => ws.emit('log', { level: 'error', message: e.message }));
@@ -178,6 +235,9 @@ export function startServer(o) {
         const provider = url.searchParams.get('provider') === 'gitlab' ? 'gitlab' : 'github';
         const files = collectFiles(ws.outDir, { provider, designInputs: ws.designInputs() });
         const name = (ws.manifest?.source.name || 'weshcraft').replace(/[^\w.-]+/g, '-');
+        const total = files.reduce((n, f) => n + f.data.length, 0);
+        // A zip is built in memory: say so instead of taking the server down.
+        if (total > MAX_ZIP) return send(res, 413, { error: `the output is ${Math.round(total / 1024 / 1024)} MB: too big to zip here (the limit is ${Math.round(MAX_ZIP / 1024 / 1024)} MB)` });
         return send(res, 200, writeZip(files.map(f => [`${name}/${f.path}`, f.data])), 'application/zip', { 'Content-Disposition': `attachment; filename="${name}-specs.zip"` });
       }
       if (p === '/mcp') {
@@ -197,7 +257,11 @@ export function startServer(o) {
     }
   });
 
-  server.on('close', () => { bus.off('weshcraft', broadcast); watcher?.close(); });
+  server.on('close', () => { bus.off('weshcraft', broadcast); watcher?.close(); for (const w of surfaceWatchers) w.close(); });
+  // A proxy or a slow client must not hold a request open for ever.
+  server.requestTimeout = 120_000;
+  server.headersTimeout = 30_000;
+  server.keepAliveTimeout = 20_000;
   return new Promise(resolve => {
     server.listen(o.port ?? 4600, host, () => {
       const addr = server.address();

@@ -18,7 +18,7 @@ import { searchTech, techFacts, matchTech } from '../web/public/techcatalog.js';
 const OPS = [
   'Layers (applied in order; `ref` names what an op creates, later ops can use it as an id):',
   '{op:"screen", name, width?, height?, fill?, layout?, ref} · {op:"create", type: frame|text|rectangle|ellipse|component|section|star|polygon|line, parent, props, ref}',
-  '{op:"set", id, props} · {op:"text", id, text} · {op:"delete", ids} · {op:"move", id, parent?, index?} · {op:"duplicate", id, ref} · {op:"instance", component, parent, ref}',
+  '{op:"set", id, props} · {op:"offset", id, dx, dy} (move by a delta) · {op:"text", id, text} · {op:"delete", ids} · {op:"move", id, parent?, index?} · {op:"duplicate", id, ref} · {op:"instance", component, parent, ref}',
   '{op:"link", id, to | url | back:true | clear:true} prototype link · {op:"bind", id, entity, field, type?} layer shows Entity.field · {op:"api", id, method, path, returns?} layer triggers (or screen loads) a call',
   '{op:"note", id, text} · {op:"token", name, value, mode?} · {op:"useToken", id, token} · {op:"rename", name}',
   'Product:',
